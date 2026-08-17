@@ -102,11 +102,12 @@ full deterministic data remains available to the later LLM boundary. A
 keyframe-only grounding gate also rejects motion phrases.
 
 After this correction, one FP16 keyframe smoke generated contract-valid,
-static Vietnamese observations. One measured generation took 32.58 seconds
-and peaked at 5,683,444,224 allocated VRAM bytes. This single cold-process run
-only proves load/generate/validate feasibility. It is not a latency
-distribution, quality result, or evidence that FP16 leaves enough headroom for
-concurrent detector execution.
+static Vietnamese observations. The clean-commit recorded generation took
+35.41 seconds and peaked at 5,683,444,224 allocated VRAM bytes. Its full
+provenance is in `experiments/qwen3_vl_2b_dev_smoke_20260817/run.json`. This
+single cold-process run only proves load/generate/validate feasibility. It is
+not a latency distribution, quality result, or evidence that FP16 leaves
+enough headroom for concurrent detector execution.
 
 Primary model cards:
 

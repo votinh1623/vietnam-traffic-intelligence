@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "status": "passed_execution_contract_and_manual_grounding_smoke",
+  "claim_boundary": "One frozen development case only. This record is not a quality benchmark, latency distribution, or evidence of detector/VLM concurrent feasibility.",
+  "recorded_at_utc": "2026-08-17T15:01:11.9326845Z",
+  "source": {
+    "git_commit": "6a4d20cae7bac55f7b2511319a5e4e2339b002a3",
+    "worktree_clean_at_run_start": true,
+    "config": {
+      "path": "configs/reasoning/development_v1.yaml",
+      "sha256": "9d5321d540917eb2098e33cab7e2833825197f51dc083037c63ccffd8de1f34f"
+    },
+    "prompt": {
+      "path": "configs/reasoning/prompts_v1.yaml",
+      "sha256": "90568fa857cb5564d0e217888356c4026d9526856084806f19948a1fdb7e2219"
+    },
+    "input_lock": {
+      "path": "manifests/reasoning/evidence_dev_v1/input_lock.json",
+      "file_sha256": "3fd6edd609a23e902fc2b4e6fa5cf213aa97f0ffffed255acebf6b0434c3b7bc",
+      "lock_sha256": "ba98c616d3f36882ea44ce0ded586aca1f0a984f34b1d421e533ba5158fbfe86"
+    },
+    "case_id": "development-0001",
+    "event_id": "event-000001"
+  },
+  "model": {
+    "model_id": "Qwen/Qwen3-VL-2B-Instruct",
+    "revision": "89644892e4d85e24eaac8bacfd4f463576704203",
+    "dtype": "float16",
+    "manifest": {
+      "path": "manifests/models/qwen3-vl-2b-instruct.json",
+      "sha256": "fd4473e1abf446e0db8737e1a942246fd693921f9caf9eb7359a7747f6a71eca"
+    },
+    "weight_sha256": "7de1838c87a5349b016c26a1c3f7d2bc400a3d485f95ef39a7059ffd734977a0"
+  },
+  "environment": {
+    "python_environment": "traffic",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.14.1",
+    "cuda_runtime": "12.4",
+    "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+    "gpu_total_memory_bytes": 6441926656,
+    "offline_inference": true
+  },
+  "result": {
+    "elapsed_generation_s": 35.40703300000132,
+    "peak_vram_allocated_bytes": 5683444224,
+    "contract_status": "valid",
+    "manual_grounding_review": "passed",
+    "observation_vi": "Quan sát thấy các phương tiện trong khung hình.",
+    "output_path_ignored": "output/reasoning/dev_v1/development-0001-clean.json",
+    "output_sha256": "37fd7314d0c5f7c34601e971b011435e546b8d17974716c629a7a76068ac554d"
+  }
+}
