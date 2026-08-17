@@ -90,7 +90,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | YOLOv8s v5 smoke run | Complete | `experiments/yolov8s_v5_seed0_smoke_20260817T100534/run.json` |
 | YOLOv8s v5 full fine-tuning | Complete, 30 epochs | `experiments/yolov8s_v5_seed0_20260817T100644/run.json` |
 | Offline-video CLI and artifact contract | Integrated with v5 checkpoint | [Output schema](docs/output_schema.md) |
-| Deterministic analytics state machine | 28 tests passed; initial two-video acceptance passed | [Output schema](docs/output_schema.md) |
+| Deterministic analytics state machine | 32 tests passed; bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
 | Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
 | VLM/LLM implementation | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
@@ -221,9 +221,10 @@ comparison.
 
 Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
 It maintains per-track trajectories, counts one crossing per direction and
-track ID, measures bbox/ROI occupancy, estimates centroid speed in pixels per
-second, and applies temporal hysteresis to `NORMAL`, `DENSE`, and `CONGESTED`.
-Geometry is normalized in YAML and kept separate from the state machine.
+track ID, measures unique bbox-union coverage inside the ROI, estimates centroid
+speed in pixels per second, and applies temporal hysteresis to `NORMAL`,
+`DENSE`, and `CONGESTED`. Geometry is normalized in YAML and kept separate from
+the state machine.
 
 Initial acceptance used the v5 checkpoint at `imgsz=640`, confidence 0.4, and
 the initial center-corridor ROI/counting line in
@@ -232,16 +233,32 @@ normal clip used its first 300 frames. Overlay frames were visually inspected
 to confirm that the normalized ROI and line intersect the intended road
 corridor. These are calibration/demo videos, not the locked test.
 
-| Acceptance clip | Evaluated span | Occupancy median (range) | Speed median px/s | State timeline | Result |
+| Acceptance clip | Evaluated span | Bbox-union occupancy median (range) | Speed median px/s | State timeline | Result |
 |---|---:|---:|---:|---|---|
-| `traffic_jam.mp4` | 283 frames / 11.3 s | 0.687 (0.535-0.991) | 78.0 | `NORMAL` to `CONGESTED` at 2.12 s; 230 congested frames | Pass |
-| `traffic_normal.mp4` | 300 frames / 10.0 s | 0.136 (0.067-0.238) | 104.6 | `NORMAL` for 300/300 frames | Pass |
+| `traffic_jam.mp4` | 283 frames / 11.3 s | 0.589 (0.488-0.724) | 78.0 | `NORMAL` to `CONGESTED` at 2.12 s; 230 congested frames | Pass |
+| `traffic_normal.mp4` | 300 frames / 10.0 s | 0.135 (0.069-0.219) | 104.6 | `NORMAL` for 300/300 frames | Pass |
 
 The thresholds were selected only after inspecting these two timelines. This
 demonstrates deterministic separation for the current scenes and resolution;
 it is not evidence that the thresholds generalize to other cameras. Crossing
 events were generated in both runs, but count accuracy is not reported because
 the clips have no counting ground truth and tracker ID error is not yet known.
+
+The original Stage 2 implementation summed bbox areas and double-counted
+overlap. Local run2-run8 analytics artifacts are retained with an
+`INVALID_ANALYTICS.json` sidecar and must not be cited; their `tracks.csv`
+inputs remain reusable. Run1 predates analytics and is unaffected. Corrected
+metric diagnostics start at run9; final acceptance evidence is run11-run12
+with analytics schema version 2. The new schema deliberately renames the metric
+to `bbox_union_occupancy` instead of silently changing legacy `occupancy`
+semantics.
+
+Raster-grid selection was measured over all 583 acceptance frames. Grid 1 is
+the default because its 3.63-5.51 ms/frame cost is small relative to the current
+detector/tracker pipeline. Grid 2 reduced the metric cost to 0.89-1.22 ms/frame
+with maximum absolute error 0.007 versus grid 1; grid 4 cost 0.26-0.29 ms/frame
+with maximum error 0.021. Both candidates preserved the two demo timelines and
+remain configurable options for future edge benchmarks.
 
 | Metric | Current status |
 |---|---|
@@ -417,8 +434,10 @@ The full measurement contract is defined in
   only as historical artifacts.
 - Traffic speed requires camera calibration or a documented approximation.
 - The initial congestion thresholds are calibrated on only two demo clips at
-  their current resolutions; occupancy and pixel-speed thresholds may not
-  transfer to another camera, crop, or viewpoint.
+  their current resolutions; bbox-union coverage and pixel-speed thresholds may
+  not transfer to another camera, crop, or viewpoint. Bbox union is image-plane
+  box coverage, not physical road occupancy: boxes include background and the
+  pipeline has no segmentation, BEV transform, or camera calibration.
 - Line-crossing counts depend on stable ByteTrack identities. Occlusion-driven
   ID switches or fragmentation can cause duplicate or missed counts, and the
   error rate has not yet been measured on the two demo videos.

@@ -14,6 +14,7 @@ import cv2
 
 from .config import PipelineConfig
 from .schemas import (
+    ANALYTICS_SCHEMA_VERSION,
     ANALYTICS_CSV_FIELDS,
     AnalyticsBatch,
     AnalyticsSnapshot,
@@ -60,7 +61,10 @@ class NoEvents:
         return AnalyticsBatch(snapshot=None, events=())
 
     def summary(self) -> dict[str, Any]:
-        return {"schema_version": 1, "analytics_enabled": False}
+        return {
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
+            "analytics_enabled": False,
+        }
 
 
 def utc_now() -> str:
@@ -164,6 +168,7 @@ class PipelineRunner:
                 "tracker": self.config.tracker,
             },
             "analytics": asdict(self.config.analytics),
+            "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
             "outputs": {
                 "annotated_video": "annotated.mp4",
                 "tracks": "tracks.csv",

@@ -8,16 +8,20 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..config import AnalyticsConfig
-from ..schemas import AnalyticsBatch, AnalyticsSnapshot, TrackObservation
+from ..schemas import (
+    ANALYTICS_SCHEMA_VERSION,
+    AnalyticsBatch,
+    AnalyticsSnapshot,
+    TrackObservation,
+)
 from .geometry import (
     Point,
     point_in_polygon,
-    polygon_area,
-    polygon_rectangle_intersection_area,
     segments_intersect,
     stable_line_side,
     to_pixels,
 )
+from .occupancy import BBoxUnionOccupancy
 from .state import CongestionStateMachine
 
 
@@ -44,13 +48,17 @@ class TrafficAnalytics:
         self._event_number = 0
         self._frames_by_state: Counter[str] = Counter()
         self._transition_count = 0
-        self._max_occupancy = 0.0
+        self._max_bbox_union_occupancy = 0.0
         self._max_roi_track_count = 0
+        self._occupancy = BBoxUnionOccupancy(
+            config.roi_polygon,
+            config.occupancy_grid_size_px,
+        )
 
     def _event(self, event_type: str, **payload: Any) -> dict[str, Any]:
         self._event_number += 1
         return {
-            "schema_version": 1,
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
             "event_id": f"event-{self._event_number:06d}",
             "event_type": event_type,
             **payload,
@@ -69,8 +77,7 @@ class TrafficAnalytics:
         line_start, line_end = to_pixels(
             self.config.counting_line, frame_width, frame_height
         )
-        roi_area = polygon_area(roi)
-        occupied_area = 0.0
+        boxes: list[tuple[float, float, float, float]] = []
         current_counts: Counter[str] = Counter()
         current_speeds: list[float] = []
         roi_track_ids: set[int] = set()
@@ -79,9 +86,7 @@ class TrafficAnalytics:
         for track in tracks:
             point = ((track.x1 + track.x2) / 2.0, (track.y1 + track.y2) / 2.0)
             inside_roi = point_in_polygon(point, roi)
-            occupied_area += polygon_rectangle_intersection_area(
-                roi, (track.x1, track.y1, track.x2, track.y2)
-            )
+            boxes.append((track.x1, track.y1, track.x2, track.y2))
             if inside_roi:
                 current_counts[track.class_name] += 1
                 if track.track_id is not None:
@@ -154,13 +159,17 @@ class TrafficAnalytics:
             memory.last_timestamp_s = timestamp_s
             memory.trajectory.append(point)
 
-        occupancy = min(occupied_area / roi_area, 1.0) if roi_area else 0.0
+        bbox_union_occupancy = self._occupancy.measure(
+            boxes,
+            frame_width,
+            frame_height,
+        )
         mean_speed = (
             sum(current_speeds) / len(current_speeds) if current_speeds else None
         )
         transition = self.state_machine.update(
             timestamp_s=timestamp_s,
-            occupancy=occupancy,
+            bbox_union_occupancy=bbox_union_occupancy,
             count=len(roi_track_ids),
             mean_speed_px_s=mean_speed,
         )
@@ -174,7 +183,7 @@ class TrafficAnalytics:
                     previous_state=transition.previous,
                     current_state=transition.current,
                     measurements={
-                        "occupancy": occupancy,
+                        "bbox_union_occupancy": bbox_union_occupancy,
                         "roi_track_count": len(roi_track_ids),
                         "mean_speed_px_s": mean_speed,
                     },
@@ -183,7 +192,10 @@ class TrafficAnalytics:
 
         state = self.state_machine.state
         self._frames_by_state[state] += 1
-        self._max_occupancy = max(self._max_occupancy, occupancy)
+        self._max_bbox_union_occupancy = max(
+            self._max_bbox_union_occupancy,
+            bbox_union_occupancy,
+        )
         self._max_roi_track_count = max(
             self._max_roi_track_count, len(roi_track_ids)
         )
@@ -192,7 +204,7 @@ class TrafficAnalytics:
             timestamp_s=timestamp_s,
             congestion_state=state,
             roi_track_count=len(roi_track_ids),
-            occupancy=occupancy,
+            bbox_union_occupancy=bbox_union_occupancy,
             mean_speed_px_s=mean_speed,
             current_counts=dict(sorted(current_counts.items())),
             cumulative_crossings={
@@ -204,7 +216,7 @@ class TrafficAnalytics:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "schema_version": 1,
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
             "analytics_enabled": True,
             "state_frames": dict(self._frames_by_state),
             "congestion_transitions": self._transition_count,
@@ -214,11 +226,15 @@ class TrafficAnalytics:
             },
             "unique_track_ids": len(self._seen_track_ids),
             "max_roi_track_count": self._max_roi_track_count,
-            "max_occupancy": self._max_occupancy,
+            "max_bbox_union_occupancy": self._max_bbox_union_occupancy,
+            "occupancy_grid_size_px": self.config.occupancy_grid_size_px,
             "claim_boundary": (
                 "Counts can be biased by ByteTrack ID switches or fragmentation; "
                 "demo-video count error has not yet been measured. Congestion "
                 "thresholds have only initial two-video demo calibration and may "
-                "not transfer to another camera or viewpoint."
+                "not transfer to another camera or viewpoint. Bbox-union "
+                "occupancy is image-plane box coverage, not physical road "
+                "occupancy; boxes include background and no BEV calibration is "
+                "applied."
             ),
         }

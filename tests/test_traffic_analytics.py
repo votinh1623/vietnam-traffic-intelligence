@@ -14,6 +14,7 @@ from vn_traffic.analytics.geometry import (  # noqa: E402
     point_in_polygon,
     polygon_rectangle_intersection_area,
 )
+from vn_traffic.analytics.occupancy import BBoxUnionOccupancy  # noqa: E402
 from vn_traffic.analytics.state import CongestionStateMachine  # noqa: E402
 from vn_traffic.config import AnalyticsConfig  # noqa: E402
 from vn_traffic.schemas import TrackObservation  # noqa: E402
@@ -41,6 +42,29 @@ class GeometryTests(unittest.TestCase):
         self.assertFalse(point_in_polygon((150.0, 50.0), square))
         area = polygon_rectangle_intersection_area(square, (90.0, 90.0, 110.0, 110.0))
         self.assertAlmostEqual(area, 100.0)
+
+
+class BBoxUnionOccupancyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.full_roi = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
+
+    def test_identical_boxes_are_counted_once(self) -> None:
+        metric = BBoxUnionOccupancy(self.full_roi)
+        box = (10.0, 10.0, 30.0, 30.0)
+        self.assertAlmostEqual(metric.measure((box, box), 100, 100), 0.04)
+
+    def test_partially_overlapping_boxes_use_union_area(self) -> None:
+        metric = BBoxUnionOccupancy(self.full_roi)
+        boxes = ((10.0, 10.0, 30.0, 30.0), (20.0, 10.0, 40.0, 30.0))
+        self.assertAlmostEqual(metric.measure(boxes, 100, 100), 0.06)
+
+    def test_only_coverage_inside_roi_is_counted(self) -> None:
+        left_half_roi = ((0.0, 0.0), (0.49, 0.0), (0.49, 1.0), (0.0, 1.0))
+        metric = BBoxUnionOccupancy(left_half_roi)
+        self.assertAlmostEqual(
+            metric.measure(((40.0, 10.0, 60.0, 30.0),), 100, 100),
+            0.04,
+        )
 
 
 class TrafficAnalyticsTests(unittest.TestCase):
@@ -94,17 +118,23 @@ class TrafficAnalyticsTests(unittest.TestCase):
             release_confirm_s=2.0,
         )
         machine = CongestionStateMachine(config)
-        high = dict(occupancy=0.7, count=60, mean_speed_px_s=5.0)
-        low = dict(occupancy=0.0, count=0, mean_speed_px_s=100.0)
+        high = dict(bbox_union_occupancy=0.7, count=60, mean_speed_px_s=5.0)
+        low = dict(bbox_union_occupancy=0.0, count=0, mean_speed_px_s=100.0)
 
         self.assertIsNone(machine.update(timestamp_s=0.0, **high))
         self.assertIsNone(machine.update(timestamp_s=0.5, **high))
         transition = machine.update(timestamp_s=1.0, **high)
-        self.assertEqual((transition.previous, transition.current), ("NORMAL", "CONGESTED"))
+        self.assertEqual(
+            (transition.previous, transition.current),
+            ("NORMAL", "CONGESTED"),
+        )
         self.assertIsNone(machine.update(timestamp_s=2.0, **low))
         self.assertIsNone(machine.update(timestamp_s=3.5, **low))
         transition = machine.update(timestamp_s=4.0, **low)
-        self.assertEqual((transition.previous, transition.current), ("CONGESTED", "NORMAL"))
+        self.assertEqual(
+            (transition.previous, transition.current),
+            ("CONGESTED", "NORMAL"),
+        )
 
     def test_calibrated_normal_and_jam_signals_separate(self) -> None:
         config = replace(
@@ -113,20 +143,27 @@ class TrafficAnalyticsTests(unittest.TestCase):
             release_confirm_s=2.0,
         )
         normal = CongestionStateMachine(config)
-        moving_traffic = dict(occupancy=0.20, count=39, mean_speed_px_s=100.0)
+        moving_traffic = dict(
+            bbox_union_occupancy=0.20,
+            count=39,
+            mean_speed_px_s=100.0,
+        )
         self.assertIsNone(normal.update(timestamp_s=0.0, **moving_traffic))
         self.assertIsNone(normal.update(timestamp_s=2.0, **moving_traffic))
         self.assertEqual(normal.state, "NORMAL")
 
         jam = CongestionStateMachine(config)
         stopped_dense_traffic = dict(
-            occupancy=0.65,
+            bbox_union_occupancy=0.65,
             count=23,
             mean_speed_px_s=80.0,
         )
         self.assertIsNone(jam.update(timestamp_s=0.0, **stopped_dense_traffic))
         transition = jam.update(timestamp_s=1.0, **stopped_dense_traffic)
-        self.assertEqual((transition.previous, transition.current), ("NORMAL", "CONGESTED"))
+        self.assertEqual(
+            (transition.previous, transition.current),
+            ("NORMAL", "CONGESTED"),
+        )
 
 
 if __name__ == "__main__":

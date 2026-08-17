@@ -7,6 +7,9 @@ import json
 from typing import Any
 
 
+ANALYTICS_SCHEMA_VERSION = 2
+
+
 @dataclass(frozen=True)
 class TrackObservation:
     frame_index: int
@@ -36,7 +39,7 @@ class AnalyticsSnapshot:
     timestamp_s: float
     congestion_state: str
     roi_track_count: int
-    occupancy: float
+    bbox_union_occupancy: float
     mean_speed_px_s: float | None
     current_counts: dict[str, int]
     cumulative_crossings: dict[str, dict[str, int]]
@@ -50,7 +53,7 @@ class AnalyticsSnapshot:
             "timestamp_s": self.timestamp_s,
             "congestion_state": self.congestion_state,
             "roi_track_count": self.roi_track_count,
-            "occupancy": self.occupancy,
+            "bbox_union_occupancy": self.bbox_union_occupancy,
             "mean_speed_px_s": self.mean_speed_px_s,
             "current_counts_json": json.dumps(
                 self.current_counts, sort_keys=True, separators=(",", ":")
@@ -73,7 +76,7 @@ ANALYTICS_CSV_FIELDS = (
     "timestamp_s",
     "congestion_state",
     "roi_track_count",
-    "occupancy",
+    "bbox_union_occupancy",
     "mean_speed_px_s",
     "current_counts_json",
     "cumulative_crossings_json",

@@ -47,7 +47,7 @@ class AnalyticsOverlay:
         lines = (
             f"State: {snapshot.congestion_state}",
             f"ROI tracks: {snapshot.roi_track_count}",
-            f"Occupancy: {snapshot.occupancy:.3f}",
+            f"BBox union occupancy: {snapshot.bbox_union_occupancy:.3f}",
             f"Mean speed: {speed}",
             f"Crossings up/down: {up_total}/{down_total}",
         )

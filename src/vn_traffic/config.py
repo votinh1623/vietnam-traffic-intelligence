@@ -30,10 +30,11 @@ class AnalyticsConfig:
     )
     line_tolerance_px: float = 8.0
     trajectory_history: int = 30
-    dense_enter_occupancy: float = 0.30
-    dense_exit_occupancy: float = 0.25
-    congested_enter_occupancy: float = 0.50
-    congested_exit_occupancy: float = 0.40
+    occupancy_grid_size_px: int = 1
+    dense_enter_bbox_union_occupancy: float = 0.30
+    dense_exit_bbox_union_occupancy: float = 0.25
+    congested_enter_bbox_union_occupancy: float = 0.50
+    congested_exit_bbox_union_occupancy: float = 0.40
     dense_enter_count: int = 45
     dense_exit_count: int = 40
     congested_enter_count: int = 50
@@ -127,6 +128,18 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
     defaults = AnalyticsConfig()
     analytics = _mapping(raw.get("analytics"), "analytics")
     congestion = _mapping(analytics.get("congestion"), "analytics.congestion")
+    legacy_occupancy_fields = {
+        "dense_enter_occupancy",
+        "dense_exit_occupancy",
+        "congested_enter_occupancy",
+        "congested_exit_occupancy",
+    }
+    found_legacy = sorted(legacy_occupancy_fields.intersection(congestion))
+    if found_legacy:
+        raise ValueError(
+            "legacy summed-occupancy fields are invalid; use bbox-union "
+            f"threshold names instead: {', '.join(found_legacy)}"
+        )
     roi = analytics.get("roi_polygon")
     line = analytics.get("counting_line")
     config = AnalyticsConfig(
@@ -147,20 +160,31 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
         trajectory_history=int(
             analytics.get("trajectory_history", defaults.trajectory_history)
         ),
-        dense_enter_occupancy=float(
-            congestion.get("dense_enter_occupancy", defaults.dense_enter_occupancy)
+        occupancy_grid_size_px=int(
+            analytics.get("occupancy_grid_size_px", defaults.occupancy_grid_size_px)
         ),
-        dense_exit_occupancy=float(
-            congestion.get("dense_exit_occupancy", defaults.dense_exit_occupancy)
-        ),
-        congested_enter_occupancy=float(
+        dense_enter_bbox_union_occupancy=float(
             congestion.get(
-                "congested_enter_occupancy", defaults.congested_enter_occupancy
+                "dense_enter_bbox_union_occupancy",
+                defaults.dense_enter_bbox_union_occupancy,
             )
         ),
-        congested_exit_occupancy=float(
+        dense_exit_bbox_union_occupancy=float(
             congestion.get(
-                "congested_exit_occupancy", defaults.congested_exit_occupancy
+                "dense_exit_bbox_union_occupancy",
+                defaults.dense_exit_bbox_union_occupancy,
+            )
+        ),
+        congested_enter_bbox_union_occupancy=float(
+            congestion.get(
+                "congested_enter_bbox_union_occupancy",
+                defaults.congested_enter_bbox_union_occupancy,
+            )
+        ),
+        congested_exit_bbox_union_occupancy=float(
+            congestion.get(
+                "congested_exit_bbox_union_occupancy",
+                defaults.congested_exit_bbox_union_occupancy,
             )
         ),
         dense_enter_count=int(
@@ -275,23 +299,39 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         raise ValueError("analytics.line_tolerance_px cannot be negative")
     if config.trajectory_history < 2:
         raise ValueError("analytics.trajectory_history must be at least two")
+    if config.occupancy_grid_size_px < 1:
+        raise ValueError("analytics.occupancy_grid_size_px must be at least one")
     occupancy_values = (
-        config.dense_exit_occupancy,
-        config.dense_enter_occupancy,
-        config.congested_exit_occupancy,
-        config.congested_enter_occupancy,
+        config.dense_exit_bbox_union_occupancy,
+        config.dense_enter_bbox_union_occupancy,
+        config.congested_exit_bbox_union_occupancy,
+        config.congested_enter_bbox_union_occupancy,
     )
     if not all(0.0 <= value <= 1.0 for value in occupancy_values):
         raise ValueError("analytics congestion occupancy values must be in [0, 1]")
-    if config.dense_exit_occupancy >= config.dense_enter_occupancy:
-        raise ValueError("dense_exit_occupancy must be below dense_enter_occupancy")
-    if config.congested_exit_occupancy >= config.congested_enter_occupancy:
+    if (
+        config.dense_exit_bbox_union_occupancy
+        >= config.dense_enter_bbox_union_occupancy
+    ):
         raise ValueError(
-            "congested_exit_occupancy must be below congested_enter_occupancy"
+            "dense_exit_bbox_union_occupancy must be below "
+            "dense_enter_bbox_union_occupancy"
         )
-    if config.dense_enter_occupancy >= config.congested_enter_occupancy:
+    if (
+        config.congested_exit_bbox_union_occupancy
+        >= config.congested_enter_bbox_union_occupancy
+    ):
         raise ValueError(
-            "dense_enter_occupancy must be below congested_enter_occupancy"
+            "congested_exit_bbox_union_occupancy must be below "
+            "congested_enter_bbox_union_occupancy"
+        )
+    if (
+        config.dense_enter_bbox_union_occupancy
+        >= config.congested_enter_bbox_union_occupancy
+    ):
+        raise ValueError(
+            "dense_enter_bbox_union_occupancy must be below "
+            "congested_enter_bbox_union_occupancy"
         )
     if not (
         0

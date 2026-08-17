@@ -16,7 +16,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from vn_traffic.config import PipelineConfig  # noqa: E402
 from vn_traffic.runner import PipelineRunner  # noqa: E402
-from vn_traffic.schemas import PerceptionResult, TrackObservation  # noqa: E402
+from vn_traffic.schemas import (  # noqa: E402
+    ANALYTICS_SCHEMA_VERSION,
+    PerceptionResult,
+    TrackObservation,
+)
 
 
 class FakePerception:
@@ -94,15 +98,22 @@ class PipelineRunnerTests(unittest.TestCase):
                 encoding="utf-8"
             ).splitlines()
             self.assertEqual(len(analytics_lines), 1)
+            self.assertIn("bbox_union_occupancy", analytics_lines[0])
+            self.assertNotIn(",occupancy,", f",{analytics_lines[0]},")
             summary = json.loads(
                 (run_dir / "summary.json").read_text(encoding="utf-8")
             )
             self.assertFalse(summary["analytics_enabled"])
+            self.assertEqual(summary["schema_version"], ANALYTICS_SCHEMA_VERSION)
             metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["status"], "completed")
             self.assertEqual(metadata["frames_processed"], 3)
             self.assertEqual(metadata["track_rows"], 3)
             self.assertEqual(metadata["events_written"], 0)
+            self.assertEqual(
+                metadata["analytics_schema_version"],
+                ANALYTICS_SCHEMA_VERSION,
+            )
             self.assertGreater(metadata["processing_fps"], 0)
 
             capture = cv2.VideoCapture(str(run_dir / "annotated.mp4"))

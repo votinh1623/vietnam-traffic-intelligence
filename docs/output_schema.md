@@ -27,11 +27,13 @@ One row represents one detection/track observation in one frame.
 
 One JSON object per deterministic analytics event. The current event types are
 `line_crossing` and `congestion_transition`; the pipeline never invents
-placeholder events. A line-crossing event has this shape:
+placeholder events. Analytics schema version 2 introduces union-based bbox
+coverage and replaces the invalid legacy `occupancy` field. A line-crossing
+event has this shape:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "event_id": "event-000001",
   "event_type": "line_crossing",
   "timestamp_s": 0.84,
@@ -45,9 +47,9 @@ placeholder events. A line-crossing event has this shape:
 ```
 
 A congestion transition replaces the track/class/direction fields with
-`previous_state` and `current_state`; its measurements contain occupancy,
-ROI-track count, and mean pixel speed. All events retain `schema_version`,
-`event_id`, `event_type`, `timestamp_s`, and `frame_index`.
+`previous_state` and `current_state`; its measurements contain
+`bbox_union_occupancy`, ROI-track count, and mean pixel speed. All events retain
+`schema_version`, `event_id`, `event_type`, `timestamp_s`, and `frame_index`.
 
 ## `analytics.csv`
 
@@ -58,20 +60,25 @@ One row per processed frame, intended for timeline inspection and calibration.
 | `frame_index`, `timestamp_s` | Frame position in the source video |
 | `congestion_state` | `NORMAL`, `DENSE`, or `CONGESTED` after hysteresis |
 | `roi_track_count` | Unique assigned track IDs currently inside the ROI |
-| `occupancy` | Sum of bbox/ROI intersection areas divided by ROI area, capped at 1 |
+| `bbox_union_occupancy` | Unique raster cells covered by one or more bboxes inside the ROI, divided by ROI cells |
 | `mean_speed_px_s` | Mean centroid displacement rate for current ROI tracks |
 | `current_counts_json` | Per-class objects currently inside the ROI |
 | `cumulative_crossings_json` | Per-direction, per-class line crossings |
 
-Occupancy can double-count overlapping boxes and speed remains pixel-based.
-Both are deterministic proxies, not calibrated physical measurements.
+The ROI mask is cached and `occupancy_grid_size_px` records the raster scale;
+the default value 1 uses original-resolution pixels. Bbox union avoids counting
+overlap twice, but remains image-plane box coverage rather than physical road
+occupancy: boxes include background and no segmentation, BEV transform, or
+camera calibration is applied. Speed also remains pixel-based.
+Legacy `*_occupancy` threshold keys are rejected at config load time; schema 2
+requires the explicit `*_bbox_union_occupancy` names.
 
 ## `summary.json`
 
 Run-level analytics summary containing state-frame counts, cumulative
-crossings, unique track IDs, maximum occupancy, maximum ROI track count, and an
-explicit claim boundary. Counts may be biased by tracker ID switches or track
-fragmentation.
+crossings, unique track IDs, `max_bbox_union_occupancy`, maximum ROI track
+count, raster grid size, and an explicit claim boundary. Counts may be biased
+by tracker ID switches or track fragmentation.
 
 ## `run.json`
 
@@ -80,7 +87,7 @@ atomically replaced with either `completed` or `failed`.
 
 Stable top-level fields are:
 
-- `schema_version`, `run_id`, and `status`;
+- `schema_version`, `analytics_schema_version`, `run_id`, and `status`;
 - start/completion/failure timestamps;
 - resolved source, model, and config paths;
 - source video properties and perception parameters;

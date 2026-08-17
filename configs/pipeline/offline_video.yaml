@@ -34,11 +34,12 @@ analytics:
     - [0.78, 0.65]
   line_tolerance_px: 8
   trajectory_history: 30
+  occupancy_grid_size_px: 1
   congestion:
-    dense_enter_occupancy: 0.30
-    dense_exit_occupancy: 0.25
-    congested_enter_occupancy: 0.50
-    congested_exit_occupancy: 0.40
+    dense_enter_bbox_union_occupancy: 0.30
+    dense_exit_bbox_union_occupancy: 0.25
+    congested_enter_bbox_union_occupancy: 0.50
+    congested_exit_bbox_union_occupancy: 0.40
     dense_enter_count: 45
     dense_exit_count: 40
     congested_enter_count: 50

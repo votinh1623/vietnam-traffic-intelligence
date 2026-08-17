@@ -44,6 +44,7 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.confidence, 0.25)
             self.assertEqual(config.device, "cpu")
             self.assertTrue(config.analytics.enabled)
+            self.assertEqual(config.analytics.occupancy_grid_size_px, 1)
 
     def test_resolves_repository_tracker_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -74,6 +75,17 @@ class PipelineConfigTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "confidence"):
+                load_pipeline_config(path)
+
+    def test_rejects_legacy_summed_occupancy_threshold(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  congestion:\n    dense_enter_occupancy: 0.3\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "legacy summed-occupancy"):
                 load_pipeline_config(path)
 
 

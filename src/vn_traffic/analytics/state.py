@@ -24,11 +24,17 @@ class CongestionStateMachine:
         self._candidate = self.state
         self._candidate_since = 0.0
 
-    def _target(self, occupancy: float, count: int, mean_speed: float | None) -> str:
+    def _target(
+        self,
+        bbox_union_occupancy: float,
+        count: int,
+        mean_speed: float | None,
+    ) -> str:
         speed = float("inf") if mean_speed is None else mean_speed
         if self.state == "CONGESTED":
             remains_congested = (
-                occupancy >= self.config.congested_exit_occupancy
+                bbox_union_occupancy
+                >= self.config.congested_exit_bbox_union_occupancy
                 or (
                     count >= self.config.congested_exit_count
                     and speed <= self.config.congested_release_speed_px_s
@@ -37,7 +43,8 @@ class CongestionStateMachine:
             if remains_congested:
                 return "CONGESTED"
         congested = (
-            occupancy >= self.config.congested_enter_occupancy
+            bbox_union_occupancy
+            >= self.config.congested_enter_bbox_union_occupancy
             or (
                 count >= self.config.congested_enter_count
                 and speed <= self.config.congested_max_speed_px_s
@@ -48,7 +55,7 @@ class CongestionStateMachine:
 
         if self.state in ("DENSE", "CONGESTED"):
             dense = (
-                occupancy >= self.config.dense_exit_occupancy
+                bbox_union_occupancy >= self.config.dense_exit_bbox_union_occupancy
                 or (
                     count >= self.config.dense_exit_count
                     and speed <= self.config.congested_max_speed_px_s
@@ -56,7 +63,7 @@ class CongestionStateMachine:
             )
         else:
             dense = (
-                occupancy >= self.config.dense_enter_occupancy
+                bbox_union_occupancy >= self.config.dense_enter_bbox_union_occupancy
                 or (
                     count >= self.config.dense_enter_count
                     and speed <= self.config.congested_max_speed_px_s
@@ -68,11 +75,11 @@ class CongestionStateMachine:
         self,
         *,
         timestamp_s: float,
-        occupancy: float,
+        bbox_union_occupancy: float,
         count: int,
         mean_speed_px_s: float | None,
     ) -> StateTransition | None:
-        target = self._target(occupancy, count, mean_speed_px_s)
+        target = self._target(bbox_union_occupancy, count, mean_speed_px_s)
         if target == self.state:
             self._candidate = self.state
             self._candidate_since = timestamp_s
