@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -65,6 +66,16 @@ def valid_request() -> dict:
 
 
 class ReasoningContractTests(unittest.TestCase):
+    def test_development_config_never_targets_evaluation_lock(self) -> None:
+        config = yaml.safe_load(
+            (
+                PROJECT_ROOT / "configs" / "reasoning" / "development_v1.yaml"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(config["split"], "development")
+        self.assertIn("evidence_dev_v1", config["input_lock"])
+        self.assertEqual(config["execution_policy"], "sequential_load_run_unload")
+
     def test_validates_cited_vlm_assessment(self) -> None:
         request = valid_request()
         assessment = {
@@ -166,6 +177,33 @@ class EvidenceLockTests(unittest.TestCase):
         self.assertEqual(
             {case["event"]["event_type"] for case in payload["cases"]},
             {"line_crossing", "congestion_transition"},
+        )
+
+    def test_checked_in_development_lock_is_source_disjoint(self) -> None:
+        evaluation = json.loads(
+            (
+                PROJECT_ROOT
+                / "manifests"
+                / "reasoning"
+                / "evidence_eval_v1"
+                / "input_lock.json"
+            ).read_text(encoding="utf-8")
+        )
+        development = json.loads(
+            (
+                PROJECT_ROOT
+                / "manifests"
+                / "reasoning"
+                / "evidence_dev_v1"
+                / "input_lock.json"
+            ).read_text(encoding="utf-8")
+        )
+        verify_evidence_lock(development)
+        self.assertEqual(development["split"], "development")
+        self.assertEqual(development["case_count"], 146)
+        self.assertNotEqual(
+            development["source"]["source_video_sha256"],
+            evaluation["source"]["source_video_sha256"],
         )
 
     def test_builds_and_detects_tampered_lock(self) -> None:

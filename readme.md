@@ -95,7 +95,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
 | VLM/LLM reasoning contract | Inputs locked; both reviews complete; one disagreement and final adjudication pending | [Reasoning protocol](docs/reasoning_protocol.md) |
-| VLM/LLM model inference | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
+| VLM/LLM model inference | Run16 development inputs locked; 2B VLM + 1.7B LLM candidates configured; artifacts not downloaded | [Reasoning protocol](docs/reasoning_protocol.md) |
 
 No locked-test metric is reported while model, threshold, tracker, prompt, or
 quantization decisions are still being made.
@@ -512,6 +512,7 @@ The full measurement contract is defined in
 - [x] Add two-reviewer annotation templates, validation, and adjudication queue tooling.
 - [x] Complete two independent reviewer annotation sets for reasoning evaluation v1.
 - [ ] Resolve the 14-case adjudication queue with an independent adjudicator.
+- [x] Freeze a separate run16 development set and record initial RTX model candidates.
 - [ ] Add event-driven VLM and LLM modules.
 - [ ] Export and benchmark detector FP16/INT8 candidates.
 - [ ] Quantize and benchmark the selected VLM and LLM.

@@ -10,7 +10,11 @@ manifest, event, decoded-frame, and encoded-artifact hashes bind the public
 lock to the exact local inputs.
 
 Run16 is excluded from evaluation and remains an independent candidate for
-prompt development or quantization calibration. Evaluation cases must not be
+prompt development or quantization calibration. Its 146 evidence records are
+now frozen separately at `manifests/reasoning/evidence_dev_v1/input_lock.json`
+with lock SHA-256
+`ba98c616d3f36882ea44ce0ded586aca1f0a984f34b1d421e533ba5158fbfe86`.
+Evaluation cases must not be
 used to select a model, prompt, precision, decoding parameter, threshold, or
 runtime backend. If an evaluation case is inspected during development, v1 is
 compromised and a new source-disjoint evaluation version is required.
@@ -68,6 +72,27 @@ Prompt wording is versioned in `configs/reasoning/prompts_v1.yaml`. Every
 benchmark row must record its content hash, model and artifact hash, backend,
 precision, generation parameters, contract version, input-lock hash, and Git
 commit.
+
+## Initial development candidates
+
+`configs/reasoning/development_v1.yaml` records the first RTX-host candidates:
+`Qwen/Qwen3-VL-2B-Instruct` for visual assessment and `Qwen/Qwen3-1.7B` for
+Vietnamese report generation. Both are upstream Qwen Apache-2.0 checkpoints;
+the text model advertises multilingual support across more than 100 languages.
+The local Transformers 5.14.1 environment can host adapters for these model
+families, but neither artifact is downloaded yet.
+
+The two models must load, run, and unload sequentially because concurrent
+residency is not assumed to fit the RTX 3050 6 GB. FP16 is the reference path;
+INT8/INT4 remains a later measured comparison. Before the first download, the
+resolved immutable Hugging Face revision must replace `revision: null` and be
+recorded with artifact hashes. Model IDs, expected parameter counts, or vendor
+benchmarks are not local memory/latency evidence.
+
+Primary model cards:
+
+- <https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct>
+- <https://huggingface.co/Qwen/Qwen3-1.7B>
 
 ## Annotation and metrics
 

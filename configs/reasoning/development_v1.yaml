@@ -1,0 +1,33 @@
+schema_version: 1
+status: artifacts_not_downloaded
+split: development
+input_lock: manifests/reasoning/evidence_dev_v1/input_lock.json
+artifact_root: output/pipeline/run16
+execution_policy: sequential_load_run_unload
+
+# Initial RTX 3050 6 GB candidates. Resolve and record immutable model revisions
+# before downloading or benchmarking; model IDs alone are not provenance.
+vlm:
+  model_id: Qwen/Qwen3-VL-2B-Instruct
+  revision: null
+  backend: transformers
+  dtype: float16
+  input_policy: keyframe_first
+  clip_sample_frames: 3
+  max_new_tokens: 384
+
+llm:
+  model_id: Qwen/Qwen3-1.7B
+  revision: null
+  backend: transformers
+  dtype: float16
+  thinking: false
+  max_new_tokens: 512
+
+generation:
+  do_sample: false
+  seed: 0
+
+claim_boundary: >-
+  Candidate configuration only. No model artifact has been downloaded, loaded,
+  quantized, or benchmarked; fit, quality, latency, and memory remain TBD.
