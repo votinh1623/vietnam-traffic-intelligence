@@ -75,7 +75,14 @@ class PipelineRunnerTests(unittest.TestCase):
             run_dir = PipelineRunner(config, FakePerception()).run()
 
             self.assertEqual(run_dir.name, "run1")
-            for name in ("annotated.mp4", "tracks.csv", "events.jsonl", "run.json"):
+            for name in (
+                "annotated.mp4",
+                "tracks.csv",
+                "events.jsonl",
+                "analytics.csv",
+                "summary.json",
+                "run.json",
+            ):
                 self.assertTrue((run_dir / name).is_file(), name)
             with (run_dir / "tracks.csv").open(newline="", encoding="utf-8") as stream:
                 tracks = list(csv.DictReader(stream))
@@ -83,6 +90,14 @@ class PipelineRunnerTests(unittest.TestCase):
             self.assertEqual(tracks[0]["track_id"], "7")
             self.assertEqual(tracks[0]["class_name"], "car")
             self.assertEqual((run_dir / "events.jsonl").read_text(encoding="utf-8"), "")
+            analytics_lines = (run_dir / "analytics.csv").read_text(
+                encoding="utf-8"
+            ).splitlines()
+            self.assertEqual(len(analytics_lines), 1)
+            summary = json.loads(
+                (run_dir / "summary.json").read_text(encoding="utf-8")
+            )
+            self.assertFalse(summary["analytics_enabled"])
             metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["status"], "completed")
             self.assertEqual(metadata["frames_processed"], 3)

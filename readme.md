@@ -36,9 +36,9 @@ This repository therefore separates four concerns:
 | Capability | Current implementation | Status |
 |---|---|---|
 | Image and video detection | YOLOv8, five Vietnamese traffic classes | Implemented |
-| Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; evaluator repair pending |
+| Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; evaluator repaired, v5 benchmark pending |
 | Traffic density routing | Preprocessing module under `src/preprocessing` | Prototype |
-| Structured traffic analytics | Counts, trajectories, speed, density, and congestion events | Planned |
+| Structured traffic analytics | ROI occupancy, trajectories, directional counts, and congestion events | Implemented; initial two-video acceptance passed |
 | VLM scene understanding | Representative frames or event clips, not every frame | Architecture defined |
 | LLM reasoning and reports | Event-driven summaries using structured analytics plus VLM evidence | Architecture defined |
 | Detector quantization | FP16/INT8 export and accuracy-latency evaluation | Planned |
@@ -90,6 +90,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | YOLOv8s v5 smoke run | Complete | `experiments/yolov8s_v5_seed0_smoke_20260817T100534/run.json` |
 | YOLOv8s v5 full fine-tuning | Complete, 30 epochs | `experiments/yolov8s_v5_seed0_20260817T100644/run.json` |
 | Offline-video CLI and artifact contract | Integrated with v5 checkpoint | [Output schema](docs/output_schema.md) |
+| Deterministic analytics state machine | 28 tests passed; initial two-video acceptance passed | [Output schema](docs/output_schema.md) |
 | Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
 | VLM/LLM implementation | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
@@ -217,6 +218,30 @@ completed after the repair:
 The prediction files used by this check lack complete model/config provenance,
 so these values are not a v5 tracking result and must not be used for model
 comparison.
+
+Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
+It maintains per-track trajectories, counts one crossing per direction and
+track ID, measures bbox/ROI occupancy, estimates centroid speed in pixels per
+second, and applies temporal hysteresis to `NORMAL`, `DENSE`, and `CONGESTED`.
+Geometry is normalized in YAML and kept separate from the state machine.
+
+Initial acceptance used the v5 checkpoint at `imgsz=640`, confidence 0.4, and
+the initial center-corridor ROI/counting line in
+`configs/pipeline/offline_video.yaml`. The jam clip was processed in full; the
+normal clip used its first 300 frames. Overlay frames were visually inspected
+to confirm that the normalized ROI and line intersect the intended road
+corridor. These are calibration/demo videos, not the locked test.
+
+| Acceptance clip | Evaluated span | Occupancy median (range) | Speed median px/s | State timeline | Result |
+|---|---:|---:|---:|---|---|
+| `traffic_jam.mp4` | 283 frames / 11.3 s | 0.687 (0.535-0.991) | 78.0 | `NORMAL` to `CONGESTED` at 2.12 s; 230 congested frames | Pass |
+| `traffic_normal.mp4` | 300 frames / 10.0 s | 0.136 (0.067-0.238) | 104.6 | `NORMAL` for 300/300 frames | Pass |
+
+The thresholds were selected only after inspecting these two timelines. This
+demonstrates deterministic separation for the current scenes and resolution;
+it is not evidence that the thresholds generalize to other cameras. Crossing
+events were generated in both runs, but count accuracy is not reported because
+the clips have no counting ground truth and tracker ID error is not yet known.
 
 | Metric | Current status |
 |---|---|
@@ -391,6 +416,12 @@ The full measurement contract is defined in
 - Tracking metrics currently stored at repository root are invalid and retained
   only as historical artifacts.
 - Traffic speed requires camera calibration or a documented approximation.
+- The initial congestion thresholds are calibrated on only two demo clips at
+  their current resolutions; occupancy and pixel-speed thresholds may not
+  transfer to another camera, crop, or viewpoint.
+- Line-crossing counts depend on stable ByteTrack identities. Occlusion-driven
+  ID switches or fragmentation can cause duplicate or missed counts, and the
+  error rate has not yet been measured on the two demo videos.
 - VLM/LLM quality, hallucination rate, and quantization effects are not yet
   measured.
 - No model has yet been benchmarked on a physical edge NPU in this project.
@@ -404,7 +435,8 @@ The full measurement contract is defined in
 - [x] Complete v5 fine-tuning and validation-based checkpoint selection.
 - [ ] Freeze the complete pipeline and run locked-test evaluation.
 - [ ] Repair and validate sequence-level tracking evaluation.
-- [ ] Implement structured traffic analytics and event schema.
+- [x] Implement deterministic analytics and event schema with synthetic tests.
+- [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
 - [ ] Add event-driven VLM and LLM modules.
 - [ ] Export and benchmark detector FP16/INT8 candidates.
 - [ ] Quantize and benchmark the selected VLM and LLM.

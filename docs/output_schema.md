@@ -1,8 +1,8 @@
 # Offline pipeline output contract
 
 Every successful offline-video invocation creates one immutable `runN`
-directory. Later analytics and reasoning stages may add files, but they must
-not change the meaning of the Stage 1 fields below.
+directory. Analytics adds timeline and summary artifacts without changing the
+meaning of the Stage 1 fields below.
 
 ## `annotated.mp4`
 
@@ -25,25 +25,53 @@ One row represents one detection/track observation in one frame.
 
 ## `events.jsonl`
 
-One JSON object per deterministic analytics event. Stage 1 creates an empty
-file because analytics are not implemented yet; it never invents placeholder
-events. The planned common event envelope is:
+One JSON object per deterministic analytics event. The current event types are
+`line_crossing` and `congestion_transition`; the pipeline never invents
+placeholder events. A line-crossing event has this shape:
 
 ```json
 {
   "schema_version": 1,
   "event_id": "event-000001",
-  "event_type": "congestion",
-  "start_s": 42.5,
-  "end_s": 58.0,
-  "severity": "high",
-  "measurements": {},
-  "evidence": {}
+  "event_type": "line_crossing",
+  "timestamp_s": 0.84,
+  "frame_index": 21,
+  "track_id": 10,
+  "class_id": 2,
+  "class_name": "motorcycle",
+  "direction": "down",
+  "measurements": {"speed_px_s": 176.8}
 }
 ```
 
-Event-specific fields will be added under `measurements` and `evidence` rather
-than changing the common envelope.
+A congestion transition replaces the track/class/direction fields with
+`previous_state` and `current_state`; its measurements contain occupancy,
+ROI-track count, and mean pixel speed. All events retain `schema_version`,
+`event_id`, `event_type`, `timestamp_s`, and `frame_index`.
+
+## `analytics.csv`
+
+One row per processed frame, intended for timeline inspection and calibration.
+
+| Field | Meaning |
+|---|---|
+| `frame_index`, `timestamp_s` | Frame position in the source video |
+| `congestion_state` | `NORMAL`, `DENSE`, or `CONGESTED` after hysteresis |
+| `roi_track_count` | Unique assigned track IDs currently inside the ROI |
+| `occupancy` | Sum of bbox/ROI intersection areas divided by ROI area, capped at 1 |
+| `mean_speed_px_s` | Mean centroid displacement rate for current ROI tracks |
+| `current_counts_json` | Per-class objects currently inside the ROI |
+| `cumulative_crossings_json` | Per-direction, per-class line crossings |
+
+Occupancy can double-count overlapping boxes and speed remains pixel-based.
+Both are deterministic proxies, not calibrated physical measurements.
+
+## `summary.json`
+
+Run-level analytics summary containing state-frame counts, cumulative
+crossings, unique track IDs, maximum occupancy, maximum ROI track count, and an
+explicit claim boundary. Counts may be biased by tracker ID switches or track
+fragmentation.
 
 ## `run.json`
 

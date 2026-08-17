@@ -43,6 +43,7 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.imgsz, 640)
             self.assertEqual(config.confidence, 0.25)
             self.assertEqual(config.device, "cpu")
+            self.assertTrue(config.analytics.enabled)
 
     def test_resolves_repository_tracker_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

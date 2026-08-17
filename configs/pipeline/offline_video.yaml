@@ -19,3 +19,31 @@ video:
 
 output:
   root: output/pipeline
+
+# Initial demo-calibrated geometry and thresholds. They are normalized/configurable
+# defaults, not production calibration for a new camera or viewpoint.
+analytics:
+  enabled: true
+  roi_polygon:
+    - [0.48, 0.05]
+    - [0.62, 0.05]
+    - [0.84, 0.95]
+    - [0.30, 0.95]
+  counting_line:
+    - [0.32, 0.65]
+    - [0.78, 0.65]
+  line_tolerance_px: 8
+  trajectory_history: 30
+  congestion:
+    dense_enter_occupancy: 0.30
+    dense_exit_occupancy: 0.25
+    congested_enter_occupancy: 0.50
+    congested_exit_occupancy: 0.40
+    dense_enter_count: 45
+    dense_exit_count: 40
+    congested_enter_count: 50
+    congested_exit_count: 45
+    congested_max_speed_px_s: 150
+    congested_release_speed_px_s: 170
+    transition_confirm_s: 2
+    release_confirm_s: 4

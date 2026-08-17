@@ -5,14 +5,22 @@ from __future__ import annotations
 import csv
 import json
 import time
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Protocol
+from typing import Any, Protocol
 
 import cv2
 
 from .config import PipelineConfig
-from .schemas import PerceptionResult, TRACK_CSV_FIELDS, TrackObservation
+from .schemas import (
+    ANALYTICS_CSV_FIELDS,
+    AnalyticsBatch,
+    AnalyticsSnapshot,
+    PerceptionResult,
+    TRACK_CSV_FIELDS,
+    TrackObservation,
+)
 
 
 class PerceptionEngine(Protocol):
@@ -21,14 +29,22 @@ class PerceptionEngine(Protocol):
     ) -> PerceptionResult: ...
 
 
-class EventProcessor(Protocol):
+class AnalyticsProcessor(Protocol):
     def process(
         self,
         *,
         frame_index: int,
         timestamp_s: float,
         tracks: tuple[TrackObservation, ...],
-    ) -> Iterable[dict[str, Any]]: ...
+        frame_width: int,
+        frame_height: int,
+    ) -> AnalyticsBatch: ...
+
+    def summary(self) -> dict[str, Any]: ...
+
+
+class OverlayRenderer(Protocol):
+    def draw(self, frame: Any, snapshot: AnalyticsSnapshot) -> Any: ...
 
 
 class NoEvents:
@@ -38,8 +54,13 @@ class NoEvents:
         frame_index: int,
         timestamp_s: float,
         tracks: tuple[TrackObservation, ...],
-    ) -> Iterable[dict[str, Any]]:
-        return ()
+        frame_width: int,
+        frame_height: int,
+    ) -> AnalyticsBatch:
+        return AnalyticsBatch(snapshot=None, events=())
+
+    def summary(self) -> dict[str, Any]:
+        return {"schema_version": 1, "analytics_enabled": False}
 
 
 def utc_now() -> str:
@@ -73,11 +94,13 @@ class PipelineRunner:
         self,
         config: PipelineConfig,
         perception: PerceptionEngine,
-        event_processor: EventProcessor | None = None,
+        event_processor: AnalyticsProcessor | None = None,
+        overlay_renderer: OverlayRenderer | None = None,
     ):
         self.config = config
         self.perception = perception
         self.event_processor = event_processor or NoEvents()
+        self.overlay_renderer = overlay_renderer
 
     def run(self) -> Path:
         if not self.config.source.is_file():
@@ -100,6 +123,8 @@ class PipelineRunner:
         video_path = run_dir / "annotated.mp4"
         tracks_path = run_dir / "tracks.csv"
         events_path = run_dir / "events.jsonl"
+        analytics_path = run_dir / "analytics.csv"
+        summary_path = run_dir / "summary.json"
         metadata_path = run_dir / "run.json"
         writer = cv2.VideoWriter(
             str(video_path),
@@ -138,10 +163,13 @@ class PipelineRunner:
                 "device": self.config.device,
                 "tracker": self.config.tracker,
             },
+            "analytics": asdict(self.config.analytics),
             "outputs": {
                 "annotated_video": "annotated.mp4",
                 "tracks": "tracks.csv",
                 "events": "events.jsonl",
+                "analytics": "analytics.csv",
+                "summary": "summary.json",
             },
         }
         write_json_atomic(metadata_path, metadata)
@@ -152,11 +180,17 @@ class PipelineRunner:
         try:
             with tracks_path.open("w", newline="", encoding="utf-8") as tracks_file, (
                 events_path.open("w", encoding="utf-8")
-            ) as events_file:
+            ) as events_file, analytics_path.open(
+                "w", newline="", encoding="utf-8"
+            ) as analytics_file:
                 track_writer = csv.DictWriter(
                     tracks_file, fieldnames=list(TRACK_CSV_FIELDS)
                 )
                 track_writer.writeheader()
+                analytics_writer = csv.DictWriter(
+                    analytics_file, fieldnames=list(ANALYTICS_CSV_FIELDS)
+                )
+                analytics_writer.writeheader()
                 while True:
                     ok, frame = capture.read()
                     if not ok:
@@ -171,16 +205,26 @@ class PipelineRunner:
                     annotated = result.annotated_frame
                     if annotated.shape[1] != width or annotated.shape[0] != height:
                         annotated = cv2.resize(annotated, (width, height))
-                    writer.write(annotated)
                     for track in result.tracks:
                         track_writer.writerow(track.to_dict())
                         track_count += 1
-                    events = self.event_processor.process(
+                    analytics_batch = self.event_processor.process(
                         frame_index=frame_index,
                         timestamp_s=timestamp_s,
                         tracks=result.tracks,
+                        frame_width=width,
+                        frame_height=height,
                     )
-                    for event in events:
+                    if analytics_batch.snapshot is not None:
+                        analytics_writer.writerow(
+                            analytics_batch.snapshot.to_csv_dict()
+                        )
+                        if self.overlay_renderer is not None:
+                            annotated = self.overlay_renderer.draw(
+                                annotated, analytics_batch.snapshot
+                            )
+                    writer.write(annotated)
+                    for event in analytics_batch.events:
                         events_file.write(
                             json.dumps(event, ensure_ascii=False) + "\n"
                         )
@@ -193,6 +237,14 @@ class PipelineRunner:
                         break
 
             elapsed_s = time.perf_counter() - started_clock
+            analytics_summary = self.event_processor.summary()
+            analytics_summary.update(
+                {
+                    "frames_processed": frame_count,
+                    "source": str(self.config.source),
+                }
+            )
+            write_json_atomic(summary_path, analytics_summary)
             metadata.update(
                 {
                     "status": "completed",
