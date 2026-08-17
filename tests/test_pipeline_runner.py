@@ -85,6 +85,7 @@ class PipelineRunnerTests(unittest.TestCase):
                 "events.jsonl",
                 "analytics.csv",
                 "summary.json",
+                "evidence.jsonl",
                 "run.json",
             ):
                 self.assertTrue((run_dir / name).is_file(), name)
@@ -94,6 +95,10 @@ class PipelineRunnerTests(unittest.TestCase):
             self.assertEqual(tracks[0]["track_id"], "7")
             self.assertEqual(tracks[0]["class_name"], "car")
             self.assertEqual((run_dir / "events.jsonl").read_text(encoding="utf-8"), "")
+            self.assertEqual(
+                (run_dir / "evidence.jsonl").read_text(encoding="utf-8"),
+                "",
+            )
             analytics_lines = (run_dir / "analytics.csv").read_text(
                 encoding="utf-8"
             ).splitlines()
@@ -115,6 +120,7 @@ class PipelineRunnerTests(unittest.TestCase):
                 ANALYTICS_SCHEMA_VERSION,
             )
             self.assertGreater(metadata["processing_fps"], 0)
+            self.assertFalse(metadata["evidence"]["enabled"])
 
             capture = cv2.VideoCapture(str(run_dir / "annotated.mp4"))
             output_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))

@@ -48,6 +48,18 @@ class OverlayRenderer(Protocol):
     def draw(self, frame: Any, snapshot: AnalyticsSnapshot) -> Any: ...
 
 
+class EvidenceExporter(Protocol):
+    def export(
+        self,
+        *,
+        source: Path,
+        events_path: Path,
+        run_dir: Path,
+        fps: float,
+        frames_processed: int,
+    ) -> dict[str, Any]: ...
+
+
 class NoEvents:
     def process(
         self,
@@ -64,6 +76,30 @@ class NoEvents:
         return {
             "schema_version": ANALYTICS_SCHEMA_VERSION,
             "analytics_enabled": False,
+        }
+
+
+class NoEvidence:
+    def export(
+        self,
+        *,
+        source: Path,
+        events_path: Path,
+        run_dir: Path,
+        fps: float,
+        frames_processed: int,
+    ) -> dict[str, Any]:
+        manifest_path = run_dir / "evidence.jsonl"
+        temporary = manifest_path.with_suffix(".jsonl.tmp")
+        temporary.write_text("", encoding="utf-8")
+        temporary.replace(manifest_path)
+        return {
+            "schema_version": 1,
+            "enabled": False,
+            "selected_events": 0,
+            "keyframes_written": 0,
+            "clips_written": 0,
+            "manifest": "evidence.jsonl",
         }
 
 
@@ -100,11 +136,13 @@ class PipelineRunner:
         perception: PerceptionEngine,
         event_processor: AnalyticsProcessor | None = None,
         overlay_renderer: OverlayRenderer | None = None,
+        evidence_exporter: EvidenceExporter | None = None,
     ):
         self.config = config
         self.perception = perception
         self.event_processor = event_processor or NoEvents()
         self.overlay_renderer = overlay_renderer
+        self.evidence_exporter = evidence_exporter or NoEvidence()
 
     def run(self) -> Path:
         if not self.config.source.is_file():
@@ -169,12 +207,14 @@ class PipelineRunner:
             },
             "analytics": asdict(self.config.analytics),
             "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
+            "evidence_policy": asdict(self.config.evidence),
             "outputs": {
                 "annotated_video": "annotated.mp4",
                 "tracks": "tracks.csv",
                 "events": "events.jsonl",
                 "analytics": "analytics.csv",
                 "summary": "summary.json",
+                "evidence": "evidence.jsonl",
             },
         }
         write_json_atomic(metadata_path, metadata)
@@ -241,7 +281,6 @@ class PipelineRunner:
                     ):
                         break
 
-            elapsed_s = time.perf_counter() - started_clock
             analytics_summary = self.event_processor.summary()
             analytics_summary.update(
                 {
@@ -250,6 +289,14 @@ class PipelineRunner:
                 }
             )
             write_json_atomic(summary_path, analytics_summary)
+            evidence_summary = self.evidence_exporter.export(
+                source=self.config.source,
+                events_path=events_path,
+                run_dir=run_dir,
+                fps=fps,
+                frames_processed=frame_count,
+            )
+            elapsed_s = time.perf_counter() - started_clock
             metadata.update(
                 {
                     "status": "completed",
@@ -257,6 +304,7 @@ class PipelineRunner:
                     "frames_processed": frame_count,
                     "track_rows": track_count,
                     "events_written": event_count,
+                    "evidence": evidence_summary,
                     "elapsed_s": elapsed_s,
                     "processing_fps": frame_count / elapsed_s if elapsed_s else None,
                 }

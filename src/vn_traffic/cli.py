@@ -62,16 +62,22 @@ def main(argv: list[str] | None = None) -> int:
     perception = UltralyticsPerception(config)
     analytics = None
     overlay = None
+    evidence_exporter = None
     if config.analytics.enabled:
         from .analytics import AnalyticsOverlay, TrafficAnalytics
 
         analytics = TrafficAnalytics(config.analytics)
         overlay = AnalyticsOverlay(config.analytics)
+    if config.evidence.enabled:
+        from .evidence import EventEvidenceExporter
+
+        evidence_exporter = EventEvidenceExporter(config.evidence)
     run_dir = PipelineRunner(
         config,
         perception,
         event_processor=analytics,
         overlay_renderer=overlay,
+        evidence_exporter=evidence_exporter,
     ).run()
     print(f"Pipeline completed: {run_dir}")
     return 0

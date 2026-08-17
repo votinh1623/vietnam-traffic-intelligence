@@ -45,6 +45,27 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.device, "cpu")
             self.assertTrue(config.analytics.enabled)
             self.assertEqual(config.analytics.occupancy_grid_size_px, 1)
+            self.assertFalse(config.evidence.enabled)
+
+    def test_loads_evidence_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "evidence:\n"
+                "  enabled: true\n"
+                "  keyframe_event_types: [line_crossing]\n"
+                "  clip_event_types: []\n"
+                "  pre_event_s: 1.5\n"
+                "  post_event_s: 2.5\n",
+                encoding="utf-8",
+            )
+            config = load_pipeline_config(path)
+            self.assertTrue(config.evidence.enabled)
+            self.assertEqual(config.evidence.keyframe_event_types, ("line_crossing",))
+            self.assertEqual(config.evidence.clip_event_types, ())
+            self.assertEqual(config.evidence.pre_event_s, 1.5)
+            self.assertEqual(config.evidence.post_event_s, 2.5)
 
     def test_resolves_repository_tracker_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -39,6 +39,7 @@ This repository therefore separates four concerns:
 | Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; evaluator repaired, v5 benchmark pending |
 | Traffic density routing | Preprocessing module under `src/preprocessing` | Prototype |
 | Structured traffic analytics | ROI occupancy, trajectories, directional counts, and congestion events | Implemented; initial two-video acceptance passed |
+| Event evidence selection | Raw keyframes for deterministic events and clips for congestion transitions | Implemented; two-video acceptance passed |
 | VLM scene understanding | Representative frames or event clips, not every frame | Architecture defined |
 | LLM reasoning and reports | Event-driven summaries using structured analytics plus VLM evidence | Architecture defined |
 | Detector quantization | FP16/INT8 export and accuracy-latency evaluation | Planned |
@@ -93,7 +94,8 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Deterministic analytics state machine | 32 tests passed; bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
 | Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
-| VLM/LLM implementation | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
+| Event evidence selector | Implemented; 37 tests and two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
+| VLM/LLM model inference | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
 
 No locked-test metric is reported while model, threshold, tracker, prompt, or
 quantization decisions are still being made.
@@ -259,6 +261,20 @@ detector/tracker pipeline. Grid 2 reduced the metric cost to 0.89-1.22 ms/frame
 with maximum absolute error 0.007 versus grid 1; grid 4 cost 0.26-0.29 ms/frame
 with maximum error 0.021. Both candidates preserved the two demo timelines and
 remain configurable options for future edge benchmarks.
+
+Stage 3 adds a deterministic evidence boundary before any VLM is loaded. The
+pipeline reopens the raw source after event generation, exports hashed
+keyframes for all configured event types, and creates temporal clips only for
+configured high-level events. The default congestion window is 2 seconds
+before and 3 seconds after the transition, clamped to the processed span.
+
+| Evidence acceptance | Events | Raw keyframes | Clips | Verification |
+|---|---:|---:|---:|---|
+| `traffic_jam.mp4`, run13 | 13 | 13 | 1 congestion clip / 126 frames | Paths, hashes, decoded clip length, and visual frame checked |
+| `traffic_normal.mp4`, run14 | 25 | 25 | 0 | Paths, hashes, policy, and visual frame checked |
+
+This stage performs selection and packaging only. It makes no caption,
+incident, severity, or causal claim; VLM/LLM quality remains unmeasured.
 
 | Metric | Current status |
 |---|---|
@@ -456,6 +472,7 @@ The full measurement contract is defined in
 - [ ] Repair and validate sequence-level tracking evaluation.
 - [x] Implement deterministic analytics and event schema with synthetic tests.
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
+- [x] Add deterministic event keyframe/clip evidence selection.
 - [ ] Add event-driven VLM and LLM modules.
 - [ ] Export and benchmark detector FP16/INT8 candidates.
 - [ ] Quantize and benchmark the selected VLM and LLM.

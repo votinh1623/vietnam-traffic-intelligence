@@ -46,6 +46,20 @@ class AnalyticsConfig:
 
 
 @dataclass(frozen=True)
+class EvidenceConfig:
+    enabled: bool = False
+    keyframe_event_types: tuple[str, ...] = (
+        "line_crossing",
+        "congestion_transition",
+    )
+    clip_event_types: tuple[str, ...] = ("congestion_transition",)
+    pre_event_s: float = 2.0
+    post_event_s: float = 3.0
+    jpeg_quality: int = 90
+    clip_codec: str = "mp4v"
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     schema_version: int
     source: Path
@@ -61,6 +75,7 @@ class PipelineConfig:
     max_frames: int | None = None
     config_path: Path | None = None
     analytics: AnalyticsConfig = AnalyticsConfig()
+    evidence: EvidenceConfig = EvidenceConfig()
 
     def with_overrides(
         self,
@@ -223,6 +238,40 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
     return config
 
 
+def _event_types(value: Any, name: str, defaults: tuple[str, ...]) -> tuple[str, ...]:
+    if value is None:
+        return defaults
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) and item for item in value
+    ):
+        raise ValueError(f"{name} must be a list of non-empty strings")
+    return tuple(dict.fromkeys(value))
+
+
+def _load_evidence(raw: dict[str, Any]) -> EvidenceConfig:
+    defaults = EvidenceConfig()
+    evidence = _mapping(raw.get("evidence"), "evidence")
+    config = EvidenceConfig(
+        enabled=bool(evidence.get("enabled", defaults.enabled)),
+        keyframe_event_types=_event_types(
+            evidence.get("keyframe_event_types"),
+            "evidence.keyframe_event_types",
+            defaults.keyframe_event_types,
+        ),
+        clip_event_types=_event_types(
+            evidence.get("clip_event_types"),
+            "evidence.clip_event_types",
+            defaults.clip_event_types,
+        ),
+        pre_event_s=float(evidence.get("pre_event_s", defaults.pre_event_s)),
+        post_event_s=float(evidence.get("post_event_s", defaults.post_event_s)),
+        jpeg_quality=int(evidence.get("jpeg_quality", defaults.jpeg_quality)),
+        clip_codec=str(evidence.get("clip_codec", defaults.clip_codec)),
+    )
+    validate_evidence_config(config)
+    return config
+
+
 def load_pipeline_config(path: str | Path) -> PipelineConfig:
     config_path = resolve_project_path(path)
     with config_path.open(encoding="utf-8") as stream:
@@ -256,6 +305,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         ),
         config_path=config_path,
         analytics=_load_analytics(raw),
+        evidence=_load_evidence(raw),
     )
     validate_pipeline_config(config)
     return config
@@ -281,6 +331,7 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
     if config.max_frames is not None and config.max_frames <= 0:
         raise ValueError("video.max_frames must be positive when provided")
     validate_analytics_config(config.analytics)
+    validate_evidence_config(config.evidence)
 
 
 def validate_analytics_config(config: AnalyticsConfig) -> None:
@@ -350,3 +401,12 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         )
     if config.transition_confirm_s < 0 or config.release_confirm_s < 0:
         raise ValueError("analytics confirmation durations cannot be negative")
+
+
+def validate_evidence_config(config: EvidenceConfig) -> None:
+    if config.pre_event_s < 0 or config.post_event_s < 0:
+        raise ValueError("evidence pre/post durations cannot be negative")
+    if not 1 <= config.jpeg_quality <= 100:
+        raise ValueError("evidence.jpeg_quality must be in [1, 100]")
+    if len(config.clip_codec) != 4:
+        raise ValueError("evidence.clip_codec must contain exactly four characters")

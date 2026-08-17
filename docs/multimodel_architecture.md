@@ -17,7 +17,7 @@ a real target. RTX results are reported as deployment-readiness evidence.
 ```text
 video -> detector -> tracker -> deterministic analytics -> structured events
            |                                               |
-           +---- selected keyframes / object crops --------+
+           +---- hashed raw keyframes / event clips -------+
                                                            v
                                             prompt and evidence builder
                                                            v
@@ -29,6 +29,19 @@ video -> detector -> tracker -> deterministic analytics -> structured events
 The detector remains the source of numeric counts and trajectories. The
 reasoning model cannot invent measurements, infer an accident without an
 explicit evidence policy, or override safety-critical deterministic rules.
+
+## Implemented evidence boundary
+
+The current Stage 3 implementation stops before model inference. A configurable
+offline selector links each eligible deterministic event to a raw source
+keyframe and, for congestion transitions, a bounded pre/post clip. The
+`evidence.jsonl` manifest records source frame/time, relative paths, dimensions,
+clip bounds, and SHA-256 hashes. This makes the future prompt/VLM input frozen
+and auditable without treating visual selection as a semantic conclusion.
+
+Line crossings receive keyframes only by default to avoid producing many nearly
+redundant clips. No caption, incident label, severity judgment, or natural-
+language claim is generated at this stage.
 
 ## RTX 3050 scheduling constraint
 
@@ -66,4 +79,3 @@ traffic visual-question/description set and image-conditioned correctness.
 Until a labeled reasoning benchmark exists, LLM/VLM integration is an
 engineering contribution and its quality fields remain `TBD`. A fluent demo is
 not evidence that quantization preserves reasoning quality.
-

@@ -80,6 +80,48 @@ crossings, unique track IDs, `max_bbox_union_occupancy`, maximum ROI track
 count, raster grid size, and an explicit claim boundary. Counts may be biased
 by tracker ID switches or track fragmentation.
 
+## `evidence.jsonl` and `evidence/`
+
+Evidence schema version 1 links deterministic events to raw visual inputs for a
+later VLM stage. Evidence extraction is an offline post-process after
+`events.jsonl` is closed; it does not invoke a VLM or alter analytics results.
+
+```json
+{
+  "schema_version": 1,
+  "evidence_id": "evidence-event-000004",
+  "event_id": "event-000004",
+  "event_type": "congestion_transition",
+  "source_frame_index": 53,
+  "source_timestamp_s": 2.12,
+  "keyframe": {
+    "path": "evidence/frames/event-000004.jpg",
+    "frame_index": 53,
+    "width": 1920,
+    "height": 1080,
+    "sha256": "..."
+  },
+  "clip": {
+    "path": "evidence/clips/event-000004.mp4",
+    "start_frame": 3,
+    "end_frame": 128,
+    "start_s": 0.12,
+    "end_s": 5.12,
+    "frame_count": 126,
+    "fps": 25.0,
+    "sha256": "..."
+  }
+}
+```
+
+The default policy writes a raw JPEG keyframe for `line_crossing` and
+`congestion_transition`, but writes a pre/post clip only for congestion
+transitions. Clip bounds are clamped to the processed video span. Files are
+content-hashed, event IDs are validated before becoming filenames, and the
+manifest is replaced atomically. Raw evidence intentionally contains no
+detection overlay; structured analytics remain available separately in the
+event and timeline artifacts.
+
 ## `run.json`
 
 The run manifest is written with `status: running` before frame processing and
@@ -91,6 +133,7 @@ Stable top-level fields are:
 - start/completion/failure timestamps;
 - resolved source, model, and config paths;
 - source video properties and perception parameters;
+- the evidence-selection policy and evidence export summary;
 - relative artifact paths;
 - processed-frame, track-row, and event counts;
 - elapsed time and end-to-end processing FPS;

@@ -20,6 +20,17 @@ video:
 output:
   root: output/pipeline
 
+# Deterministic raw evidence for later VLM/LLM stages. Every event receives a
+# keyframe; only congestion transitions receive a temporal clip by default.
+evidence:
+  enabled: true
+  keyframe_event_types: [line_crossing, congestion_transition]
+  clip_event_types: [congestion_transition]
+  pre_event_s: 2
+  post_event_s: 3
+  jpeg_quality: 90
+  clip_codec: mp4v
+
 # Initial demo-calibrated geometry and thresholds. They are normalized/configurable
 # defaults, not production calibration for a new camera or viewpoint.
 analytics:
