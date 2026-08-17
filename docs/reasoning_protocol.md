@@ -69,8 +69,66 @@ commit.
 
 ## Annotation and metrics
 
-Before model comparison, two reviewers should independently annotate each
-case, then adjudicate disagreements. The annotation guide must distinguish:
+Two independent pending templates and a local-media index are checked in under
+`manifests/reasoning/evidence_eval_v1/annotations/`. Reviewer A and reviewer B
+must work in separate files without reading the other reviewer's answers.
+
+Each record uses annotation schema version 1:
+
+| Field | Allowed value or rule |
+|---|---|
+| `annotation_status` | Keep `pending` while editing; set `complete` only after every field is reviewed |
+| `evidence_quality` | `clear`, `partial`, or `poor` |
+| `visible_density` | `low`, `medium`, `high`, or `uncertain`; visual image-plane judgment only |
+| `visible_classes` | Unique values from pedestrian, car, motorcycle, bus, truck, other |
+| `event_visual_support` | `supported`, `not_supported`, or `insufficient` |
+| `incident_status` | `observed`, `not_observed`, or `uncertain` |
+| `incident_category` | none, collision, stalled_vehicle, road_hazard, or other |
+| `observations_vi` | One or more directly visible Vietnamese observations |
+| `reference_summary_vi` | Conservative Vietnamese reference summary combining event and visible evidence |
+| `required_limitations_vi` | One or more limitations the generated answer should disclose |
+| `notes_vi` | Optional reviewer/adjudication note |
+
+`not_observed` must use incident category `none`. Do not translate pixel speed
+to km/h, infer a collision or congestion cause from vehicle density, or treat a
+single line-crossing keyframe as proof of direction. `review_index.csv` maps
+each case to its local keyframe/clip and deterministic event JSON.
+
+The templates are created once with:
+
+```powershell
+python scripts/reasoning/manage_annotations.py prepare `
+  --lock manifests/reasoning/evidence_eval_v1/input_lock.json `
+  --output-dir manifests/reasoning/evidence_eval_v1/annotations `
+  --reviewers reviewer_a reviewer_b
+```
+
+The command refuses to overwrite existing annotation files. After a reviewer
+sets all 14 rows to `complete`, validate independently:
+
+```powershell
+python scripts/reasoning/manage_annotations.py validate `
+  --lock manifests/reasoning/evidence_eval_v1/input_lock.json `
+  --annotations manifests/reasoning/evidence_eval_v1/annotations/reviewer_a.jsonl `
+  --require-complete
+```
+
+Repeat for reviewer B, then create—not resolve—the adjudication queue:
+
+```powershell
+python scripts/reasoning/manage_annotations.py compare `
+  --lock manifests/reasoning/evidence_eval_v1/input_lock.json `
+  --first manifests/reasoning/evidence_eval_v1/annotations/reviewer_a.jsonl `
+  --second manifests/reasoning/evidence_eval_v1/annotations/reviewer_b.jsonl `
+  --output manifests/reasoning/evidence_eval_v1/annotations/adjudication.json
+```
+
+Every case enters the queue because free-text references require human
+adjudication even when categorical fields agree. The tool reports categorical
+disagreements but never chooses a winner automatically.
+
+Before model comparison, the two reviewers must annotate every case and an
+adjudicator must resolve the queue. The review must distinguish:
 
 - directly visible observations from deterministic event fields;
 - supported, unsupported, and uncertain incident claims;

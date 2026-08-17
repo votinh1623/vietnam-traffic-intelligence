@@ -94,7 +94,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
-| VLM/LLM reasoning contract | Evaluation inputs locked; validators implemented; human annotations pending | [Reasoning protocol](docs/reasoning_protocol.md) |
+| VLM/LLM reasoning contract | Inputs locked; two-reviewer templates and validators ready; annotations pending | [Reasoning protocol](docs/reasoning_protocol.md) |
 | VLM/LLM model inference | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
 
 No locked-test metric is reported while model, threshold, tracker, prompt, or
@@ -509,6 +509,7 @@ The full measurement contract is defined in
 - [x] Add deterministic event keyframe/clip evidence selection.
 - [x] Remove codec-dependent random seeking and add evidence provenance hashes.
 - [x] Freeze VLM/LLM evaluation inputs and add JSON/prompt contract v1.
+- [x] Add two-reviewer annotation templates, validation, and adjudication queue tooling.
 - [ ] Add and adjudicate human reference annotations for reasoning evaluation v1.
 - [ ] Add event-driven VLM and LLM modules.
 - [ ] Export and benchmark detector FP16/INT8 candidates.
