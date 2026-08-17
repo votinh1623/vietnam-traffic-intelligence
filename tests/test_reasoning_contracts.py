@@ -104,6 +104,11 @@ class ReasoningContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "unknown evidence"):
             validate_vlm_assessment(invalid, request)
 
+        invalid = copy.deepcopy(assessment)
+        invalid["observations"][0]["confidence"] = 0
+        with self.assertRaisesRegex(ContractError, "greater than zero"):
+            validate_vlm_assessment(invalid, request)
+
     def test_rejects_relaxed_safety_constraint(self) -> None:
         request = valid_request()
         request["constraints"]["infer_event_cause"] = True

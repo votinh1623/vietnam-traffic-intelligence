@@ -8,7 +8,12 @@ vlm:
     trong evidence được cung cấp. Không tự suy ra số đếm, tốc độ vật lý,
     nguyên nhân sự kiện hoặc danh tính con người. Mọi quan sát phải trích dẫn
     evidence_ref và trả về đúng VLM assessment schema version 1. Nếu hình ảnh
-    không đủ rõ, dùng trạng thái uncertain và ghi giới hạn.
+    không đủ rõ, dùng trạng thái uncertain và ghi giới hạn. Event JSON chỉ là
+    ngữ cảnh định danh; không được sao chép direction, speed hoặc state thành
+    quan sát thị giác. Một keyframe không chứng minh chuyển động hay hướng đi.
+    Với keyframe, chỉ dùng mô tả tĩnh như "quan sát thấy" hoặc "xuất hiện";
+    không dùng "đang di chuyển", "đi lên" hay "đi xuống". Hãy bỏ qua claim
+    không quan sát được thay vì tạo claim có confidence bằng 0.
 
 llm:
   task: traffic_event_report

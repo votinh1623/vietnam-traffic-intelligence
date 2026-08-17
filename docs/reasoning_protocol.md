@@ -79,8 +79,12 @@ commit.
 `Qwen/Qwen3-VL-2B-Instruct` for visual assessment and `Qwen/Qwen3-1.7B` for
 Vietnamese report generation. Both are upstream Qwen Apache-2.0 checkpoints;
 the text model advertises multilingual support across more than 100 languages.
-The local Transformers 5.14.1 environment can host adapters for these model
-families, but neither artifact is downloaded yet.
+The local Transformers 5.14.1 environment now hosts the pinned VLM artifact;
+the LLM artifact is not downloaded yet. The VLM repository contains
+4,266,648,961 bytes across 12 hashed files. Its weight file SHA-256 is
+`7de1838c87a5349b016c26a1c3f7d2bc400a3d485f95ef39a7059ffd734977a0`;
+the full local file manifest is
+`manifests/models/qwen3-vl-2b-instruct.json`.
 
 The two models must load, run, and unload sequentially because concurrent
 residency is not assumed to fit the RTX 3050 6 GB. FP16 is the reference path;
@@ -88,6 +92,21 @@ INT8/INT4 remains a later measured comparison. Before the first download, the
 resolved immutable Hugging Face revision must replace `revision: null` and be
 recorded with artifact hashes. Model IDs, expected parameter counts, or vendor
 benchmarks are not local memory/latency evidence.
+
+The first development case exposed a grounding failure: when the full event
+JSON was placed in the visual prompt, the model copied `direction: down` into
+an image claim and contradicted itself in limitations. Prompt-only warnings did
+not remove the behavior. The runtime now gives the VLM only event identity
+fields and withholds class, direction, measurements, and congestion state;
+full deterministic data remains available to the later LLM boundary. A
+keyframe-only grounding gate also rejects motion phrases.
+
+After this correction, one FP16 keyframe smoke generated contract-valid,
+static Vietnamese observations. One measured generation took 32.58 seconds
+and peaked at 5,683,444,224 allocated VRAM bytes. This single cold-process run
+only proves load/generate/validate feasibility. It is not a latency
+distribution, quality result, or evidence that FP16 leaves enough headroom for
+concurrent detector execution.
 
 Primary model cards:
 

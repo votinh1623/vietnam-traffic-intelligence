@@ -1,5 +1,5 @@
 schema_version: 1
-status: artifacts_not_downloaded
+status: vlm_fp16_smoke_passed_llm_not_downloaded
 split: development
 input_lock: manifests/reasoning/evidence_dev_v1/input_lock.json
 artifact_root: output/pipeline/run16
@@ -9,7 +9,8 @@ execution_policy: sequential_load_run_unload
 # before downloading or benchmarking; model IDs alone are not provenance.
 vlm:
   model_id: Qwen/Qwen3-VL-2B-Instruct
-  revision: null
+  revision: 89644892e4d85e24eaac8bacfd4f463576704203
+  expected_repository_bytes: 4266648961
   backend: transformers
   dtype: float16
   input_policy: keyframe_first
@@ -18,7 +19,8 @@ vlm:
 
 llm:
   model_id: Qwen/Qwen3-1.7B
-  revision: null
+  revision: 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+  expected_repository_bytes: 4079450110
   backend: transformers
   dtype: float16
   thinking: false
@@ -29,5 +31,6 @@ generation:
   seed: 0
 
 claim_boundary: >-
-  Candidate configuration only. No model artifact has been downloaded, loaded,
-  quantized, or benchmarked; fit, quality, latency, and memory remain TBD.
+  The pinned VLM artifact passed one development-case FP16 execution and
+  contract smoke test. This is not a quality or latency benchmark. The LLM is
+  not downloaded; quantization, broader quality, and performance remain TBD.

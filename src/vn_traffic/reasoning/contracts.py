@@ -237,7 +237,13 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
             name=f"observations[{index}]",
         )
         _nonempty_text(observation["claim_vi"], f"observations[{index}].claim_vi")
-        _confidence(observation["confidence"], f"observations[{index}].confidence")
+        confidence = _confidence(
+            observation["confidence"], f"observations[{index}].confidence"
+        )
+        if confidence == 0:
+            raise ContractError(
+                f"observations[{index}].confidence must be greater than zero"
+            )
         refs = _string_list(
             observation["evidence_refs"],
             f"observations[{index}].evidence_refs",
