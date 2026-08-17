@@ -45,6 +45,3 @@ Thumbs.db
 experiments/*/artifacts/
 experiments/*/logs/
 benchmark_outputs/
-
-# Local reference repository is read-only and has its own history/license
-/reference/

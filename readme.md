@@ -421,7 +421,7 @@ commercial use.
 ## Acknowledgements
 
 This project uses Ultralytics YOLO, PyTorch, OpenCV, pandas, motmetrics,
-VisDrone, Roboflow-assisted labeling, and ByteTrack concepts. The local
-reference repository informed documentation structure and edge-readiness
-direction; no claim is made that this project reproduces its physical NPU
-results.
+VisDrone, Roboflow-assisted labeling, and ByteTrack concepts. Physical NPU
+results from third-party projects are not treated as evidence for this system;
+all deployment claims in this repository require measurements from its own
+artifacts and declared hardware.
