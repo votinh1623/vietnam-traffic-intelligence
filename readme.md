@@ -37,8 +37,7 @@ This repository therefore separates four concerns:
 |---|---|---|
 | Image and video detection | YOLOv8, five Vietnamese traffic classes | Implemented |
 | Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; evaluator repaired, v5 benchmark pending |
-| Traffic density routing | Preprocessing module under `src/preprocessing` | Prototype |
-| Structured traffic analytics | ROI occupancy, trajectories, directional counts, and congestion events | Implemented; initial two-video acceptance passed |
+| Structured traffic analytics | Bbox-union ROI coverage, trajectories, directional counts, and congestion events | Implemented; initial two-video acceptance passed |
 | Event evidence selection | Raw keyframes for deterministic events and clips for congestion transitions | Implemented; two-video acceptance passed |
 | VLM scene understanding | Representative frames or event clips, not every frame | Architecture defined |
 | LLM reasoning and reports | Event-driven summaries using structured analytics plus VLM evidence | Architecture defined |
@@ -199,9 +198,9 @@ small motorcycles, dense traffic, pedestrians, and failure cases. -->
 
 ## Tracking and analytics
 
-ByteTrack is available through `src/detection/tracker.py` and
-`bytetrack_custom.yaml`. Historical files named `tracking_metrics_*.csv` must
-not be used as reported results: the original evaluator inverted an already
+ByteTrack is integrated through `src/vn_traffic/perception.py` and
+`bytetrack_custom.yaml`. Historical `tracking_metrics_*.csv` outputs were
+removed from the active workspace: the original evaluator inverted an already
 distance-form IoU matrix and therefore produced invalid associations.
 
 The repaired evaluator now uses `1-IoU` directly, applies the configured IoU
@@ -321,13 +320,11 @@ FP32, FP16, and INT8 after export benchmarks exist. -->
 |   |-- data/                # audit, materialization, overlap, and lock tools
 |   |-- train/               # provenance-aware detector training
 |   |-- detect.py            # image, directory, and video inference
-|   `-- ...                  # legacy experiment/evaluation scripts
+|   |-- tracking_metrics.py  # tested MOT metric implementation
+|   `-- evaluate_tracking.py # tracking evaluation CLI
 |-- src/
-|   |-- detection/           # detector and tracker modules
-|   |-- preprocessing/       # density-routing prototype
-|   |-- vn_traffic/          # new single-model offline pipeline package
-|   `-- pipeline.py          # current pipeline entry point
-|-- tests/                   # unit tests for dataset and training safeguards
+|   `-- vn_traffic/          # single-model pipeline, analytics, and evidence
+|-- tests/                   # dataset, metrics, pipeline, and analytics tests
 |-- detect.py                # backward-compatible root CLI
 |-- run_pipeline.py          # repository-local MVP pipeline CLI
 |-- environment.yml          # audited Conda environment
@@ -336,7 +333,12 @@ FP32, FP16, and INT8 after export benchmarks exist. -->
 ```
 
 Large datasets, model weights, generated videos, and runtime outputs are kept
-outside version control.
+outside version control. The local workspace retains the audited v2 source,
+superseded v4 provenance set, current v5 dataset, required baseline/v5
+checkpoints, and latest run13-run14 acceptance outputs. Temporary extraction
+sets, superseded smoke/finetune runs, invalid analytics runs, and legacy output
+videos are intentionally removed after their lightweight manifests or findings
+have been recorded.
 
 ## Quick start
 
@@ -446,8 +448,8 @@ The full measurement contract is defined in
   and test pedestrians.
 - The current locked test covers the available sources; broader geographic,
   weather, night, altitude, and camera-motion coverage is still required.
-- Tracking metrics currently stored at repository root are invalid and retained
-  only as historical artifacts.
+- Legacy tracking CSV outputs were invalid and have been removed; a
+  provenance-controlled v5 tracking benchmark is still pending.
 - Traffic speed requires camera calibration or a documented approximation.
 - The initial congestion thresholds are calibrated on only two demo clips at
   their current resolutions; bbox-union coverage and pixel-speed thresholds may

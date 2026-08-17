@@ -112,7 +112,7 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="runs/detect/finetune/vietnam_v2/weights/best.pt",
+        default="runs/detect/research/yolov8s_v5_seed0/weights/best.pt",
         help="Path to YOLO model weights",
     )
     parser.add_argument("--imgsz", type=int, default=1280, help="Inference image size")
