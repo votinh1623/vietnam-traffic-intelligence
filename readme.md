@@ -93,7 +93,8 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Deterministic analytics state machine | Synthetic tests and bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
 | Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
-| Event evidence selector | Sequential no-seek exporter implemented; 39-test suite and two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
+| Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
+| VLM/LLM reasoning contract | Evaluation inputs locked; validators implemented; human annotations pending | [Reasoning protocol](docs/reasoning_protocol.md) |
 | VLM/LLM model inference | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
 
 No locked-test metric is reported while model, threshold, tracker, prompt, or
@@ -292,6 +293,14 @@ decoded frame.
 This stage performs selection and packaging only. It makes no caption,
 incident, severity, or causal claim; VLM/LLM quality remains unmeasured.
 
+Reasoning evaluation v1 freezes all 14 run15 evidence records under lock
+SHA-256 `ecfd9a1e44ae1be4991f5e87dbf65d3ce9e42c4185a00db782e728258673d18b`.
+Versioned VLM/LLM contracts enforce known evidence citations, immutable
+deterministic numbers, and explicit uncertainty. The input lock is complete,
+but human reference annotations are still pending, so no reasoning-model or
+quantization quality result is claimed. See the
+[reasoning protocol](docs/reasoning_protocol.md).
+
 | Metric | Current status |
 |---|---|
 | HOTA | Pending TrackEval integration |
@@ -329,18 +338,23 @@ FP32, FP16, and INT8 after export benchmarks exist. -->
 .
 |-- configs/
 |   |-- datasets/            # audited dataset metadata
-|   `-- experiments/         # reproducible experiment definitions
+|   |-- experiments/         # reproducible experiment definitions
+|   |-- pipeline/            # offline-video runtime configuration
+|   `-- reasoning/           # versioned VLM/LLM prompts
 |-- docs/                    # protocols, architecture, and environment evidence
 |-- experiments/             # lightweight run manifests and hashes
-|-- manifests/datasets/      # leakage audits and locked-test manifests
+|-- manifests/
+|   |-- datasets/            # leakage audits and detector test locks
+|   `-- reasoning/           # content-addressed VLM/LLM input locks
 |-- scripts/
 |   |-- data/                # audit, materialization, overlap, and lock tools
+|   |-- reasoning/           # content-addressed evidence-set tooling
 |   |-- train/               # provenance-aware detector training
 |   |-- detect.py            # image, directory, and video inference
 |   |-- tracking_metrics.py  # tested MOT metric implementation
 |   `-- evaluate_tracking.py # tracking evaluation CLI
 |-- src/
-|   `-- vn_traffic/          # single-model pipeline, analytics, and evidence
+|   `-- vn_traffic/          # perception, analytics, evidence, reasoning contracts
 |-- tests/                   # dataset, metrics, pipeline, and analytics tests
 |-- detect.py                # backward-compatible root CLI
 |-- run_pipeline.py          # repository-local MVP pipeline CLI
@@ -494,7 +508,8 @@ The full measurement contract is defined in
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
 - [x] Add deterministic event keyframe/clip evidence selection.
 - [x] Remove codec-dependent random seeking and add evidence provenance hashes.
-- [ ] Freeze the VLM/LLM evidence evaluation set and JSON/prompt contract.
+- [x] Freeze VLM/LLM evaluation inputs and add JSON/prompt contract v1.
+- [ ] Add and adjudicate human reference annotations for reasoning evaluation v1.
 - [ ] Add event-driven VLM and LLM modules.
 - [ ] Export and benchmark detector FP16/INT8 candidates.
 - [ ] Quantize and benchmark the selected VLM and LLM.

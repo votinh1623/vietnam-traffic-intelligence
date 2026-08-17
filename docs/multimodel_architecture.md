@@ -46,6 +46,12 @@ Line crossings receive keyframes only by default to avoid producing many nearly
 redundant clips. No caption, incident label, severity judgment, or natural-
 language claim is generated at this stage.
 
+The next boundary is implemented without loading a model: reasoning contract
+version 1 builds separate VLM and LLM requests, validates evidence citations,
+and rejects any numeric fact that differs from its deterministic event source.
+The source-disjoint evaluation input lock and no-tuning rules are documented in
+`reasoning_protocol.md`; human reference annotations remain pending.
+
 ## RTX 3050 scheduling constraint
 
 Six GB of VRAM is not enough to assume that a 1280-pixel detector and a useful

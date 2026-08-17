@@ -1,0 +1,619 @@
+{
+  "schema_version": 1,
+  "reasoning_contract_schema_version": 1,
+  "set_id": "vietnam_traffic_reasoning_eval_v1",
+  "split": "evaluation",
+  "status": "inputs_frozen_annotations_pending",
+  "selection_policy": "all evidence records from the declared run",
+  "artifact_policy": "media stays local; paths resolve under the source run and hashes are authoritative",
+  "source": {
+    "run_id": "run15",
+    "video_name": "traffic_jam.mp4",
+    "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+    "frames_processed": 283,
+    "events_jsonl_sha256": "0da380d21275d4591cebf8fda513216793e1a85db45956329236328cdef9e277",
+    "evidence_jsonl_sha256": "b617755ad8f265b2337dfcc0ba4310500bb147e6b21b6c2636f58a4f31b6ead4"
+  },
+  "case_count": 14,
+  "cases": [
+    {
+      "case_id": "evaluation-0001",
+      "event_sha256": "d91237153a4babd13fcee6f5e1c2c913120cea6944405c56d66e2c0489840fb0",
+      "evidence_sha256": "9e65f28a7b910b7301e7c5a67db29cf9ceaed798f962433d354e901e67a2f522",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000001",
+        "event_type": "line_crossing",
+        "timestamp_s": 0.68,
+        "frame_index": 17,
+        "track_id": 32,
+        "class_id": 2,
+        "class_name": "motorcycle",
+        "direction": "down",
+        "measurements": {
+          "speed_px_s": 49.875004726254055
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000001",
+        "event_id": "event-000001",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 17,
+        "source_timestamp_s": 0.68,
+        "keyframe": {
+          "path": "evidence/frames/event-000001.jpg",
+          "frame_index": 17,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "248c85851f0ce0d986b5d9cf17e3c1aa4f355f2c938f5e5ee1292925ee55ed47",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "93d1e84208f169266b43f251733ce51b33a0cf7d41887980ed943c108ebbf9b7"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0002",
+      "event_sha256": "9f96b693d215f7a019595edb582b00068dd9861efc3d3f57ecdad674e64762e1",
+      "evidence_sha256": "654b33d23a902f1bb16251e998fa125cd3f1e442701814d53bda6cd3e7eba736",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000002",
+        "event_type": "line_crossing",
+        "timestamp_s": 0.72,
+        "frame_index": 18,
+        "track_id": 68,
+        "class_id": 2,
+        "class_name": "motorcycle",
+        "direction": "down",
+        "measurements": {
+          "speed_px_s": 46.30664736504828
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000002",
+        "event_id": "event-000002",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 18,
+        "source_timestamp_s": 0.72,
+        "keyframe": {
+          "path": "evidence/frames/event-000002.jpg",
+          "frame_index": 18,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "dc924c63f48613ac3a0a903117f0b6a203b1eb574c38de5cb61f33e325cf74da",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "0fcd459964cd4d450af24ae4921ac081a6ce72c8d5e1bed21fffc96987cbbcd1"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0003",
+      "event_sha256": "86731507baa4a645ce55255ab94185a5631829a3c814e785c7c278ae41836b87",
+      "evidence_sha256": "b79bd9d411e4af0de029824c9e0cd45a5f338f0301567fff09582658631ab33d",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000003",
+        "event_type": "line_crossing",
+        "timestamp_s": 1.76,
+        "frame_index": 44,
+        "track_id": 61,
+        "class_id": 2,
+        "class_name": "motorcycle",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 63.76509515921469
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000003",
+        "event_id": "event-000003",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 44,
+        "source_timestamp_s": 1.76,
+        "keyframe": {
+          "path": "evidence/frames/event-000003.jpg",
+          "frame_index": 44,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "043928e31a2f038185d431d023c90c8541e17401ef1de06ff5b20db75ec4ee01",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "f9adb3cb8f565e7d9ba5f07463025b1dfbdd445e98f1fa3c7ed3e997134de8dd"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0004",
+      "event_sha256": "32887ce827b67569a86cd0505737221365b9ceb1ba3b695af1e6349ad2b79be0",
+      "evidence_sha256": "a7845311dfefa307842e310fab682a28a563d2793be7f0627d09ccd397312cc5",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000004",
+        "event_type": "congestion_transition",
+        "timestamp_s": 2.04,
+        "frame_index": 51,
+        "previous_state": "NORMAL",
+        "current_state": "CONGESTED",
+        "measurements": {
+          "bbox_union_occupancy": 0.7086350282770204,
+          "roi_track_count": 41,
+          "mean_speed_px_s": 42.555817185409204
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000004",
+        "event_id": "event-000004",
+        "event_type": "congestion_transition",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 51,
+        "source_timestamp_s": 2.04,
+        "keyframe": {
+          "path": "evidence/frames/event-000004.jpg",
+          "frame_index": 51,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "e1a34a68988e59f5a5f5a2a350572c070f36d7de3cf455d556db20792aa17f0c",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "6cf19d6ed8ebb3b5a5b9b6e11e241c97510ce6c0d50ed7e576124c5b51d99c72"
+        },
+        "clip": {
+          "path": "evidence/clips/event-000004.mp4",
+          "start_frame": 1,
+          "end_frame": 126,
+          "start_s": 0.04,
+          "end_s": 5.04,
+          "frame_count": 126,
+          "fps": 25.0,
+          "sha256": "516cfc88cbef4ce1167c1b3bddf4678189b62a5203bc22d744e45bf6b0918816"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0005",
+      "event_sha256": "8d10af3ec3239dbad870b8bdac09812f172cb7411713e632e5c2543038feb285",
+      "evidence_sha256": "820483956a1c5de33d21f8a5cf69b3a303492a2848a76e08a7d57fa6bf0daff7",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000005",
+        "event_type": "line_crossing",
+        "timestamp_s": 2.08,
+        "frame_index": 52,
+        "track_id": 68,
+        "class_id": 2,
+        "class_name": "motorcycle",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 275.07690286172704
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000005",
+        "event_id": "event-000005",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 52,
+        "source_timestamp_s": 2.08,
+        "keyframe": {
+          "path": "evidence/frames/event-000005.jpg",
+          "frame_index": 52,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "940d8c8d07ae58a32d3d48d74f42583a0af9811146231ba87b81858bf42d8660",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "5702c6523801c04bcb1a22cf8552c5f99e897cbce5aea18ce1df87a7375dcfa3"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0006",
+      "event_sha256": "ade333bef6a8ec0a7bfa3ce68c9886266919f2c5637f8536899a5b0d25540776",
+      "evidence_sha256": "127d2cff1a7518e66406b162f04f972b04df6e54103139bfffaad71f2c5a17f0",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000006",
+        "event_type": "line_crossing",
+        "timestamp_s": 2.32,
+        "frame_index": 58,
+        "track_id": 32,
+        "class_id": 2,
+        "class_name": "motorcycle",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 47.495742842020526
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000006",
+        "event_id": "event-000006",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 58,
+        "source_timestamp_s": 2.32,
+        "keyframe": {
+          "path": "evidence/frames/event-000006.jpg",
+          "frame_index": 58,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "5e53df20550358e594ba567f52702aead6a6c7c4349ffd905617d52122065db4",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "94abc7ae57b79ab08b774c513ca23e1590c83e2f3d97a61f34a6311c536a62ee"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0007",
+      "event_sha256": "7ea69d2277e51eb0991067731ee1b12ba5b9faf97f86092759c6f506d1e7820f",
+      "evidence_sha256": "82150a0fb42ec03f9d9fff09ec6bd095492ac85905a81ead35602016a7aa4345",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000007",
+        "event_type": "line_crossing",
+        "timestamp_s": 8.12,
+        "frame_index": 203,
+        "track_id": 269,
+        "class_id": 2,
+        "class_name": "motorcycle",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 97.48490250398501
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000007",
+        "event_id": "event-000007",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 203,
+        "source_timestamp_s": 8.12,
+        "keyframe": {
+          "path": "evidence/frames/event-000007.jpg",
+          "frame_index": 203,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "1b52194e62237fa40eedded8789a05fde1c8dabe9293a881a9d65f15ba49b3e0",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "6fef4af0a9a91a979be0095c70b0e519332922437d8497a1b349ddadf8e8cb11"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0008",
+      "event_sha256": "a0b4fcb95d79616f10aad76ba620fac13666ff106a289c5976ab465e305fe55f",
+      "evidence_sha256": "7e9e369f262d6337e77e6a91a7f9f436d08cd602cc2fd52169cf26f6740e01bd",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000008",
+        "event_type": "line_crossing",
+        "timestamp_s": 8.32,
+        "frame_index": 208,
+        "track_id": 3,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 131.0865105734753
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000008",
+        "event_id": "event-000008",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 208,
+        "source_timestamp_s": 8.32,
+        "keyframe": {
+          "path": "evidence/frames/event-000008.jpg",
+          "frame_index": 208,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "06441a6f1f7d7c3eaed8810be54024695dcc0aede2eae81947835076a1ecb4bb",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "07a6b4c42a1ee0742e1ec31449476e0b2227f8a71178ac79cf8b22b94f7c1b97"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0009",
+      "event_sha256": "03763f1c2a3b080e50b30da6684ba9c251710e3fb69828c2b5c33ef20a2db804",
+      "evidence_sha256": "590d5b8efb474973ba37c0054c427dafba0da0fa8ef094f9c0f471f482d3c261",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000009",
+        "event_type": "line_crossing",
+        "timestamp_s": 8.64,
+        "frame_index": 216,
+        "track_id": 15,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 109.44511616575927
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000009",
+        "event_id": "event-000009",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 216,
+        "source_timestamp_s": 8.64,
+        "keyframe": {
+          "path": "evidence/frames/event-000009.jpg",
+          "frame_index": 216,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "5bd57f3ee9ad7f561e8f039bda7052c13bf9e74f52bd29133bcd98b90ed6b108",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "33fcf0c00c840edbdee544e1b989bfd0a4c3101ad488ef7a0483d0e89e56710f"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0010",
+      "event_sha256": "3e0d10d4588ac08f94f2824488d8d68fe66cd9e27322e8766449f224df919272",
+      "evidence_sha256": "6961ec083fff6290303ebb8e17eb0bb11abcfeb745c8f34b9164e503bf41e9e5",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000010",
+        "event_type": "line_crossing",
+        "timestamp_s": 9.04,
+        "frame_index": 226,
+        "track_id": 1,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 228.0502349007697
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000010",
+        "event_id": "event-000010",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 226,
+        "source_timestamp_s": 9.04,
+        "keyframe": {
+          "path": "evidence/frames/event-000010.jpg",
+          "frame_index": 226,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "6d80c5c621229fdeed5b5145e117ed602ac22e544994bdef82b33cfabc2759b8",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "3e2d1725eaebc4a18be360afde6d6c737c2926c03385b944ea456802541b5999"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0011",
+      "event_sha256": "b00d358bbe5e809fef514ad04e9ca76c26750624600c018c3ce03952b1a4be9a",
+      "evidence_sha256": "0b5b3b89db11cd3f8e5f89f47bf5ecf614b9a95d3bcc373bf791499365b62348",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000011",
+        "event_type": "line_crossing",
+        "timestamp_s": 9.28,
+        "frame_index": 232,
+        "track_id": 7,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 123.5747014943034
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000011",
+        "event_id": "event-000011",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 232,
+        "source_timestamp_s": 9.28,
+        "keyframe": {
+          "path": "evidence/frames/event-000011.jpg",
+          "frame_index": 232,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "bb64baa91ec4b82bf50f94baf9c521929707dcda542c705501070c0bd4fb4474",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "995726f262afc149955531ec7e569cac3f11455d9549fca63abc1abb66212498"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0012",
+      "event_sha256": "b3cfa0c3e2880c52ad6789ae92d7023f0bfc7332035bf01e223d744cdb8aa305",
+      "evidence_sha256": "b8f9682f5d01941274982479747da7a44b4dfabe3a5efb097eee810e79cfc3a6",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000012",
+        "event_type": "line_crossing",
+        "timestamp_s": 9.64,
+        "frame_index": 241,
+        "track_id": 13,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 108.78048887938488
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000012",
+        "event_id": "event-000012",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 241,
+        "source_timestamp_s": 9.64,
+        "keyframe": {
+          "path": "evidence/frames/event-000012.jpg",
+          "frame_index": 241,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "6ec339bffeff7cdb9944697de5c8c19172c7901a0e0ed7aa6c6a0aa8b444a8b0",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "9c4f80dd2b7de82ac71158e4c2a79736155e4df652980eca58dc0b5b011da649"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0013",
+      "event_sha256": "7365e2df7617ce13c0a365a2f0fab67c1224441316b5233bfb24a8e12b6b7ea1",
+      "evidence_sha256": "1b3da238d250df54d319604702c0329ec2697bd33c2ee9e61de5d5598a28d35d",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000013",
+        "event_type": "line_crossing",
+        "timestamp_s": 10.24,
+        "frame_index": 256,
+        "track_id": 54,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 54.116612456946925
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000013",
+        "event_id": "event-000013",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 256,
+        "source_timestamp_s": 10.24,
+        "keyframe": {
+          "path": "evidence/frames/event-000013.jpg",
+          "frame_index": 256,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "73bab916e51b0f56a924091ee7029fe2a1348b725582d0740d4401c8fab0b2f1",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "cde727d33456579b4c4b2a6a660258f777d2cddbc97d5ed5c3a648996c821cb1"
+        }
+      }
+    },
+    {
+      "case_id": "evaluation-0014",
+      "event_sha256": "0e34f77c11a959d7c609598d3f5d70ba3c258c74f3bed4f90122f354a762fced",
+      "evidence_sha256": "e432377ee2910c6b49858f531102761e71d78f45c2b7ec6f4a4eaa4ae57cd5a3",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000014",
+        "event_type": "line_crossing",
+        "timestamp_s": 10.28,
+        "frame_index": 257,
+        "track_id": 5,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 96.57480836750298
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000014",
+        "event_id": "event-000014",
+        "event_type": "line_crossing",
+        "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+        "source_frame_index": 257,
+        "source_timestamp_s": 10.28,
+        "keyframe": {
+          "path": "evidence/frames/event-000014.jpg",
+          "frame_index": 257,
+          "width": 1920,
+          "height": 1080,
+          "raw_bgr_sha256": "21098b66e21113919dad19d26de01f4f9870158f3b78c9b46f4a9ecf342a340f",
+          "raw_shape": [
+            1080,
+            1920,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "ac6fbbaf69e1ee6534d31443eca43c76284e7d7dd4c540e9be2463b1d55dde34"
+        }
+      }
+    }
+  ],
+  "lock_sha256": "ecfd9a1e44ae1be4991f5e87dbf65d3ce9e42c4185a00db782e728258673d18b"
+}

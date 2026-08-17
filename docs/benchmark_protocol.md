@@ -31,6 +31,12 @@ motorcycle AP. Tracking uses HOTA, DetA, AssA, IDF1, MOTA, ID switches, and
 fragmentation. LLM/VLM quality uses a task-specific frozen evaluation set,
 numeric fidelity, and unsupported-claim rate.
 
+Reasoning input v1 and its no-tuning boundary are defined in
+`docs/reasoning_protocol.md`. Schema validity, evidence citations, numeric
+fidelity, and traffic-state fidelity are automatic gates. Human annotations
+are still required before supported-claim precision, incident accuracy,
+summary correctness, or quantization parity can be reported.
+
 ## Tracking evaluation status
 
 The local motmetrics evaluator is valid for CLEAR MOT and identity metrics
