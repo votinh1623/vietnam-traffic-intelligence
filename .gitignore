@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.ultralytics/
+Ultralytics/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local data and large artifacts
+datasets/
+models/
+runs/
+output/
+output_*/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.plan
+*.trt
+*.dlc
+*.bin
+*.gguf
+*.safetensors
+*.mp4
+*.MP4
+*.avi
+*.mov
+*.mkv
+/result.jpg
+/test_image.jpg
+/tracking_metrics*.csv
+
+# Generated research outputs (small manifests and documentation remain tracked)
+experiments/*/artifacts/
+experiments/*/logs/
+benchmark_outputs/
+
+# Local reference repository is read-only and has its own history/license
+reference/
