@@ -14,6 +14,7 @@ from vn_traffic.reasoning.annotations import (  # noqa: E402
     build_adjudication_queue,
     build_annotation_template,
     build_review_index,
+    validate_adjudication_queue,
     validate_annotation_set,
 )
 
@@ -96,10 +97,31 @@ class ReasoningAnnotationTests(unittest.TestCase):
 
         self.assertEqual(queue["case_count"], 14)
         self.assertEqual(queue["categorical_disagreement_cases"], 1)
+        self.assertEqual(set(queue["source_annotation_sha256"]), {"reviewer_a", "reviewer_b"})
         self.assertIn(
             "visible_density", queue["cases"][0]["categorical_disagreements"]
         )
         self.assertEqual(queue["cases"][0]["adjudication_status"], "pending")
+        validate_adjudication_queue(queue, first, second, self.lock)
+
+        second[0]["notes_vi"] = "Changed after queue creation."
+        with self.assertRaisesRegex(ValueError, "stale"):
+            validate_adjudication_queue(queue, first, second, self.lock)
+
+    def test_completed_queue_requires_independent_valid_adjudicator(self) -> None:
+        first = completed(build_annotation_template(self.lock, "reviewer_a"))
+        second = completed(build_annotation_template(self.lock, "reviewer_b"))
+        queue = build_adjudication_queue(first, second, self.lock)
+        final = completed(build_annotation_template(self.lock, "adjudicator"))
+        for case, annotation in zip(queue["cases"], final):
+            case["adjudication_status"] = "complete"
+            case["adjudicated_annotation"] = annotation
+        validate_adjudication_queue(queue, first, second, self.lock)
+
+        for case in queue["cases"]:
+            case["adjudicated_annotation"]["reviewer_id"] = "reviewer_a"
+        with self.assertRaisesRegex(ValueError, "independent"):
+            validate_adjudication_queue(queue, first, second, self.lock)
 
     def test_adjudication_requires_distinct_reviewers(self) -> None:
         first = completed(build_annotation_template(self.lock, "reviewer_a"))

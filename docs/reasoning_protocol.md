@@ -15,10 +15,12 @@ used to select a model, prompt, precision, decoding parameter, threshold, or
 runtime backend. If an evaluation case is inspected during development, v1 is
 compromised and a new source-disjoint evaluation version is required.
 
-The current lock status is `inputs_frozen_annotations_pending`. This is enough
-to prevent input drift, but not enough to report VLM/LLM quality. The 14 cases
-are an initial engineering gate, not a statistically strong research test;
-publication claims require more source-disjoint, human-annotated scenes.
+The input lock remains `inputs_frozen_annotations_pending`. Both independent
+review files now contain 14 complete records, but final adjudication is still
+pending. This is enough to prevent input drift, but not enough to report
+VLM/LLM quality. The 14 cases are an initial engineering gate, not a
+statistically strong research test; publication claims require more
+source-disjoint, human-annotated scenes.
 
 ## Two-stage contract
 
@@ -126,6 +128,29 @@ python scripts/reasoning/manage_annotations.py compare `
 Every case enters the queue because free-text references require human
 adjudication even when categorical fields agree. The tool reports categorical
 disagreements but never chooses a winner automatically.
+
+The queue stores canonical SHA-256 values for both source annotation sets.
+Validate that it still matches the current reviews with:
+
+```powershell
+python scripts/reasoning/manage_annotations.py validate-queue `
+  --lock manifests/reasoning/evidence_eval_v1/input_lock.json `
+  --first manifests/reasoning/evidence_eval_v1/annotations/reviewer_a.jsonl `
+  --second manifests/reasoning/evidence_eval_v1/annotations/reviewer_b.jsonl `
+  --queue manifests/reasoning/evidence_eval_v1/annotations/adjudication.json
+```
+
+If a reviewer legitimately changes an answer before adjudication begins,
+rerun `compare` with `--replace-pending`. Replacement is allowed only while
+every queue item is pending and contains no adjudicated result. A completed
+queue must contain 14 schema-valid records from a third reviewer ID distinct
+from reviewer A and reviewer B.
+
+The current reviewer sets agree on every categorical field except
+`evaluation-0004.event_visual_support`: reviewer A uses `supported`, while
+reviewer B uses `insufficient`. The clip clearly supports a congested scene,
+but does not show a distinct visual transition at frame 51; that distinction
+must be resolved explicitly by the independent adjudicator.
 
 Before model comparison, the two reviewers must annotate every case and an
 adjudicator must resolve the queue. The review must distinguish:

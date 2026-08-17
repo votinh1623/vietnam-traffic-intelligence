@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .freeze import verify_evidence_lock
+from .freeze import canonical_sha256, verify_evidence_lock
 
 
 ANNOTATION_SCHEMA_VERSION = 1
@@ -242,10 +242,78 @@ def build_adjudication_queue(
         "set_id": lock["set_id"],
         "input_lock_sha256": lock["lock_sha256"],
         "reviewers": [first_reviewer, second_reviewer],
+        "source_annotation_sha256": {
+            first_reviewer: canonical_sha256(first),
+            second_reviewer: canonical_sha256(second),
+        },
         "case_count": len(cases),
         "categorical_disagreement_cases": disagreement_cases,
         "cases": cases,
     }
+
+
+def validate_adjudication_queue(
+    queue: dict[str, Any],
+    first: list[dict[str, Any]],
+    second: list[dict[str, Any]],
+    lock: dict[str, Any],
+) -> None:
+    """Reject a queue whose immutable inputs differ from current reviews."""
+    expected = build_adjudication_queue(first, second, lock)
+    immutable_fields = {
+        "schema_version",
+        "set_id",
+        "input_lock_sha256",
+        "reviewers",
+        "source_annotation_sha256",
+        "case_count",
+        "categorical_disagreement_cases",
+    }
+    for field in immutable_fields:
+        if queue.get(field) != expected[field]:
+            raise ValueError(f"adjudication queue is stale: {field} differs")
+    actual_cases = queue.get("cases")
+    if not isinstance(actual_cases, list) or len(actual_cases) != len(
+        expected["cases"]
+    ):
+        raise ValueError("adjudication queue is stale: case coverage differs")
+    statuses: set[str] = set()
+    final_records: list[dict[str, Any]] = []
+    for actual, current in zip(actual_cases, expected["cases"]):
+        for field in ("case_id", "categorical_disagreements", "text_candidates"):
+            if actual.get(field) != current[field]:
+                raise ValueError(
+                    f"adjudication queue is stale: {field} differs for "
+                    f"{current['case_id']}"
+                )
+        status = actual.get("adjudication_status")
+        annotation = actual.get("adjudicated_annotation")
+        if status not in {"pending", "complete"}:
+            raise ValueError("invalid adjudication_status")
+        statuses.add(status)
+        if status == "pending" and annotation is not None:
+            raise ValueError("pending adjudication must not contain a final annotation")
+        if status == "complete" and not isinstance(annotation, dict):
+            raise ValueError("complete adjudication requires a final annotation")
+        if status == "complete":
+            final_records.append(annotation)
+    if len(statuses) != 1:
+        raise ValueError("adjudication queue must be entirely pending or complete")
+    if statuses == {"complete"}:
+        adjudicator = validate_annotation_set(
+            final_records, lock, require_complete=True
+        )
+        if adjudicator in expected["reviewers"]:
+            raise ValueError("adjudicator must be independent from both reviewers")
+
+
+def queue_is_unadjudicated(queue: dict[str, Any]) -> bool:
+    cases = queue.get("cases")
+    return isinstance(cases, list) and all(
+        case.get("adjudication_status") == "pending"
+        and case.get("adjudicated_annotation") is None
+        for case in cases
+    )
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:

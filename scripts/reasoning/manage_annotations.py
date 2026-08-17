@@ -15,8 +15,10 @@ from vn_traffic.reasoning.annotations import (  # noqa: E402
     build_adjudication_queue,
     build_annotation_template,
     build_review_index,
+    queue_is_unadjudicated,
     read_jsonl,
     validate_annotation_set,
+    validate_adjudication_queue,
     write_json_atomic,
     write_jsonl_atomic,
     write_review_index_atomic,
@@ -46,6 +48,13 @@ def parse_args() -> argparse.Namespace:
     compare.add_argument("--first", type=Path, required=True)
     compare.add_argument("--second", type=Path, required=True)
     compare.add_argument("--output", type=Path, required=True)
+    compare.add_argument("--replace-pending", action="store_true")
+
+    validate_queue = subparsers.add_parser("validate-queue")
+    validate_queue.add_argument("--lock", type=Path, required=True)
+    validate_queue.add_argument("--first", type=Path, required=True)
+    validate_queue.add_argument("--second", type=Path, required=True)
+    validate_queue.add_argument("--queue", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -78,8 +87,21 @@ def main() -> int:
         )
         print(f"Valid annotation set for {reviewer_id}: {args.annotations}")
         return 0
+    if args.command == "validate-queue":
+        queue = json.loads(args.queue.read_text(encoding="utf-8"))
+        validate_adjudication_queue(
+            queue, read_jsonl(args.first), read_jsonl(args.second), lock
+        )
+        print(f"Current adjudication queue: {args.queue}")
+        return 0
     if args.output.exists():
-        raise FileExistsError(f"refusing to overwrite adjudication queue: {args.output}")
+        existing = json.loads(args.output.read_text(encoding="utf-8"))
+        if not args.replace_pending:
+            raise FileExistsError(
+                f"refusing to overwrite adjudication queue: {args.output}"
+            )
+        if not queue_is_unadjudicated(existing):
+            raise ValueError("refusing to replace a queue with adjudicated content")
     queue = build_adjudication_queue(
         read_jsonl(args.first), read_jsonl(args.second), lock
     )
