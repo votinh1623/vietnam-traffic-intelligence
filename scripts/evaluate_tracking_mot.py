@@ -1,8 +1,12 @@
 import argparse
 import pandas as pd
-import motmetrics as mm
-import numpy as np
 from pathlib import Path
+
+from tracking_metrics import (
+    build_accumulator,
+    compute_many_motchallenge_metrics,
+    compute_motchallenge_metrics,
+)
 
 
 def load_gt(
@@ -30,36 +34,17 @@ def load_pred(pred_file):
 
 
 def compute_metrics(gt_df, pred_df, iou_threshold=0.5):
-    acc = mm.MOTAccumulator(auto_id=True)
-    for frame in sorted(gt_df["frame"].unique()):
-        gt_frame = gt_df[gt_df["frame"] == frame]
-        pred_frame = pred_df[pred_df["frame"] == frame]
-        gt_boxes = gt_frame[["x", "y", "w", "h"]].values
-        pred_boxes = pred_frame[["x", "y", "w", "h"]].values
-        if len(gt_boxes) == 0 and len(pred_boxes) == 0:
-            continue
-        if len(gt_boxes) > 0 and len(pred_boxes) > 0:
-            iou = mm.distances.iou_matrix(gt_boxes, pred_boxes, max_iou=1.0)
-            dists = 1.0 - iou
-        else:
-            dists = np.zeros((len(gt_boxes), len(pred_boxes)))
-        acc.update(
-            gt_frame["id"].astype(int).values,
-            pred_frame["id"].astype(int).values,
-            dists,
-        )
-    mh = mm.metrics.create()
-    summary = mh.compute(
-        acc, metrics=mm.metrics.motchallenge_metrics, return_dataframe=True
-    )
-    return summary
+    return compute_motchallenge_metrics(gt_df, pred_df, iou_threshold)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gt_dir", default="datasets/Visdrone/VisDrone2019-MOT-val/annotations")
+    parser.add_argument(
+        "--gt_dir", default="datasets/Visdrone/VisDrone2019-MOT-val/annotations"
+    )
     parser.add_argument("--pred_dir", default="output_track_mot")
     parser.add_argument("--output_metrics", default="tracking_metrics_visdrone.csv")
+    parser.add_argument("--iou", type=float, default=0.5, help="Minimum match IoU")
     parser.add_argument(
         "--classes",
         type=str,
@@ -69,34 +54,33 @@ def main():
     args = parser.parse_args()
 
     valid_classes = [int(c) for c in args.classes.split(",")]
-    print(f"Đánh giá với các class VisDrone: {valid_classes}")
+    print(f"Evaluating VisDrone classes: {valid_classes}")
 
     gt_files = sorted(Path(args.gt_dir).glob("*.txt"))
-    all_summaries = []
+    accumulators = []
+    sequence_names = []
     for gt_file in gt_files:
         seq_name = gt_file.stem
         pred_file = Path(args.pred_dir) / f"{seq_name}.txt"
         if not pred_file.exists():
-            print(f"Không tìm thấy dự đoán cho {seq_name}, bỏ qua.")
+            print(f"Prediction not found for {seq_name}; skipping.")
             continue
-        print(f"Đánh giá {seq_name}...")
+        print(f"Evaluating {seq_name}...")
         gt = load_gt(str(gt_file), valid_classes=valid_classes)
         pred = load_pred(str(pred_file))
-        summary = compute_metrics(gt, pred)
-        summary["sequence"] = seq_name
-        all_summaries.append(summary)
+        accumulators.append(build_accumulator(gt, pred, args.iou))
+        sequence_names.append(seq_name)
 
-    if all_summaries:
-        total_summary = pd.concat(all_summaries)
-        # Tính trung bình
-        avg = total_summary.mean(numeric_only=True).to_frame().T
-        avg["sequence"] = "Average"
-        total_summary = pd.concat([total_summary, avg], ignore_index=True)
-        total_summary.to_csv(args.output_metrics, index=False)
-        print("\n======= Tracking Evaluation trên VisDrone-MOT =======")
-        print(total_summary[["sequence", "mota", "motp", "idf1", "num_switches"]])
+    if accumulators:
+        total_summary = compute_many_motchallenge_metrics(
+            accumulators, sequence_names
+        )
+        total_summary.index.name = "sequence"
+        total_summary.to_csv(args.output_metrics)
+        print("\n======= VisDrone-MOT Tracking Evaluation =======")
+        print(total_summary[["mota", "motp", "idf1", "num_switches"]])
     else:
-        print("Không có dữ liệu để đánh giá.")
+        print("No matching ground-truth and prediction files were found.")
 
 
 if __name__ == "__main__":

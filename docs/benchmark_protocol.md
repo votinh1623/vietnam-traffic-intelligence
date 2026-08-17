@@ -31,3 +31,14 @@ motorcycle AP. Tracking uses HOTA, DetA, AssA, IDF1, MOTA, ID switches, and
 fragmentation. LLM/VLM quality uses a task-specific frozen evaluation set,
 numeric fidelity, and unsupported-claim rate.
 
+## Tracking evaluation status
+
+The local motmetrics evaluator is valid for CLEAR MOT and identity metrics
+after repairing its IoU-distance construction. It uses `1-IoU` directly,
+converts a minimum IoU threshold `t` to the motmetrics maximum distance
+`1-t`, includes the union of GT and prediction frame indices, and aggregates
+sequences with a combined OVERALL accumulator.
+
+HOTA, DetA, and AssA are not provided by motmetrics. They remain `TBD` until
+TrackEval is integrated and verified on a synthetic fixture. Historical root
+tracking CSV files predate the repair and remain `invalid`.

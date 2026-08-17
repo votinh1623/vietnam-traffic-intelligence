@@ -1,0 +1,121 @@
+from __future__ import annotations
+
+import csv
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from vn_traffic.config import PipelineConfig  # noqa: E402
+from vn_traffic.runner import PipelineRunner  # noqa: E402
+from vn_traffic.schemas import PerceptionResult, TrackObservation  # noqa: E402
+
+
+class FakePerception:
+    def process(self, frame, *, frame_index: int, timestamp_s: float):
+        annotated = frame.copy()
+        cv2.rectangle(annotated, (4, 4), (20, 20), (0, 255, 0), 1)
+        track = TrackObservation(
+            frame_index=frame_index,
+            timestamp_s=timestamp_s,
+            track_id=7,
+            class_id=1,
+            class_name="car",
+            confidence=0.9,
+            x1=4.0,
+            y1=4.0,
+            x2=20.0,
+            y2=20.0,
+        )
+        return PerceptionResult(annotated_frame=annotated, tracks=(track,))
+
+
+class FailingPerception:
+    def process(self, frame, *, frame_index: int, timestamp_s: float):
+        raise RuntimeError("intentional fixture failure")
+
+
+def create_fixture_video(path: Path, frame_count: int = 3) -> None:
+    writer = cv2.VideoWriter(
+        str(path), cv2.VideoWriter_fourcc(*"MJPG"), 5.0, (64, 48)
+    )
+    if not writer.isOpened():
+        raise RuntimeError("MJPG fixture writer is unavailable")
+    for index in range(frame_count):
+        frame = np.full((48, 64, 3), index * 30, dtype=np.uint8)
+        writer.write(frame)
+    writer.release()
+
+
+class PipelineRunnerTests(unittest.TestCase):
+    def test_creates_stable_stage_one_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            model = root / "placeholder.pt"
+            create_fixture_video(source)
+            model.write_bytes(b"fake model for dependency-injected test")
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=model,
+                output_root=root / "outputs",
+                imgsz=64,
+                device="cpu",
+            )
+
+            run_dir = PipelineRunner(config, FakePerception()).run()
+
+            self.assertEqual(run_dir.name, "run1")
+            for name in ("annotated.mp4", "tracks.csv", "events.jsonl", "run.json"):
+                self.assertTrue((run_dir / name).is_file(), name)
+            with (run_dir / "tracks.csv").open(newline="", encoding="utf-8") as stream:
+                tracks = list(csv.DictReader(stream))
+            self.assertEqual(len(tracks), 3)
+            self.assertEqual(tracks[0]["track_id"], "7")
+            self.assertEqual(tracks[0]["class_name"], "car")
+            self.assertEqual((run_dir / "events.jsonl").read_text(encoding="utf-8"), "")
+            metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "completed")
+            self.assertEqual(metadata["frames_processed"], 3)
+            self.assertEqual(metadata["track_rows"], 3)
+            self.assertEqual(metadata["events_written"], 0)
+            self.assertGreater(metadata["processing_fps"], 0)
+
+            capture = cv2.VideoCapture(str(run_dir / "annotated.mp4"))
+            output_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            capture.release()
+            self.assertEqual(output_frames, 3)
+
+    def test_records_failed_run_without_hiding_the_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            create_fixture_video(source, frame_count=1)
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=root / "placeholder.pt",
+                output_root=root / "outputs",
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "intentional fixture failure"):
+                PipelineRunner(config, FailingPerception()).run()
+
+            metadata = json.loads(
+                (root / "outputs" / "run1" / "run.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["status"], "failed")
+            self.assertIn("intentional fixture failure", metadata["error"])
+
+
+if __name__ == "__main__":
+    unittest.main()

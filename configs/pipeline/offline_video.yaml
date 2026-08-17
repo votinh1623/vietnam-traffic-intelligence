@@ -1,0 +1,21 @@
+schema_version: 1
+
+# Both paths can be overridden from the CLI. The default is the validation-
+# selected v5 checkpoint; the locked test has not been used for selection.
+source: datasets/raw_videos/traffic_normal.mp4
+model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+
+perception:
+  imgsz: 1280
+  confidence: 0.4
+  iou: 0.7
+  device: "0"
+  tracker: bytetrack_custom.yaml
+
+video:
+  codec: mp4v
+  fallback_fps: 30.0
+  max_frames: null
+
+output:
+  root: output/pipeline

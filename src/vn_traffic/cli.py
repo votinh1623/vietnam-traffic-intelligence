@@ -1,0 +1,69 @@
+"""Command-line interface for the offline-video MVP."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from .config import load_pipeline_config
+
+
+DEFAULT_CONFIG = "configs/pipeline/offline_video.yaml"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="vn-traffic",
+        description="Run detection and ByteTrack over an offline traffic video.",
+    )
+    parser.add_argument("--config", default=DEFAULT_CONFIG, help="Pipeline YAML")
+    parser.add_argument("--source", help="Override input video path")
+    parser.add_argument("--model", help="Override YOLO weights path")
+    parser.add_argument("--device", help="Override device, for example 0 or cpu")
+    parser.add_argument("--imgsz", type=int, help="Override inference image size")
+    parser.add_argument(
+        "--max-frames", type=int, help="Stop after N frames for integration checks"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate config without loading YOLO"
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    config = load_pipeline_config(args.config).with_overrides(
+        source=args.source,
+        model=args.model,
+        max_frames=args.max_frames,
+        device=args.device,
+        imgsz=args.imgsz,
+    )
+    if args.dry_run:
+        print(
+            json.dumps(
+                {
+                    "status": "ready",
+                    "source": str(config.source),
+                    "source_exists": config.source.is_file(),
+                    "model": str(config.model),
+                    "model_exists": config.model.is_file(),
+                    "output_root": str(config.output_root),
+                },
+                indent=2,
+            )
+        )
+        return 0 if config.source.is_file() and config.model.is_file() else 2
+
+    from .perception import UltralyticsPerception
+    from .runner import PipelineRunner
+
+    perception = UltralyticsPerception(config)
+    run_dir = PipelineRunner(config, perception).run()
+    print(f"Pipeline completed: {run_dir}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
