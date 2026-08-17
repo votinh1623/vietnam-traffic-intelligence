@@ -82,16 +82,20 @@ by tracker ID switches or track fragmentation.
 
 ## `evidence.jsonl` and `evidence/`
 
-Evidence schema version 1 links deterministic events to raw visual inputs for a
+Evidence schema version 2 links deterministic events to raw visual inputs for a
 later VLM stage. Evidence extraction is an offline post-process after
 `events.jsonl` is closed; it does not invoke a VLM or alter analytics results.
+The exporter opens the source once and decodes frame 0 through the processed
+span sequentially. It never seeks with `CAP_PROP_POS_FRAMES`, so keyframe
+selection does not depend on codec/backend random-seek behavior.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "evidence_id": "evidence-event-000004",
   "event_id": "event-000004",
   "event_type": "congestion_transition",
+  "source_video_sha256": "...",
   "source_frame_index": 53,
   "source_timestamp_s": 2.12,
   "keyframe": {
@@ -99,6 +103,9 @@ later VLM stage. Evidence extraction is an offline post-process after
     "frame_index": 53,
     "width": 1920,
     "height": 1080,
+    "raw_bgr_sha256": "...",
+    "raw_shape": [1080, 1920, 3],
+    "raw_dtype": "uint8",
     "sha256": "..."
   },
   "clip": {
@@ -118,7 +125,13 @@ The default policy writes a raw JPEG keyframe for `line_crossing` and
 `congestion_transition`, but writes a pre/post clip only for congestion
 transitions. Clip bounds are clamped to the processed video span. Files are
 content-hashed, event IDs are validated before becoming filenames, and the
-manifest is replaced atomically. Raw evidence intentionally contains no
+manifest is replaced atomically. Overlapping clip windows are written from the
+same sequential decode pass. `source_video_sha256` identifies the source file;
+`raw_bgr_sha256` identifies the exact decoded frame bytes before lossy JPEG
+encoding, while `keyframe.sha256` and `clip.sha256` identify the exported
+artifacts. Decoded-frame hashes can vary across decoder implementations, so
+reproduction should also record the environment already captured by the
+project. Raw evidence intentionally contains no
 detection overlay; structured analytics remain available separately in the
 event and timeline artifacts.
 

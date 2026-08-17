@@ -13,6 +13,7 @@ from typing import Any, Protocol
 import cv2
 
 from .config import PipelineConfig
+from .evidence import EVIDENCE_SCHEMA_VERSION
 from .schemas import (
     ANALYTICS_SCHEMA_VERSION,
     ANALYTICS_CSV_FIELDS,
@@ -94,7 +95,7 @@ class NoEvidence:
         temporary.write_text("", encoding="utf-8")
         temporary.replace(manifest_path)
         return {
-            "schema_version": 1,
+            "schema_version": EVIDENCE_SCHEMA_VERSION,
             "enabled": False,
             "selected_events": 0,
             "keyframes_written": 0,

@@ -90,10 +90,10 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | YOLOv8s v5 smoke run | Complete | `experiments/yolov8s_v5_seed0_smoke_20260817T100534/run.json` |
 | YOLOv8s v5 full fine-tuning | Complete, 30 epochs | `experiments/yolov8s_v5_seed0_20260817T100644/run.json` |
 | Offline-video CLI and artifact contract | Integrated with v5 checkpoint | [Output schema](docs/output_schema.md) |
-| Deterministic analytics state machine | 32 tests passed; bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
+| Deterministic analytics state machine | Synthetic tests and bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
 | Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
-| Event evidence selector | Implemented; 37 tests and two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
+| Event evidence selector | Sequential no-seek exporter implemented; 39-test suite and two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
 | VLM/LLM model inference | Not started | [Multimodel architecture](docs/multimodel_architecture.md) |
 
 No locked-test metric is reported while model, threshold, tracker, prompt, or
@@ -262,15 +262,32 @@ with maximum error 0.021. Both candidates preserved the two demo timelines and
 remain configurable options for future edge benchmarks.
 
 Stage 3 adds a deterministic evidence boundary before any VLM is loaded. The
-pipeline reopens the raw source after event generation, exports hashed
-keyframes for all configured event types, and creates temporal clips only for
-configured high-level events. The default congestion window is 2 seconds
-before and 3 seconds after the transition, clamped to the processed span.
+pipeline reopens the raw source once after event generation and decodes the
+processed span sequentially, without random frame seeking. It exports hashed
+keyframes for all configured event types and feeds overlapping temporal clip
+writers only for configured high-level events. The default congestion window
+is 2 seconds before and 3 seconds after the transition, clamped to the
+processed span. Evidence schema version 2 records the source-video hash, exact
+decoded BGR-frame hash, and encoded artifact hash.
 
 | Evidence acceptance | Events | Raw keyframes | Clips | Verification |
 |---|---:|---:|---:|---|
-| `traffic_jam.mp4`, run13 | 13 | 13 | 1 congestion clip / 126 frames | Paths, hashes, decoded clip length, and visual frame checked |
-| `traffic_normal.mp4`, run14 | 25 | 25 | 0 | Paths, hashes, policy, and visual frame checked |
+| `traffic_jam.mp4`, run15 | 14 | 14 | 1 congestion clip / 126 frames | 14/14 decoded BGR hashes, source/artifact hashes, and clip length verified |
+| `traffic_normal.mp4`, run16 | 146 | 146 (137 unique source frames) | 2 congestion clips / 151 frames each | 137/137 decoded BGR hashes, source/artifact hashes, and both clip lengths verified |
+
+Run15 covers all 283 frames of the jam clip. Run16 deliberately covers all
+1,305 frames of the file named `traffic_normal.mp4`, unlike the earlier
+300-frame Stage 2 calibration span. Its later content produces two congestion
+transitions; the filename is contextual, not a ground-truth label. Therefore
+the Stage 2 `NORMAL` 300/300 statement above applies only to the explicitly
+listed first-300-frame span and is not generalized to the full video.
+
+The sequential exporter is covered by a capture that raises on every seek
+attempt, overlapping clip windows clamped at both processed-span boundaries,
+and raw-frame hash comparison. On the two H.264 acceptance sources, all 160
+evidence records, three clips, and 151 unique selected source frames were
+validated; duplicate events at one source frame intentionally share that
+decoded frame.
 
 This stage performs selection and packaging only. It makes no caption,
 incident, severity, or causal claim; VLM/LLM quality remains unmeasured.
@@ -335,7 +352,8 @@ FP32, FP16, and INT8 after export benchmarks exist. -->
 Large datasets, model weights, generated videos, and runtime outputs are kept
 outside version control. The local workspace retains the audited v2 source,
 superseded v4 provenance set, current v5 dataset, required baseline/v5
-checkpoints, and latest run13-run14 acceptance outputs. Temporary extraction
+checkpoints, and latest run15-run16 acceptance outputs (with run13-run14 kept
+locally as the preceding evidence-schema history). Temporary extraction
 sets, superseded smoke/finetune runs, invalid analytics runs, and legacy output
 videos are intentionally removed after their lightweight manifests or findings
 have been recorded.
@@ -475,6 +493,8 @@ The full measurement contract is defined in
 - [x] Implement deterministic analytics and event schema with synthetic tests.
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
 - [x] Add deterministic event keyframe/clip evidence selection.
+- [x] Remove codec-dependent random seeking and add evidence provenance hashes.
+- [ ] Freeze the VLM/LLM evidence evaluation set and JSON/prompt contract.
 - [ ] Add event-driven VLM and LLM modules.
 - [ ] Export and benchmark detector FP16/INT8 candidates.
 - [ ] Quantize and benchmark the selected VLM and LLM.

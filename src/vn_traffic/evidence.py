@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 import hashlib
 import json
 import math
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Callable
 
 import cv2
 
 from .config import EvidenceConfig
 
 
-EVIDENCE_SCHEMA_VERSION = 1
+EVIDENCE_SCHEMA_VERSION = 2
 _SAFE_EVENT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
@@ -26,11 +27,22 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-class EventEvidenceExporter:
-    """Export raw keyframes and bounded clips referenced by event ID."""
+def _raw_frame_sha256(frame: Any) -> str:
+    """Hash the exact decoded BGR byte array before JPEG/video encoding."""
+    return hashlib.sha256(frame.tobytes(order="C")).hexdigest()
 
-    def __init__(self, config: EvidenceConfig):
+
+class EventEvidenceExporter:
+    """Export raw keyframes and bounded clips in one sequential decode pass."""
+
+    def __init__(
+        self,
+        config: EvidenceConfig,
+        *,
+        capture_factory: Callable[[str], Any] = cv2.VideoCapture,
+    ):
         self.config = config
+        self._capture_factory = capture_factory
 
     def _load_events(self, path: Path) -> list[dict[str, Any]]:
         events: list[dict[str, Any]] = []
@@ -61,21 +73,9 @@ class EventEvidenceExporter:
                 events.append(event)
         return events
 
-    @staticmethod
-    def _read_frame(capture: Any, frame_index: int) -> Any:
-        capture.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-        ok, frame = capture.read()
-        if not ok:
-            raise ValueError(f"cannot decode evidence frame {frame_index}")
-        return frame
-
     def _write_keyframe(
-        self,
-        capture: Any,
-        frame_index: int,
-        path: Path,
+        self, frame: Any, frame_index: int, path: Path
     ) -> dict[str, Any]:
-        frame = self._read_frame(capture, frame_index)
         ok, encoded = cv2.imencode(
             ".jpg",
             frame,
@@ -90,58 +90,9 @@ class EventEvidenceExporter:
             "frame_index": frame_index,
             "width": width,
             "height": height,
-            "sha256": _sha256(path),
-        }
-
-    def _write_clip(
-        self,
-        source: Path,
-        start_frame: int,
-        end_frame: int,
-        fps: float,
-        path: Path,
-    ) -> dict[str, Any]:
-        capture = cv2.VideoCapture(str(source))
-        if not capture.isOpened():
-            raise ValueError(f"cannot reopen video source: {source}")
-        capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        writer = cv2.VideoWriter(
-            str(path),
-            cv2.VideoWriter_fourcc(*self.config.clip_codec),
-            fps,
-            (width, height),
-        )
-        if not writer.isOpened():
-            capture.release()
-            raise ValueError(
-                f"cannot create evidence clip with codec {self.config.clip_codec}"
-            )
-        written = 0
-        try:
-            for _ in range(start_frame, end_frame + 1):
-                ok, frame = capture.read()
-                if not ok:
-                    break
-                writer.write(frame)
-                written += 1
-        finally:
-            writer.release()
-            capture.release()
-        if written != end_frame - start_frame + 1:
-            raise ValueError(
-                f"evidence clip decoded {written} frames; "
-                f"expected {end_frame - start_frame + 1}"
-            )
-        return {
-            "path": path.as_posix(),
-            "start_frame": start_frame,
-            "end_frame": end_frame,
-            "start_s": start_frame / fps,
-            "end_s": end_frame / fps,
-            "frame_count": written,
-            "fps": fps,
+            "raw_bgr_sha256": _raw_frame_sha256(frame),
+            "raw_shape": list(frame.shape),
+            "raw_dtype": str(frame.dtype),
             "sha256": _sha256(path),
         }
 
@@ -167,66 +118,127 @@ class EventEvidenceExporter:
         if frames_processed <= 0 and selected:
             raise ValueError("cannot extract evidence from an empty processed span")
 
-        capture = cv2.VideoCapture(str(source))
-        if not capture.isOpened():
-            raise ValueError(f"cannot reopen video source: {source}")
+        source_sha256 = _sha256(source)
         records: list[dict[str, Any]] = []
-        keyframes_written = 0
-        clips_written = 0
-        try:
-            for event in selected:
-                frame_index = event["frame_index"]
-                if not 0 <= frame_index < frames_processed:
-                    raise ValueError(
-                        f"event {event['event_id']} frame is outside processed span"
-                    )
-                event_id = event["event_id"]
-                event_type = event["event_type"]
-                record: dict[str, Any] = {
-                    "schema_version": EVIDENCE_SCHEMA_VERSION,
-                    "evidence_id": f"evidence-{event_id}",
-                    "event_id": event_id,
-                    "event_type": event_type,
-                    "source_frame_index": frame_index,
-                    "source_timestamp_s": event.get(
-                        "timestamp_s", frame_index / fps
-                    ),
+        keyframes_by_frame: dict[
+            int, list[tuple[dict[str, Any], Path]]
+        ] = defaultdict(list)
+        clips_by_start: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        clip_specs: list[dict[str, Any]] = []
+
+        for event in selected:
+            frame_index = event["frame_index"]
+            if not 0 <= frame_index < frames_processed:
+                raise ValueError(
+                    f"event {event['event_id']} frame is outside processed span"
+                )
+            event_id = event["event_id"]
+            event_type = event["event_type"]
+            record: dict[str, Any] = {
+                "schema_version": EVIDENCE_SCHEMA_VERSION,
+                "evidence_id": f"evidence-{event_id}",
+                "event_id": event_id,
+                "event_type": event_type,
+                "source_video_sha256": source_sha256,
+                "source_frame_index": frame_index,
+                "source_timestamp_s": event.get("timestamp_s", frame_index / fps),
+            }
+            if event_type in self.config.keyframe_event_types:
+                frames_dir.mkdir(parents=True, exist_ok=True)
+                keyframe_path = frames_dir / f"{event_id}.jpg"
+                keyframes_by_frame[frame_index].append((record, keyframe_path))
+            if event_type in self.config.clip_event_types:
+                clips_dir.mkdir(parents=True, exist_ok=True)
+                start_frame = max(
+                    0, frame_index - math.ceil(self.config.pre_event_s * fps)
+                )
+                end_frame = min(
+                    frames_processed - 1,
+                    frame_index + math.ceil(self.config.post_event_s * fps),
+                )
+                spec = {
+                    "record": record,
+                    "path": clips_dir / f"{event_id}.mp4",
+                    "start_frame": start_frame,
+                    "end_frame": end_frame,
+                    "written": 0,
+                    "writer": None,
                 }
-                if event_type in self.config.keyframe_event_types:
-                    frames_dir.mkdir(parents=True, exist_ok=True)
-                    keyframe_path = frames_dir / f"{event_id}.jpg"
-                    keyframe = self._write_keyframe(
-                        capture,
-                        frame_index,
-                        keyframe_path,
-                    )
-                    keyframe["path"] = keyframe_path.relative_to(run_dir).as_posix()
-                    record["keyframe"] = keyframe
-                    keyframes_written += 1
-                if event_type in self.config.clip_event_types:
-                    clips_dir.mkdir(parents=True, exist_ok=True)
-                    start_frame = max(
-                        0,
-                        frame_index - math.ceil(self.config.pre_event_s * fps),
-                    )
-                    end_frame = min(
-                        frames_processed - 1,
-                        frame_index + math.ceil(self.config.post_event_s * fps),
-                    )
-                    clip_path = clips_dir / f"{event_id}.mp4"
-                    clip = self._write_clip(
-                        source,
-                        start_frame,
-                        end_frame,
-                        fps,
-                        clip_path,
-                    )
-                    clip["path"] = clip_path.relative_to(run_dir).as_posix()
-                    record["clip"] = clip
-                    clips_written += 1
-                records.append(record)
+                clips_by_start[start_frame].append(spec)
+                clip_specs.append(spec)
+            records.append(record)
+
+        capture = None
+        active_clips: list[dict[str, Any]] = []
+        try:
+            if selected:
+                capture = self._capture_factory(str(source))
+                if not capture.isOpened():
+                    raise ValueError(f"cannot reopen video source: {source}")
+                for frame_index in range(frames_processed):
+                    ok, frame = capture.read()
+                    if not ok:
+                        raise ValueError(
+                            f"cannot decode evidence frame {frame_index} sequentially"
+                        )
+
+                    height, width = frame.shape[:2]
+                    for spec in clips_by_start.get(frame_index, ()):
+                        writer = cv2.VideoWriter(
+                            str(spec["path"]),
+                            cv2.VideoWriter_fourcc(*self.config.clip_codec),
+                            fps,
+                            (width, height),
+                        )
+                        if not writer.isOpened():
+                            writer.release()
+                            raise ValueError(
+                                "cannot create evidence clip with codec "
+                                f"{self.config.clip_codec}"
+                            )
+                        spec["writer"] = writer
+                        active_clips.append(spec)
+
+                    for record, path in keyframes_by_frame.get(frame_index, ()):
+                        keyframe = self._write_keyframe(frame, frame_index, path)
+                        keyframe["path"] = path.relative_to(run_dir).as_posix()
+                        record["keyframe"] = keyframe
+
+                    finished: list[dict[str, Any]] = []
+                    for spec in active_clips:
+                        spec["writer"].write(frame)
+                        spec["written"] += 1
+                        if frame_index == spec["end_frame"]:
+                            spec["writer"].release()
+                            spec["writer"] = None
+                            finished.append(spec)
+                    for spec in finished:
+                        active_clips.remove(spec)
         finally:
-            capture.release()
+            if capture is not None:
+                capture.release()
+            for spec in active_clips:
+                writer = spec.get("writer")
+                if writer is not None:
+                    writer.release()
+
+        for spec in clip_specs:
+            expected = spec["end_frame"] - spec["start_frame"] + 1
+            if spec["written"] != expected:
+                raise ValueError(
+                    f"evidence clip decoded {spec['written']} frames; expected {expected}"
+                )
+            path = spec["path"]
+            spec["record"]["clip"] = {
+                "path": path.relative_to(run_dir).as_posix(),
+                "start_frame": spec["start_frame"],
+                "end_frame": spec["end_frame"],
+                "start_s": spec["start_frame"] / fps,
+                "end_s": spec["end_frame"] / fps,
+                "frame_count": spec["written"],
+                "fps": fps,
+                "sha256": _sha256(path),
+            }
 
         temporary = manifest_path.with_suffix(".jsonl.tmp")
         with temporary.open("w", encoding="utf-8") as stream:
@@ -236,8 +248,10 @@ class EventEvidenceExporter:
         return {
             "schema_version": EVIDENCE_SCHEMA_VERSION,
             "enabled": True,
+            "extraction_mode": "sequential_second_pass",
+            "source_video_sha256": source_sha256,
             "selected_events": len(records),
-            "keyframes_written": keyframes_written,
-            "clips_written": clips_written,
+            "keyframes_written": sum("keyframe" in record for record in records),
+            "clips_written": len(clip_specs),
             "manifest": manifest_path.name,
         }

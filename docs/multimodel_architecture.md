@@ -36,8 +36,11 @@ The current Stage 3 implementation stops before model inference. A configurable
 offline selector links each eligible deterministic event to a raw source
 keyframe and, for congestion transitions, a bounded pre/post clip. The
 `evidence.jsonl` manifest records source frame/time, relative paths, dimensions,
-clip bounds, and SHA-256 hashes. This makes the future prompt/VLM input frozen
-and auditable without treating visual selection as a semantic conclusion.
+clip bounds, the source-video hash, artifact hashes, and the pre-encoding BGR
+frame hash. A single second pass decodes the processed span sequentially and
+feeds all keyframes and overlapping clip writers without random frame seeking.
+This makes the future prompt/VLM input frozen and auditable without treating
+visual selection as a semantic conclusion.
 
 Line crossings receive keyframes only by default to avoid producing many nearly
 redundant clips. No caption, incident label, severity judgment, or natural-
