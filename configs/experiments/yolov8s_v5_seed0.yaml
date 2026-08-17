@@ -1,0 +1,49 @@
+experiment:
+  id: yolov8s_v5_seed0
+  purpose: leakage-controlled full fine-tuning on deduplicated Vietnamese traffic
+  status: proposed
+
+model:
+  architecture: yolov8s
+  weights: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+  initialization: coco_to_visdrone_best_epoch_74
+
+dataset:
+  data_yaml: datasets/vietnam_dataset_v5/data.yaml
+  materialization_manifest: datasets/vietnam_dataset_v5/manifest.csv
+  audit_report: manifests/datasets/vietnam_v5/audit.json
+  test_lock: manifests/datasets/vietnam_v5/test_lock.json
+  test_lock_sha256: 6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3
+  selection_split: validation
+  forbidden_selection_split: test
+
+train:
+  epochs: 30
+  patience: 15
+  imgsz: 1280
+  batch: 4
+  device: 0
+  workers: 0
+  optimizer: AdamW
+  lr0: 0.0005
+  weight_decay: 0.0005
+  freeze: 0
+  seed: 0
+  deterministic: true
+  amp: true
+  cache: false
+  mosaic: 1.0
+  mixup: 0.3
+  close_mosaic: 10
+  plots: true
+  save: true
+  val: true
+  project: runs/detect/research
+  name: yolov8s_v5_seed0
+  exist_ok: false
+
+provenance:
+  require_git_commit: true
+  require_clean_worktree: true
+  output_root: experiments
+

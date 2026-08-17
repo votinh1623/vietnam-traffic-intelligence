@@ -1,0 +1,41 @@
+{
+  "status": "no_group_leakage_detected",
+  "image_count": 1214,
+  "split_counts": {
+    "calibration": 111,
+    "test": 176,
+    "train": 819,
+    "validation": 108
+  },
+  "label_status_counts": {
+    "labeled": 1214
+  },
+  "annotation_format_counts": {
+    "bbox": 73310
+  },
+  "unknown_source_images": 0,
+  "overlapping_source_count": 0,
+  "overlapping_sources": {},
+  "same_source_frame_cross_split_count": 0,
+  "same_source_frame_cross_split": [],
+  "exact_content_hash_cross_split_count": 0,
+  "exact_content_hash_cross_split": [],
+  "validation_vs_train_temporal_gap_frames": {
+    "parsed_frames": 0,
+    "gap_le_1": 0,
+    "gap_le_2": 0,
+    "gap_le_5": 0,
+    "minimum": null,
+    "median": null,
+    "maximum": null
+  },
+  "test_vs_train_temporal_gap_frames": {
+    "parsed_frames": 0,
+    "gap_le_1": 0,
+    "gap_le_2": 0,
+    "gap_le_5": 0,
+    "minimum": null,
+    "median": null,
+    "maximum": null
+  }
+}

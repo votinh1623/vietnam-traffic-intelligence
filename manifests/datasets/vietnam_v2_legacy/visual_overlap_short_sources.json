@@ -1,0 +1,358 @@
+{
+  "method": "16x16 grayscale difference hash",
+  "threshold": 12,
+  "interpretation": "candidate generator only; visual review is required",
+  "focus_sources": [
+    "traffic_jam",
+    "traffic_normal",
+    "vid3",
+    "vid4"
+  ],
+  "comparison_count": 38,
+  "possible_overlap_count": 0,
+  "possible_overlaps": [],
+  "comparisons": [
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "DJI_20250516071323_0341_D",
+      "minimum_hamming": 100,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00007_jpg.rf.c8793191ba853bf1afa8e6d0a9bcafbb.jpg",
+      "best_other_image": "train/images/DJI_20250516071323_0341_D_frame_00013_jpg.rf.bd0037d448532ffb3b1353a629d26791.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p",
+      "minimum_hamming": 92,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00000_jpg.rf.49f3d2ba8742b6d7b387743978cab5b3.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p_frame_00023_jpg.rf.ad6391d53173c0792dac944ab064795a.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p",
+      "minimum_hamming": 96,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00001_jpg.rf.aa2df209e0c28987aa4651aeb4f6fc0b.jpg",
+      "best_other_image": "valid/images/YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p_frame_00168_jpg.rf.29e8d037c0981b8092039582d2301aa7.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p",
+      "minimum_hamming": 95,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00016_jpg.rf.2f9e11fc500ec9a60c6fca2be73b8d54.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p_frame_00027_jpg.rf.c39271cb40b18b95492f3726d811ade8.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p",
+      "minimum_hamming": 99,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/traffic_jam_frame_00014_jpg.rf.f8566448cc658b8c12f6cb943729610f.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p_frame_00020_jpg.rf.d47e344dc7acf6e0ea46942bcdc2717a.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p",
+      "minimum_hamming": 94,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00006_jpg.rf.0ca9d8c442207acb033bea0125317f58.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p_frame_00008_jpg.rf.331261af4a4d2d0de07beb20e1834be4.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p",
+      "minimum_hamming": 97,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/traffic_jam_frame_00013_jpg.rf.255c05ce237ee0759f89696545d04aa9.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p_frame_00059_jpg.rf.4e93be478da66594d89e8ffaabefca46.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p",
+      "minimum_hamming": 97,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00023_jpg.rf.a812c46df79bb60aada8c74907bae0fd.jpg",
+      "best_other_image": "valid/images/YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p_frame_00040_jpg.rf.19b2b8e43733b5d92e46c852ed9e99a4.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "traffic_normal",
+      "minimum_hamming": 108,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00002_jpg.rf.380979ec3cd6aaa138a34bcf9ae55ad6.jpg",
+      "best_other_image": "test/images/traffic_normal_frame_00031_jpg.rf.6eda1b3b3ec82e4504d241897ebe0f73.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "vid3",
+      "minimum_hamming": 104,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00004_jpg.rf.af19271f1db6561e3932162dd78eb8a0.jpg",
+      "best_other_image": "train/images/vid3_frame_00005_jpg.rf.38058f880ca8fc186fe9469113b617b1.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_jam",
+      "other_source": "vid4",
+      "minimum_hamming": 100,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_jam_frame_00022_jpg.rf.699a42809ba50d2af94677e52263cd94.jpg",
+      "best_other_image": "train/images/vid4_frame_00092_jpg.rf.841bf924716c1e975698094a80dacaed.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "DJI_20250516071323_0341_D",
+      "minimum_hamming": 101,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00044_jpg.rf.a324dd5cdd0b2acf926e2f5b8cf59deb.jpg",
+      "best_other_image": "valid/images/DJI_20250516071323_0341_D_frame_00039_jpg.rf.203e09bb314249000a3dd40b7c779d15.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p",
+      "minimum_hamming": 86,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00025_jpg.rf.e1ff45211d4b60989a9f438a74891861.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p_frame_00026_jpg.rf.f8a2a56bbd0109dd1205a8bd499624f1.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p",
+      "minimum_hamming": 98,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00011_jpg.rf.f04c3842862a485648ef520a08ab2d98.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p_frame_00112_jpg.rf.036afbc62ccaf1907c2d956af22cc23b.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p",
+      "minimum_hamming": 91,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00011_jpg.rf.f04c3842862a485648ef520a08ab2d98.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p_frame_00277_jpg.rf.54c6a174aef3e2d3e31f7fd8d0110bf8.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p",
+      "minimum_hamming": 94,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/traffic_normal_frame_00023_jpg.rf.cf76f2e2f167cc17c9273a1d7321f3f3.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p_frame_00040_jpg.rf.49d5a01578b144d5539e9516e5f2ec0a.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p",
+      "minimum_hamming": 102,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "test/images/traffic_normal_frame_00031_jpg.rf.6eda1b3b3ec82e4504d241897ebe0f73.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p_frame_00005_jpg.rf.ea749474ff91387c20f405a630f57c18.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p",
+      "minimum_hamming": 99,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00017_jpg.rf.a14342c10ab67f8c7fd90fa35517d68c.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p_frame_00002_jpg.rf.403fc0f0f37dc2e4e56fdac05dc02402.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p",
+      "minimum_hamming": 100,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00064_jpg.rf.72a324ec44f752cb0ad73a10e7802bed.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p_frame_00035_jpg.rf.65f2fbc76ad917e6d52aa7a2f8a12c8d.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "vid3",
+      "minimum_hamming": 104,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00068_jpg.rf.58eef3ab13b8775fb62a4ffcc186377a.jpg",
+      "best_other_image": "train/images/vid3_frame_00009_jpg.rf.a5542a1f49df73a07f8d69743dd2b90f.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "traffic_normal",
+      "other_source": "vid4",
+      "minimum_hamming": 89,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/traffic_normal_frame_00082_jpg.rf.aa4153e3a79d28a09353ec7d61a400b5.jpg",
+      "best_other_image": "train/images/vid4_frame_00058_jpg.rf.d02f101ddce44f69b7ad638e374c9897.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "DJI_20250516071323_0341_D",
+      "minimum_hamming": 97,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/vid3_frame_00004_jpg.rf.077c0417c481a3ad20e607fd39722772.jpg",
+      "best_other_image": "train/images/DJI_20250516071323_0341_D_frame_00022_jpg.rf.ec99a4e9ea5fec90dd13cc6af5375cb2.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p",
+      "minimum_hamming": 99,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/vid3_frame_00024_jpg.rf.e32c8842eca9f15f246077cfa0df7228.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p_frame_00075_jpg.rf.162b58d779b381f2a9091c10be8b8113.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p",
+      "minimum_hamming": 102,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid3_frame_00032_jpg.rf.8a4ab1d23bd3315927a2ffe3f3925662.jpg",
+      "best_other_image": "test/images/YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p_frame_00293_jpg.rf.c78a2b3412904c478a7db08be5321731.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p",
+      "minimum_hamming": 98,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/vid3_frame_00013_jpg.rf.50979458da876c88e1f34a3c09ae8064.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p_frame_00245_jpg.rf.90e7c85e9777aaa0eaa37b5e3419f774.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p",
+      "minimum_hamming": 102,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/vid3_frame_00024_jpg.rf.e32c8842eca9f15f246077cfa0df7228.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p_frame_00042_jpg.rf.8bbe6012e709c1f713858171c6b452b1.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p",
+      "minimum_hamming": 107,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid3_frame_00006_jpg.rf.3ec49757dd0ef9e60ab45ceba78d1f7d.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p_frame_00036_jpg.rf.3b78f85c2b6b1ba103726cbd2efba36a.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p",
+      "minimum_hamming": 110,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid3_frame_00006_jpg.rf.3ec49757dd0ef9e60ab45ceba78d1f7d.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p_frame_00032_jpg.rf.b60deb4d269afd26e3f7ae808d3528c6.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p",
+      "minimum_hamming": 93,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid3_frame_00000_jpg.rf.77406aa95b923670094a4a36a085fe75.jpg",
+      "best_other_image": "valid/images/YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p_frame_00020_jpg.rf.cdb617be8821c9f7e8c8d537d7d6bd6d.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid3",
+      "other_source": "vid4",
+      "minimum_hamming": 98,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid3_frame_00022_jpg.rf.6132e395c0a4a5cb6222f5f3b323e992.jpg",
+      "best_other_image": "train/images/vid4_frame_00121_jpg.rf.35845dc2cffda4a2a2ff92f36d652e97.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "DJI_20250516071323_0341_D",
+      "minimum_hamming": 96,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00051_jpg.rf.ab443dfc77c78a696cb96f210d4a93d3.jpg",
+      "best_other_image": "train/images/DJI_20250516071323_0341_D_frame_00001_jpg.rf.d5e6d7504b79c06161088dac6efbdaed.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p",
+      "minimum_hamming": 98,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00092_jpg.rf.841bf924716c1e975698094a80dacaed.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p_frame_00042_jpg.rf.e7e7385a83020e4a05d84d971d9490d2.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p",
+      "minimum_hamming": 92,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00004_jpg.rf.422bfd72ff06241df83a0e66f88f62e9.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p_frame_00067_jpg.rf.f2ed4853d9a0b42954c0af86547b1ebe.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p",
+      "minimum_hamming": 92,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00004_jpg.rf.422bfd72ff06241df83a0e66f88f62e9.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p_frame_00028_jpg.rf.6ec9fae74b09afc83c505d22ee610062.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p",
+      "minimum_hamming": 94,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00054_jpg.rf.a992dd221e20306ef227d420d725bf0f.jpg",
+      "best_other_image": "train/images/YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p_frame_00012_jpg.rf.5ff2274aaa7986ee3d3f572cb4d96de0.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p",
+      "minimum_hamming": 102,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "valid/images/vid4_frame_00016_jpg.rf.2608f5131ad4de5efb80738857eb1bd1.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p_frame_00005_jpg.rf.cec1fd24470ce9cfc09feb81e8d005ce.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p",
+      "minimum_hamming": 103,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00008_jpg.rf.5248c28af221cc44078e40935ad4661e.jpg",
+      "best_other_image": "valid/images/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p_frame_00025_jpg.rf.24aeb0aeb5426aa10a9ee7fc96e23aaa.jpg",
+      "status": "no_match"
+    },
+    {
+      "focus_source": "vid4",
+      "other_source": "YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p",
+      "minimum_hamming": 92,
+      "matches_at_or_below_threshold": 0,
+      "best_focus_image": "train/images/vid4_frame_00002_jpg.rf.9c09126c24b0834d43529aec90f12850.jpg",
+      "best_other_image": "train/images/YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p_frame_00060_jpg.rf.b732046c994f0d461ae4d6840b90adba.jpg",
+      "status": "no_match"
+    }
+  ]
+}

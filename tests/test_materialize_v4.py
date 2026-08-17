@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "data"))
 
 from materialize_v4 import (  # noqa: E402
     convert_annotation_line,
+    convert_label,
     materialize,
     select_records,
 )
@@ -69,6 +70,7 @@ class MaterializeV4Tests(unittest.TestCase):
                         "bbox_count": 1,
                         "source_bbox_count": 1,
                         "source_polygon_count": 0,
+                        "exact_duplicate_removed": 0,
                         "duplicate_candidates": 1,
                     }
                 )
@@ -79,7 +81,16 @@ class MaterializeV4Tests(unittest.TestCase):
             source_splits = {(row["source_id"], row["split"]) for row in rows}
             self.assertEqual(source_splits, {("a", "train"), ("b", "test")})
 
+    def test_exact_duplicate_boxes_are_removed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            label = Path(temp_dir) / "label.txt"
+            label.write_text(
+                "1 0.5 0.5 0.2 0.2\n1 0.5 0.5 0.2 0.2\n", encoding="utf-8"
+            )
+            converted, formats = convert_label(label)
+            self.assertEqual(converted, "1 0.5 0.5 0.2 0.2\n")
+            self.assertEqual(formats["exact_duplicate_removed"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
-

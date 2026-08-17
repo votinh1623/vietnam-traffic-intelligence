@@ -72,3 +72,12 @@ report remains a candidate audit rather than proof of licensing or provenance.
 The v4 test split was locked on 2026-08-17. Its content-addressed manifest is
 `manifests/datasets/vietnam_v4/test_lock.json`, with lock SHA-256
 `9c65a74d1a75ce6619d9e12396ac5f2e690514ff5b632bae6c28105377d964c5`.
+
+## Vietnam dataset v5
+
+The first v4 smoke run showed that Ultralytics was removing exact duplicate
+boxes at load time. V5 supersedes v4 for research runs: it applies the same
+source split and polygon-to-box conversion, then removes 53 exact duplicate
+boxes during materialization. No duplicate boxes remain in any split. V5 has
+its own locked test manifest and must not be compared as though it were the
+same dataset version as v4.

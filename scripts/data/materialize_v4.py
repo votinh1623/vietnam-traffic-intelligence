@@ -67,6 +67,7 @@ def convert_annotation_line(line: str, class_count: int = 5) -> tuple[str, str]:
 
 def convert_label(path: Path, class_count: int = 5) -> tuple[str, Counter[str]]:
     converted: list[str] = []
+    seen: set[str] = set()
     formats: Counter[str] = Counter()
     with path.open(encoding="utf-8") as stream:
         for line_number, line in enumerate(stream, start=1):
@@ -76,8 +77,12 @@ def convert_label(path: Path, class_count: int = 5) -> tuple[str, Counter[str]]:
                 bbox, source_format = convert_annotation_line(line, class_count)
             except ValueError as error:
                 raise ValueError(f"{path}:{line_number}: {error}") from error
-            converted.append(bbox)
             formats[source_format] += 1
+            if bbox in seen:
+                formats["exact_duplicate_removed"] += 1
+                continue
+            seen.add(bbox)
+            converted.append(bbox)
     return "\n".join(converted) + ("\n" if converted else ""), formats
 
 
@@ -187,6 +192,7 @@ def select_records(
                 "bbox_count": len(converted.splitlines()),
                 "source_bbox_count": formats["bbox"],
                 "source_polygon_count": formats["polygon"],
+                "exact_duplicate_removed": formats["exact_duplicate_removed"],
                 "duplicate_candidates": len(candidates),
             }
         )
@@ -235,6 +241,9 @@ def materialize(
             split_counts[split] += 1
             conversion_counts["bbox_passthrough"] += int(record["source_bbox_count"])
             conversion_counts["polygon_to_bbox"] += int(record["source_polygon_count"])
+            conversion_counts["exact_duplicate_removed"] += int(
+                record["exact_duplicate_removed"]
+            )
             output_manifest.append(
                 {
                     "image_id": record["source_content_sha256"],

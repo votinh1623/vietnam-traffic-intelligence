@@ -17,11 +17,11 @@ Ultralytics/
 Thumbs.db
 
 # Local data and large artifacts
-datasets/
-models/
-runs/
-output/
-output_*/
+/datasets/
+/models/
+/runs/
+/output/
+/output_*/
 *.pt
 *.pth
 *.onnx
@@ -47,4 +47,4 @@ experiments/*/logs/
 benchmark_outputs/
 
 # Local reference repository is read-only and has its own history/license
-reference/
+/reference/

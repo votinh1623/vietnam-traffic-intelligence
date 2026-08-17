@@ -108,3 +108,8 @@ YOLO bounding boxes; the legacy polygon labels are converted during build.
 
 The v4 test split is locked by a content-addressed image/label manifest. It is
 not used for model, threshold, tracker, prompt, or quantization selection.
+
+V5 supersedes v4 for training after the smoke run exposed 53 exact duplicate
+boxes that Ultralytics otherwise removed silently at load time. The source
+split is unchanged; v5 records deduplication explicitly and has a new test
+lock.

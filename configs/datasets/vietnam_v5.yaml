@@ -1,0 +1,34 @@
+id: vietnam_v5_grouped_deduplicated
+root: datasets/vietnam_dataset_v5
+data_yaml: datasets/vietnam_dataset_v5/data.yaml
+source_manifest: manifests/datasets/vietnam_v5/manifest.csv
+materialization_manifest: datasets/vietnam_dataset_v5/manifest.csv
+materialization_manifest_sha256: e9ebf4cc2af6bedb34520fd425a2296d456a2cdeade1d6254e1685c10baf6519
+frame_interval_seconds: 0.5
+classes: [bus, car, motorcycle, pedestrian, truck]
+splits:
+  train: 819
+  calibration: 111
+  validation: 108
+  test: 176
+box_counts:
+  train: {bus: 1559, car: 12439, motorcycle: 29005, pedestrian: 3265, truck: 2781}
+  calibration: {bus: 158, car: 742, motorcycle: 4360, pedestrian: 1259, truck: 23}
+  validation: {bus: 75, car: 872, motorcycle: 2554, pedestrian: 2462, truck: 60}
+  test: {bus: 622, car: 6038, motorcycle: 4486, pedestrian: 170, truck: 327}
+validity:
+  status: group_leakage_audit_passed
+  exact_duplicate_boxes: 0
+  locked_test: true
+  test_lock: manifests/datasets/vietnam_v5/test_lock.json
+  test_lock_sha256: 6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3
+  class_balance_warning: calibration has 23 trucks; validation has 75 buses and 60 trucks; test has 170 pedestrians
+annotation_conversion:
+  bbox_passthrough: 5132
+  polygon_to_bbox: 68178
+  exact_duplicate_boxes_removed: 53
+exclusions:
+  unknown_source_records: 4
+  conflicting_duplicate_frames: 74
+supersedes: vietnam_v4_grouped
+

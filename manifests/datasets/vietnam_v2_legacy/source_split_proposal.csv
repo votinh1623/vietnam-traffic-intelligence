@@ -1,0 +1,13 @@
+source_id,unique_frame_count,proposed_split,status
+DJI_20250516071323_0341_D,55,validation,proposal_requires_review
+YTDown-com_YouTube_Crazy-rush-hour-traffic-in-Saigon-Ho-Chi_Media_V8paX22Sgzg_001_1080p,76,calibration,proposal_requires_review
+YTDown-com_YouTube_Crazy-yet-Organized-Traffic-in-Vietnam-H_Media_fm0cX7P6PSw_001_1080p,294,train,proposal_requires_review
+YTDown-com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p,327,train,proposal_requires_review
+YTDown-com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p,66,validation,proposal_requires_review
+YTSave_YouTube_4k-my-first-video-Crazy-vietnam-Traffic_Media_08IqB7MSuXc_001_1080p,50,calibration,proposal_requires_review
+YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p,60,test,proposal_requires_review
+YTSave_YouTube_Ho-Chi-Minh-City-Saigon-Traffic-Drone-Ae_Media_-5N-Ab_9LhQ_001_1080p,106,test,proposal_requires_review
+traffic_jam,24,train,proposal_requires_review
+traffic_normal,57,train,proposal_requires_review
+vid3,34,test,proposal_requires_review
+vid4,139,train,proposal_requires_review
