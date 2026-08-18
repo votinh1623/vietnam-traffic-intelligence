@@ -305,6 +305,26 @@ fell, precision decreased, ID switches rose by 257, and fragmentations rose by
 integration configuration. The negative experiment is retained at
 `experiments/tracking_visdrone_mot_val_cv_v1_20260818/run.json`.
 
+### Resolution-controlled vehicle tracking
+
+The VisDrone 10-class checkpoint was then compared at 640 and 1280 on the same
+seven MOT validation sequences. This comparison evaluates the eight vehicle
+classes only, with confidence 0.1, `max_det=1000`, the retained ByteTrack
+configuration, and identical class-aware matching.
+
+| Mode | IDF1 | MOTA | Precision | Recall | ID switches | Fragmentations | Run time (s) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Standard 640 | 0.473 | **0.215** | **0.663** | 0.449 | **411** | **1,260** | **267** |
+| Standard 1280 | **0.481** | 0.132 | 0.578 | **0.521** | 568 | 1,495 | 461 |
+
+Higher resolution improved recall by 0.071 and IDF1 by 0.009, but it reduced
+precision by 0.085 and MOTA by 0.082 while adding 157 ID switches and 235
+fragmentations. Therefore 1280 is not promoted as the tracking default from
+identity metrics alone. Both prediction sets are retained for the next
+line-crossing count benchmark, which will choose the task-level profile. The
+comparison is recorded in
+`experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`.
+
 Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
 It maintains per-track trajectories, counts one crossing per direction and
 track ID, measures unique bbox-union coverage inside the ROI, estimates centroid
@@ -596,7 +616,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Complete v5 fine-tuning and validation-based checkpoint selection.
 - [x] Freeze the v5 detector and run its one-time locked-test evaluation.
 - [x] Compare standard, high-resolution, SAHI, and hybrid inference on VisDrone-DET.
-- [ ] Merge sliced detections in source-frame coordinates before ByteTrack.
+- [x] Feed the selected full-frame detector into ByteTrack once per source frame and compare 640 versus 1280.
 - [ ] Freeze and benchmark the complete CV pipeline end to end.
 - [x] Repair and validate sequence-level class-aware tracking evaluation.
 - [ ] Derive line-crossing ground truth from VisDrone-MOT trajectories and measure counting error.

@@ -62,6 +62,14 @@ HOTA, DetA, and AssA are not provided by motmetrics. They remain `TBD` until
 TrackEval is integrated and verified on a synthetic fixture. Historical root
 tracking CSV files predate the repair and remain `invalid`.
 
+The controlled resolution experiment is recorded in
+`experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`. On the
+same eight vehicle classes and ByteTrack parameters, standard 1280 increased
+recall from 0.449 to 0.521 and IDF1 from 0.473 to 0.481, but reduced MOTA from
+0.215 to 0.132 and precision from 0.663 to 0.578. ID switches increased from
+411 to 568. Resolution selection is therefore deferred to the downstream
+line-crossing counting metric instead of being decided from detector AP alone.
+
 ## Small-object detection selection
 
 The frozen comparison in
