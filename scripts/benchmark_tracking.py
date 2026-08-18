@@ -53,6 +53,16 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def file_manifest_sha256(paths: list[Path], root: Path) -> str:
+    """Hash ordered file identities, sizes, and content hashes."""
+    digest = hashlib.sha256()
+    for path in paths:
+        relative = path.relative_to(root).as_posix()
+        record = f"{relative}\0{path.stat().st_size}\0{file_sha256(path)}\n"
+        digest.update(record.encode("utf-8"))
+    return digest.hexdigest()
+
+
 def resolve_path(value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else PROJECT_ROOT / path
@@ -235,6 +245,7 @@ def main() -> int:
     all_accumulators: list[Any] = []
     accumulator_names: list[str] = []
     annotation_hashes: dict[str, str] = {}
+    frame_manifest_hashes: dict[str, str] = {}
     sequence_frame_counts: dict[str, int] = {}
     started = time.perf_counter()
     for sequence in selected:
@@ -242,6 +253,9 @@ def main() -> int:
         annotation_hashes[sequence] = file_sha256(annotation_path)
         frame_paths = sequence_frames(sequences_root / sequence, args.max_frames)
         sequence_frame_counts[sequence] = len(frame_paths)
+        frame_manifest_hashes[sequence] = file_manifest_sha256(
+            frame_paths, sequences_root
+        )
         predictions = track_sequence(
             model,
             sequence=sequence,
@@ -275,11 +289,15 @@ def main() -> int:
         "dataset": {
             "root": dataset["root"],
             "annotation_sha256": annotation_hashes,
+            "frame_manifest_sha256": frame_manifest_hashes,
             "sequence_frame_counts": sequence_frame_counts,
             "class_map": class_map,
         },
         "parameters": {
             **config["perception"],
+            "tracker_sha256": file_sha256(
+                resolve_path(config["perception"]["tracker"])
+            ),
             "metric_iou_threshold": evaluation["metric_iou_threshold"],
             "max_frames": args.max_frames,
         },

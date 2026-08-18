@@ -14,6 +14,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from benchmark_tracking import (  # noqa: E402
     TRACK_COLUMNS,
     class_accumulators,
+    file_manifest_sha256,
     load_visdrone_ground_truth,
     sequence_frames,
 )
@@ -43,6 +44,18 @@ class TrackingBenchmarkTests(unittest.TestCase):
                 (root / name).touch()
             result = sequence_frames(root, max_frames=2)
             self.assertEqual([path.stem for path in result], ["0000001", "0000002"])
+
+    def test_file_manifest_hash_changes_with_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "0000001.jpg"
+            second = root / "0000002.jpg"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            before = file_manifest_sha256([first, second], root)
+            second.write_bytes(b"changed")
+            after = file_manifest_sha256([first, second], root)
+            self.assertNotEqual(before, after)
 
     def test_class_mismatch_is_not_matched_in_overall_metrics(self) -> None:
         ground_truth = pd.DataFrame(

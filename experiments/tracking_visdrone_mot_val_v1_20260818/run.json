@@ -35,6 +35,15 @@
       "uav0000268_05773_v": "0ec45408deafc855d4d1e06cddff24c002e7423f27ca28dedd0becedff978ec7",
       "uav0000305_00000_v": "6414b5f6ab2e35cb20d04a226438b58f69bb89ece8561fb471a8fa1b687a5280",
       "uav0000339_00001_v": "e7f17b7132ef3c08b1f4818f6931af8c76228f7c3b0958f3e974341c4bc53a2a"
+    },
+    "frame_manifest_sha256": {
+      "uav0000086_00000_v": "8753cb3928d9b46533821b1f36b4d03a204f2bd8528b24fb2d43407244f1b4ee",
+      "uav0000117_02622_v": "96ee8d0fae82d9cc26bd50a755ff9ace038094e93383f8324d23ea0cda9495de",
+      "uav0000137_00458_v": "8277f38013210ea286b86d38637a684fa6ff7d726f533e0eec5b083790245d35",
+      "uav0000182_00000_v": "184ef8d64315708dca7c5ed3abf1fbb0de73ba3236d4e518ac96a1043412d67e",
+      "uav0000268_05773_v": "3ca91e4b9a7d8386d463ab14989e2a88f5abfb31ec513779ec704947bb9e1cb7",
+      "uav0000305_00000_v": "1a0441e2bf51b2275f57ce43ab800c0ffd540e51547183d464dae53998549bf9",
+      "uav0000339_00001_v": "e72df1b5dcd7acb840af898759f9bb69edf721375894af6f986eb1ec09e7f114"
     }
   },
   "parameters": {
@@ -43,6 +52,7 @@
     "detector_iou": 0.7,
     "metric_iou_threshold": 0.5,
     "tracker": "bytetrack_custom.yaml",
+    "tracker_sha256": "c9de25386a49c5c706b4ad0c79b9cdb3b3760676e0f1fc8c2828e840d379bb7a",
     "device": "0"
   },
   "result": {

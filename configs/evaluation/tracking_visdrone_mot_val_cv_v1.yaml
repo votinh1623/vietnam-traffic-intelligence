@@ -1,0 +1,34 @@
+schema_version: 1
+benchmark_id: tracking_visdrone_mot_val_cv_v1
+
+dataset:
+  root: datasets/VisDrone/VisDrone2019-MOT-val
+  sequences_dir: sequences
+  annotations_dir: annotations
+  class_map:
+    1: pedestrian
+    4: car
+    6: truck
+    9: bus
+    10: motorcycle
+
+model:
+  weights: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+  expected_sha256: 729c66e676345e9cdcd504e21f6a94fe1d682582eca3ded39a2aec2a99e7f1db
+  expected_classes: [bus, car, motorcycle, pedestrian, truck]
+
+perception:
+  imgsz: 1280
+  confidence: 0.4
+  iou: 0.7
+  device: "0"
+  tracker: configs/tracking/bytetrack_cv_v1.yaml
+
+evaluation:
+  metric_iou_threshold: 0.5
+  sequences: all
+  output_root: benchmark_outputs/tracking_visdrone_mot_val_cv_v1
+  claim_boundary: >-
+    Class-aware tracker-selection experiment on VisDrone2019-MOT-val. It is
+    not a Vietnam-domain or official VisDrone benchmark and cannot establish
+    counting accuracy on the two unlabeled demo videos.
