@@ -12,6 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from tracking_metrics import (  # noqa: E402
+    build_accumulator,
+    compute_many_motchallenge_metrics,
     compute_motchallenge_metrics,
     iou_distance_matrix,
 )
@@ -64,6 +66,20 @@ class TrackingMetricTests(unittest.TestCase):
         self.assertEqual(loose.loc["acc", "num_misses"], 0)
         self.assertAlmostEqual(strict.loc["acc", "mota"], -1.0)
         self.assertEqual(strict.loc["acc", "num_misses"], 1)
+
+    def test_overall_motp_ignores_accumulators_without_matches(self) -> None:
+        matched = records((1, 1, 0, 0, 10, 10))
+        missing = records((1, 2, 0, 0, 10, 10))
+        empty_predictions = records()
+        summary = compute_many_motchallenge_metrics(
+            [
+                build_accumulator(matched, matched),
+                build_accumulator(missing, empty_predictions),
+            ],
+            ["matched", "missing"],
+        )
+        self.assertEqual(summary.loc["OVERALL", "num_matches"], 1)
+        self.assertAlmostEqual(summary.loc["OVERALL", "motp"], 0.0)
 
 
 if __name__ == "__main__":

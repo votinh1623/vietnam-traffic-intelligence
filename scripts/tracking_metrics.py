@@ -90,9 +90,20 @@ def compute_many_motchallenge_metrics(
     if len(accumulators) != len(names):
         raise ValueError("accumulators and names must have the same length")
     handler = mm.metrics.create()
-    return handler.compute_many(
+    metrics = [*mm.metrics.motchallenge_metrics, "num_matches"]
+    summary = handler.compute_many(
         accumulators,
         names=names,
-        metrics=mm.metrics.motchallenge_metrics,
+        metrics=metrics,
         generate_overall=True,
     )
+    # motmetrics propagates NaN to OVERALL MOTP when any child accumulator has
+    # zero matches. Aggregate the per-accumulator mean IoU distances using the
+    # number of matches so empty sequence/class slices do not erase the value.
+    matches = summary.loc[names, "num_matches"]
+    matched_distances = summary.loc[names, "motp"] * matches
+    total_matches = int(matches.sum())
+    summary.loc["OVERALL", "motp"] = (
+        matched_distances.sum() / total_matches if total_matches else np.nan
+    )
+    return summary
