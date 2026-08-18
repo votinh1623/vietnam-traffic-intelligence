@@ -325,6 +325,35 @@ line-crossing count benchmark, which will choose the task-level profile. The
 comparison is recorded in
 `experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`.
 
+### Ground-truth trajectory counting
+
+Counting was evaluated against native VisDrone MOT trajectories on 2,382
+frames from six traffic sequences. The basketball-court sequence was excluded
+before evaluation because it contains no traffic roadway. Frame-level total
+vehicle count is the primary metric. The same production analytics state
+machine was also evaluated at three frozen horizontal lines (`y=0.35`, `0.50`,
+and `0.65`).
+
+| Tracking profile | Frame-count macro MAE (vehicles/frame) | Frame-count micro WAPE | Crossing WAPE | Crossing signed error |
+|---|---:|---:|---:|---:|
+| Standard 640 | 10.45 | 0.372 | 0.593 | -235 |
+| **Standard 1280** | **9.80** | **0.319** | **0.560** | **-178** |
+
+Standard 1280 is selected as the quality-first counting profile because it
+reduced both frame-count and crossing error. Standard 640 remains the faster,
+higher-precision tracking profile. The result is not uniformly good: 1280
+frame-count WAPE reaches 0.609 on `uav0000305_00000_v`, while both profiles
+severely undercount `uav0000268_05773_v`. Overall 1280 line-crossing WAPE is
+still 0.560, so the current system demonstrates measurable counting rather
+than accurate production-grade counting.
+
+The cameras move or zoom in these UAV sequences. Consequently, fixed
+image-space line crossings are an implementation-level state-machine test, not
+a physical traffic-flow measurement; stabilization, dynamic ROI/line geometry,
+or BEV calibration is required for that stronger claim. Full hashes and
+failure cases are stored in
+`experiments/counting_visdrone_mot_v1_20260818/run.json`.
+
 Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
 It maintains per-track trajectories, counts one crossing per direction and
 track ID, measures unique bbox-union coverage inside the ROI, estimates centroid
@@ -619,7 +648,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Feed the selected full-frame detector into ByteTrack once per source frame and compare 640 versus 1280.
 - [ ] Freeze and benchmark the complete CV pipeline end to end.
 - [x] Repair and validate sequence-level class-aware tracking evaluation.
-- [ ] Derive line-crossing ground truth from VisDrone-MOT trajectories and measure counting error.
+- [x] Derive frame-count and image-space line-crossing ground truth from VisDrone-MOT trajectories and measure error.
 - [x] Implement deterministic analytics and event schema with synthetic tests.
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
 - [ ] Add and test narrowly defined wrong-way/prolonged-stop alerts.

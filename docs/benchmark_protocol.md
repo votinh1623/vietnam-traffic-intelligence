@@ -84,3 +84,19 @@ from 23.7 to 130.8 ms/image. SAHI 640 raised AP-small to 0.142 but reduced AP to
 0.193 and raised median latency to 282.0 ms/image. Hybrid inference was worse
 than the 640 reference on both AP and AP-small. No tracking or counting claim
 is derived from this detector-only validation experiment.
+
+## Counting evaluation status
+
+The counting benchmark is frozen in
+`experiments/counting_visdrone_mot_v1_20260818/run.json`. It covers 2,382
+frames from six VisDrone MOT traffic sequences; the basketball-court sequence
+is explicitly excluded. Standard 1280 reduced frame-count micro WAPE from
+0.372 to 0.319 and line-crossing WAPE from 0.593 to 0.560 relative to the
+controlled 640 profile, so it is selected for quality-first counting.
+
+The line-crossing protocol runs the production analytics state machine at
+three normalized horizontal lines. Because the UAV viewpoints move and no
+stabilization or BEV transform is applied, these crossings measure agreement
+with image-space GT trajectories, not calibrated physical road flow. The
+remaining errors are material and must be reported: 1280 still undercounts the
+aggregate frozen crossings by 178 and has line-crossing WAPE 0.560.
