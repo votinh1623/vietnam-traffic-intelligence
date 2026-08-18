@@ -31,6 +31,12 @@ motorcycle AP. Tracking uses HOTA, DetA, AssA, IDF1, MOTA, ID switches, and
 fragmentation. LLM/VLM quality uses a task-specific frozen evaluation set,
 numeric fidelity, and unsupported-claim rate.
 
+The v5 detector locked test was consumed once from clean commit `ac2ab2d`.
+Across 176 images and 11,643 boxes it produced precision 0.215, recall 0.287,
+mAP50 0.148, and mAP50-95 0.062. The complete immutable record is
+`experiments/yolov8s_v5_locked_test_20260818/run.json`. These values are final
+for v5 and cannot be used for further selection or tuning.
+
 Reasoning input v1 and its no-tuning boundary are defined in
 `docs/reasoning_protocol.md`. Schema validity, evidence citations, numeric
 fidelity, and traffic-state fidelity are automatic gates. Human annotations
