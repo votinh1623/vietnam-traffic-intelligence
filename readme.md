@@ -37,9 +37,11 @@ This repository therefore separates four current concerns:
 | Image and video detection | YOLOv8, five Vietnamese traffic classes | Implemented |
 | Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; provenance-controlled v5 integration benchmark complete |
 | Structured traffic analytics | Bbox-union ROI coverage, trajectories, directional counts, and congestion events | Implemented; initial two-video acceptance passed |
+| UAV moving-camera analytics | `analytics.mode: uav_motion`, optional ECC-based GMC re-projecting the ROI/counting-line into every frame | Implemented; real-UAV-clip run corrected a NORMAL-stuck-despite-visible-congestion failure, direction of the ECC transform verified against a known synthetic shift |
 | Event evidence selection | Raw keyframes for deterministic events and clips for congestion transitions | Implemented; two-video acceptance passed |
-| VLM scene understanding | Representative frames or event clips, not every frame | Architecture defined |
-| LLM reasoning and reports | Event-driven summaries using structured analytics plus VLM evidence | Architecture defined |
+| Local monitoring dashboard | Streamlit app reading a `run_pipeline.py` output directory: live annotated frame (`latest_frame.jpg`, atomic per-frame write), current state, timeline, recent events, finished video | Implemented; headless boot, real-run data load, and per-frame atomic JPEG write/decode all verified, live browser auto-refresh not yet visually confirmed by a human |
+| VLM scene understanding | Representative keyframe per event; Qwen3-VL-2B FP16 | Implemented; pretrained smoke passed on real jam/normal clips, task quality not formally measured |
+| LLM reasoning and reports | Event-driven Vietnamese summaries assembled from structured analytics plus VLM evidence | Implemented; pretrained smoke passed (Qwen3-0.6B fallback), task quality not formally measured |
 | Detector quantization | FP16/INT8 export and accuracy-latency evaluation | Deferred beyond current goal |
 | VLM/LLM quantization | Backend-specific FP16/INT8 or weight-only evaluation | Deferred beyond current goal |
 | Physical edge/NPU execution | Target-specific validation | Deferred beyond current goal |
@@ -122,7 +124,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Export and quantization benchmark | Deferred beyond current goal | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
 | VLM/LLM reasoning contract | Inputs locked; both reviews complete; one disagreement and final adjudication pending | [Reasoning protocol](docs/reasoning_protocol.md) |
-| VLM/LLM model inference | Sequential pretrained demo passed on one frozen case; 1.7B blocked by pagefile, 0.6B fallback output remains generic | [Reasoning protocol](docs/reasoning_protocol.md) |
+| VLM/LLM model inference | Sequential pretrained demo passed on real `traffic_jam.mp4`/`traffic_normal.mp4` runs after the v3 prompt fix (grounded, non-generic, matching real analytics on both clips); hallucination rate and output quality remain formally unmeasured | [Reasoning protocol](docs/reasoning_protocol.md) |
 
 The detector locked test was consumed once after validation-only checkpoint
 selection. Its result is final for v5 and must not be used for further model or
@@ -409,6 +411,34 @@ calibration transfers to UAV camera motion; stabilization plus dynamic geometry
 or BEV calibration is required. The complete record is
 `experiments/uav_pipeline_e2e_v1_20260818/run.json`.
 
+### UAV moving-camera analytics (`analytics.mode: uav_motion`)
+
+Two fixes address the failure above, both re-run on the same real aerial clip
+(`configs/pipeline/offline_video_uav_gmc.yaml`, 300 frames, VisDrone baseline
+checkpoint). First, `uav_motion` mode drops the fixed ground-anchored ROI in
+favor of a full-frame region by default, and the congestion state machine
+stops requiring ROI occupancy to corroborate a high track count in this mode
+(`fixed_camera` keeps the original, tested co-requirement unchanged). This
+alone still under-triggered: full-frame occupancy tops out at 0.132 even in a
+visibly jammed scene, because a wide aerial frame is mostly background.
+
+Second, `analytics.gmc_enabled` adds `src/vn_traffic/analytics/motion.py`: an
+ECC-based (`cv2.findTransformECC`) global motion compensator that re-projects
+a hand-drawn ROI/counting-line from frame 0 into every later frame instead of
+collapsing to the full frame, restoring location-specific occupancy under
+pan/zoom. The transform direction is easy to get backwards without symptom;
+it is verified in `tests/test_motion.py` against a known synthetic pixel
+shift (the first implementation was wrong and failed that test before being
+corrected). On the real clip, `gmc_consecutive_failures_at_end` was 0 across
+all 300 frames (no lost lock), and the run correctly transitioned
+`NORMAL`→`CONGESTED` at frame 51 with a location-specific ROI, instead of
+staying `NORMAL` for all 300 frames as the original run did. GMC is still
+only 2D image-plane motion compensation, not GPS/BEV georeferencing, and can
+lose lock under a hard scene cut, fast motion, or low-texture frames -- see
+`gmc_consecutive_failures_at_end` in `summary.json` before trusting a given
+run's geometry. These runs are local ad-hoc reruns, not a new hashed
+experiment record.
+
 The original Stage 2 implementation summed bbox areas and double-counted
 overlap. Local run2-run8 analytics artifacts are retained with an
 `INVALID_ANALYTICS.json` sidecar and must not be cited; their `tracks.csv`
@@ -463,6 +493,53 @@ deterministic numbers, and explicit uncertainty. The input lock is complete,
 but human reference annotations are still pending, so no reasoning-model or
 quantization quality result is claimed. See the
 [reasoning protocol](docs/reasoning_protocol.md).
+
+### Prompt-copying bug: v1 to v3
+
+Every VLM/LLM run recorded before this fix, on every case tried, reproduced
+one example sentence from the prompt verbatim
+("Quan sát thấy các phương tiện trong khung hình.") instead of describing the
+image. `configs/reasoning/prompts_v1.yaml`'s user-turn JSON example used that
+sentence as the `claim_vi` value, and the 2B model copied it as a free
+answer. `_prompt_text()` in `src/vn_traffic/reasoning/vlm_runtime.py` was
+changed to use a non-Vietnamese placeholder instead
+(`tests/test_vlm_runtime.py::test_prompt_example_is_not_copyable_vietnamese_prose`).
+
+That alone was insufficient: `prompts_v2.yaml`'s *system* prompt illustrated
+the required structure with a different complete sentence ("chủ yếu là xe
+máy, có nhiều ô tô con và vài xe buýt hoặc xe tải"), and the model copied
+that one instead -- on a real truck-dominated highway keyframe where the
+pipeline's own analytics recorded `car:17, motorcycle:1, truck:46`, the model
+still answered "chủ yếu là xe máy" (mostly motorcycles), because the words
+came from the prompt, not the image
+(`output/reasoning/adhoc/run34-vlm-v2prompt.json`). The lesson: any complete,
+grammatical example sentence anywhere in the prompt is copyable, regardless
+of which prompt it lives in.
+
+`prompts_v3.yaml` replaces every example with a fill-in-the-brackets
+template (`"Phần lớn phương tiện là [LOẠI XE CHIẾM ĐA SỐ...], ngoài ra có
+[...]; mật độ [...]."`) that is not itself a valid answer if copied
+literally
+(`tests/test_vlm_runtime.py::test_system_prompt_v3_has_no_copyable_example_sentence`).
+Re-run on two real, distinct keyframes, it produced grounded, differing
+answers: "Phần lớn phương tiện là xe máy, ngoài ra có xe ô tô và xe buýt; mật
+độ rất đông" on the jam clip (`output/reasoning/adhoc/run32-vlm-v3prompt.json`,
+occupancy 0.709) versus "Phần lớn phương tiện là xe tải, ngoài ra có xe ô tô,
+xe máy...; mật độ rất đông" on the truck-heavy highway clip
+(`output/reasoning/adhoc/run34-vlm-v3prompt.json`). The raw VLM sentence is
+sometimes mildly repetitive; the downstream LLM report cleans it into a
+single clean sentence and still keeps `numeric_facts` exactly equal to the
+deterministic event measurements. This is not a formally re-frozen evidence
+set or a measured quality result -- v1 and v2 stay unchanged for historical
+hash reference, and these are local ad-hoc runs, not new experiment records.
+
+A related, still-open gap: `validate_grounding_policy` only forbids motion
+claims when the VLM request has no clip evidence, but `run_vlm_case` never
+actually loads or shows clip frames to the model -- it is keyframe-only
+regardless of what the request references. A future motion claim on a
+clip-bearing event would therefore not be caught as ungrounded even though
+the model never saw the clip. It happened not to matter in the runs above
+because the model made no motion claims, but the gap is real and unfixed.
 
 | Metric | Current status |
 |---|---|
@@ -519,6 +596,7 @@ FP32, FP16, and INT8 after export benchmarks exist. -->
 |-- src/
 |   `-- vn_traffic/          # perception, analytics, evidence, reasoning contracts
 |-- tests/                   # dataset, metrics, pipeline, and analytics tests
+|-- app.py                   # Streamlit dashboard over a pipeline run directory
 |-- detect.py                # backward-compatible root CLI
 |-- run_pipeline.py          # repository-local MVP pipeline CLI
 |-- environment.yml          # audited Conda environment
@@ -598,6 +676,44 @@ this short cold-start run is a functional check rather than a formal latency
 benchmark. Its lightweight provenance is stored in
 `experiments/pipeline_v5_integration_20260817T115039/run.json`.
 
+### Dashboard
+
+`app.py` is a Streamlit page that reads an existing `output/pipeline/runN/`
+directory and shows the current annotated frame, congestion state, an
+occupancy/track-count timeline, recent events, and the finished annotated
+video. It does not connect to a live camera: the project has no live camera
+source, only offline video files processed by `run_pipeline.py`. "Real-time"
+here means the dashboard polls a run's own output files while that run is
+still writing them: `runner.py` flushes `tracks.csv`/`analytics.csv`/
+`events.jsonl` after every frame, rewrites `run.json`'s progress fields about
+once per second, and overwrites `latest_frame.jpg` every frame through a temp
+file plus an atomic rename, so the dashboard never reads a half-written JPEG.
+`latest_frame.jpg` is the actual live view; `annotated.mp4` is not readable
+live because most containers only finalize their index when the writer
+closes, so it only becomes playable once the run completes and is shown
+purely for after-the-fact review.
+
+```powershell
+python -m pip install streamlit==1.61.1   # once; see [project.optional-dependencies].dashboard
+python -m streamlit run app.py
+```
+
+This opens `http://localhost:8501`. Use the sidebar to pick a run (defaults to
+the most recently modified one) and the refresh interval; auto-refresh is only
+active while that run's `status` is `running`. To see it update live, start a
+pipeline run in one terminal and open the dashboard on the same run in
+another:
+
+```powershell
+python run_pipeline.py --config configs/pipeline/offline_video_uav_gmc.yaml
+```
+
+Verified so far: the app boots headless without exceptions and serves HTTP
+200 when reading real run output (`output/pipeline/run27`, `run28`). A human
+has not yet watched the auto-refresh update live in a browser against an
+in-progress run; treat that specific behavior as implemented but not visually
+confirmed until someone does.
+
 ### Reproducible training
 
 ```powershell
@@ -661,6 +777,21 @@ The full measurement contract is defined in
 - VLM/LLM quality, hallucination rate, and quantization effects are not yet
   measured.
 - No model has yet been benchmarked on a physical edge NPU in this project.
+- Global motion compensation (`analytics.gmc_enabled`) is 2D image-plane
+  alignment only (`cv2.findTransformECC`, Euclidean model), not a BEV or
+  GPS/IMU-based transform. It can lose lock on hard cuts, very fast pans, or
+  low-texture frames; `gmc_consecutive_failures_at_end` in the run summary
+  must be checked, not assumed zero.
+- `validate_grounding_policy` only checks whether an event's *request*
+  references a clip; `run_vlm_case` never actually loads or shows clip frames
+  to the VLM. A motion claim on a clip-bearing event is therefore not
+  currently caught as ungrounded even though the policy name implies it would
+  be.
+- The dashboard's live-frame write (`latest_frame.jpg`) can fail on Windows
+  due to transient file locks (observed `PermissionError: [WinError 5]` from
+  Defender/OneDrive scanning during a real run). This is now handled as
+  non-fatal (the frame write is skipped, the run continues), but it means the
+  dashboard can occasionally show a stale frame rather than the current one.
 
 ## Roadmap
 
@@ -694,6 +825,10 @@ all quantization work, and physical deployment are explicitly deferred.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
 - [x] Run a bounded end-to-end UAV benchmark on the RTX host.
+- [x] Add a Streamlit dashboard over pipeline run output (headless boot verified; live browser auto-refresh not yet human-confirmed).
+- [x] Diagnose the UAV camera-motion ROI failure and implement global motion compensation (`analytics.mode: uav_motion`, `gmc_enabled`), verified on 300 real frames with zero GMC failures and a correct NORMAL→CONGESTED transition.
+- [x] Rewrite the dashboard around an atomic live-frame view (`latest_frame.jpg`) after user feedback that the first multi-widget layout was not clean enough.
+- [x] Fix the VLM/LLM prompt-copying bug (v1 to v3): eliminated copyable example sentences from both the VLM and LLM prompts, verified with grounded, distinct, analytics-consistent output on two real clips.
 - [ ] Deferred beyond current goal: validate an appropriate physical edge/NPU target.
 
 ## License
