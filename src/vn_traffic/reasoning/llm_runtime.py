@@ -30,39 +30,54 @@ def load_validated_vlm_result(
     return result
 
 
-def build_report_prompt(request: dict[str, Any]) -> str:
-    """Build the user prompt while keeping deterministic and visual facts separate."""
-    event = request["vlm_request"]["event"]
-    numeric_facts = [
+def _numeric_facts(event: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
         {"source_path": f"event.measurements.{name}", "value": value}
         for name, value in event.get("measurements", {}).items()
         if isinstance(value, (int, float)) and not isinstance(value, bool)
     ]
-    fixed_fields = {
+
+
+def assemble_llm_report(
+    generated_fields: dict[str, Any], request: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge generated prose with authoritative fields owned by the pipeline."""
+    if set(generated_fields) != {"summary_vi", "action"}:
+        raise ContractError("LLM prose output must contain only summary_vi and action")
+    action = generated_fields["action"]
+    if not isinstance(action, dict) or set(action) != {"level", "message_vi"}:
+        raise ContractError("LLM action must contain only level and message_vi")
+    event = request["vlm_request"]["event"]
+    report = {
         "schema_version": 1,
         "case_id": request["vlm_request"]["case_id"],
         "event_id": event["event_id"],
+        "summary_vi": generated_fields["summary_vi"],
         "traffic_state": event.get("current_state", "UNSPECIFIED"),
-        "numeric_facts": numeric_facts,
+        "numeric_facts": _numeric_facts(event),
         "visual_findings": [
             observation["claim_vi"]
             for observation in request["vlm_assessment"]["observations"]
         ],
+        "action": action,
         "limitations": request["vlm_assessment"]["limitations"],
     }
+    validate_llm_report(report, request)
+    return report
+
+
+def build_report_prompt(request: dict[str, Any]) -> str:
+    """Ask the LLM only for prose fields; authoritative fields are assembled later."""
     return (
         "Input JSON:\n"
         + json.dumps(request, ensure_ascii=False, sort_keys=True)
-        + "\n\nCreate exactly one JSON report with exactly these keys: "
-        "schema_version, case_id, event_id, summary_vi, traffic_state, "
-        "numeric_facts, visual_findings, action, limitations. Copy every value "
-        "in Fixed fields JSON exactly into its corresponding output field; do not "
-        "add numeric or visual facts. Write a concrete Vietnamese summary_vi about "
-        "this specific event using only the input. Write action as an object with "
-        "exactly level (one of none, monitor, review, alert) and a cautious Vietnamese "
-        "message_vi. Do not copy these instructions into the report.\n\n"
-        "Fixed fields JSON:\n"
-        + json.dumps(fixed_fields, ensure_ascii=False, sort_keys=True)
+        + "\n\nReturn exactly one JSON object containing only summary_vi and action. "
+        "Write a concrete Vietnamese summary_vi about this specific event using "
+        "only the input. action must be an object containing only level (one of "
+        "none, monitor, review, alert) and a cautious Vietnamese message_vi. Do "
+        "not output IDs, numeric_facts, traffic_state, visual_findings, limitations, "
+        "schema fields, explanations, or Markdown; the application owns those "
+        "authoritative fields."
     )
 
 
@@ -110,11 +125,12 @@ def run_llm_case(
     elapsed_s = time.perf_counter() - started
     generated = output_ids[0][inputs["input_ids"].shape[-1] :]
     raw_text = tokenizer.decode(generated, skip_special_tokens=True)
-    report = extract_json_object(raw_text)
+    generated_fields = extract_json_object(raw_text)
     contract_status = "valid"
     contract_error = None
+    report = None
     try:
-        validate_llm_report(report, request)
+        report = assemble_llm_report(generated_fields, request)
     except ContractError as error:
         contract_status = "invalid"
         contract_error = str(error)
@@ -129,6 +145,7 @@ def run_llm_case(
         "contract_status": contract_status,
         "contract_error": contract_error,
         "raw_text": raw_text,
+        "generated_fields": generated_fields,
         "report": report,
     }
 

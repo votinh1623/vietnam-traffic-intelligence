@@ -8,6 +8,7 @@ import unittest
 
 from vn_traffic.reasoning.contracts import ContractError, build_vlm_request
 from vn_traffic.reasoning.llm_runtime import (
+    assemble_llm_report,
     build_report_prompt,
     prepare_llm_request,
 )
@@ -70,11 +71,37 @@ class LlmRuntimeTests(unittest.TestCase):
                 self._write(_result(), directory), _request()
             )
         prompt = build_report_prompt(request)
-        self.assertIn('"traffic_state": "UNSPECIFIED"', prompt)
-        self.assertIn('"source_path": "event.measurements.speed_px_s"', prompt)
-        self.assertIn('"value": 12.5', prompt)
+        self.assertIn("containing only summary_vi and action", prompt)
         self.assertNotIn("Tóm tắt thận trọng", prompt)
         self.assertNotIn("Nêu giới hạn của evidence", prompt)
+
+        report = assemble_llm_report(
+            {
+                "summary_vi": "Ghi nhận một sự kiện giao thông cần theo dõi.",
+                "action": {"level": "monitor", "message_vi": "Tiếp tục theo dõi."},
+            },
+            request,
+        )
+        self.assertEqual(report["traffic_state"], "UNSPECIFIED")
+        self.assertEqual(
+            report["numeric_facts"],
+            [{"source_path": "event.measurements.speed_px_s", "value": 12.5}],
+        )
+
+    def test_assembler_rejects_model_owned_authoritative_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, request = prepare_llm_request(
+                self._write(_result(), directory), _request()
+            )
+        with self.assertRaisesRegex(ContractError, "only summary_vi and action"):
+            assemble_llm_report(
+                {
+                    "summary_vi": "Báo cáo.",
+                    "action": {"level": "none", "message_vi": "Không hành động."},
+                    "numeric_facts": [],
+                },
+                request,
+            )
 
     def test_rejects_vlm_result_marked_invalid(self) -> None:
         result = _result()

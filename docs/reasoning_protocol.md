@@ -122,10 +122,11 @@ enough headroom for concurrent detector execution.
 
 The LLM adapter accepts only a stored VLM result whose contract is marked
 valid and whose case, event, citations, and assessment all revalidate against
-the frozen request. The final report must preserve the validated VLM findings
-and limitations exactly; the LLM may compose the summary and action, but it
-cannot introduce a new visual claim under those fields. A dry run verifies
-this boundary without loading weights:
+the frozen request. The LLM generates only `summary_vi` and `action`; the
+application assembles IDs, state, numeric facts, visual findings, and
+limitations from authoritative inputs before validating the complete report.
+The model therefore cannot introduce or alter a value under those fields. A
+dry run verifies this boundary without loading weights:
 
 ```powershell
 python scripts/reasoning/run_llm.py `
