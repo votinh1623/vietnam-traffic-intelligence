@@ -1,0 +1,60 @@
+schema_version: 1
+benchmark_id: visdrone_det_small_object_v1
+
+dataset:
+  name: VisDrone2019-DET-val
+  split: validation
+  images: datasets/VisDrone/VisDrone2019-DET-val/images
+  annotations: datasets/VisDrone/VisDrone2019-DET-val/annotations
+  classes: [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+
+model:
+  weights: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+  expected_sha256: 0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08
+  device: cuda:0
+  confidence: 0.01
+  iou: 0.7
+  max_det: 1000
+
+evaluation:
+  coco_max_dets: [1, 100, 1000]
+  output_root: benchmark_outputs/visdrone_det_small_object_v1
+  require_clean_worktree: true
+  claim_boundary: >-
+    COCO-style validation comparison on valid VisDrone objects with maxDets
+    1000. This is not the official VisDrone protocol because ignored regions
+    are excluded rather than handled by the official matching rules.
+
+modes:
+  standard_640:
+    type: standard
+    imgsz: 640
+  standard_1280:
+    type: standard
+    imgsz: 1280
+  sahi_640:
+    type: sahi
+    image_size: 640
+    slice_height: 640
+    slice_width: 640
+    overlap_height_ratio: 0.2
+    overlap_width_ratio: 0.2
+    perform_standard_pred: false
+    postprocess_type: GREEDYNMM
+    postprocess_match_metric: IOS
+    postprocess_match_threshold: 0.5
+    force_postprocess_type: true
+    batch_size: 4
+  hybrid_640:
+    type: sahi
+    image_size: 640
+    slice_height: 640
+    slice_width: 640
+    overlap_height_ratio: 0.2
+    overlap_width_ratio: 0.2
+    perform_standard_pred: true
+    postprocess_type: GREEDYNMM
+    postprocess_match_metric: IOS
+    postprocess_match_threshold: 0.5
+    force_postprocess_type: true
+    batch_size: 4

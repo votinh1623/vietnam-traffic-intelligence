@@ -24,6 +24,10 @@ llm = []
 vlm = []
 deployment = []
 tracking-eval = []
+small-object = [
+    "sahi==0.12.2",
+    "pycocotools==2.0.11",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src" }

@@ -17,8 +17,9 @@ dependencies:
       - opencv-python==5.0.0.93
       - motmetrics==1.4.0
       - transformers==5.14.1
+      - sahi==0.12.2
+      - pycocotools==2.0.11
 
 # This records the audited environment; it has not been recreated in this
 # phase. ONNX Runtime, TensorRT, TrackEval, and quantization runtimes are added
 # only after a backend-specific dependency proposal is approved.
-
