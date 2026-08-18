@@ -111,3 +111,20 @@ acceptance result, not precision/recall evidence. Prolonged-stop correctness is
 covered by synthetic duration, release, continuity, and tracking-gap tests;
 there is no labeled real abnormal-stop clip, so real-video accuracy remains
 unmeasured.
+
+## End-to-end UAV product benchmark
+
+`experiments/uav_pipeline_e2e_v1_20260818/run.json` records a clean-commit,
+300-frame run of the complete offline CV path on a dense 1080p aerial clip.
+The selected VisDrone checkpoint runs at 1280 with ByteTrack and
+`max_det=1000`; analytics applies an explicit vehicle allow-list while
+`tracks.csv` retains all raw model classes for audit. The measured 3.70 FPS is
+end-to-end and includes inference, tracking, analytics, overlay, video writing,
+and the evidence-export pass.
+
+The artifact integrity check passed, but alert transfer did not: all 300 frames
+remained `NORMAL` under a camera that zooms/pans over a visible jam. Therefore
+the run is throughput and integration evidence only. It is a recorded failure
+case motivating stabilization, dynamic ROI/line geometry, or BEV calibration;
+its line crossings and state timeline must not be cited as physical traffic
+accuracy.

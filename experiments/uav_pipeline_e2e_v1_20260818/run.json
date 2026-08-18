@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "status": "passed_artifact_and_throughput_checks_with_alert_transfer_failure",
+  "claim_boundary": "A 300-frame moving-camera UAV product benchmark. It establishes end-to-end execution, artifact integrity, dense-scene class filtering, and measured host throughput. It is not counting accuracy evidence. The traffic-jam clip remained NORMAL, so congestion-threshold transfer to moving UAV viewpoints failed and is explicitly not claimed.",
+  "recorded_at_utc": "2026-08-18T07:12:40.5235178Z",
+  "source": {
+    "git_commit": "a0bb579a11e191ea8ef5d582a877a5e1f7a6ab21",
+    "worktree_clean_at_run_start": true,
+    "run_id": "run25",
+    "output_path_ignored": "output/pipeline/run25",
+    "video_sha256": "e3a9936822e0753b93d63e5069d26d7a24f25fbaff063a1ef5603547b58c41c6",
+    "config_sha256": "ffb502aea738a5a8e91e6468d0641d372aa6845b4007ec19a46c4feee01611c1",
+    "model_sha256": "0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08",
+    "tracker_config_sha256": "c9de25386a49c5c706b4ad0c79b9cdb3b3760676e0f1fc8c2828e840d379bb7a"
+  },
+  "profile": {
+    "video_span": "frames 0-299",
+    "source_fps": 29.97002997002997,
+    "source_resolution": [1920, 1080],
+    "model": "VisDrone YOLOv8s baseline",
+    "imgsz": 1280,
+    "confidence": 0.1,
+    "iou": 0.7,
+    "max_det": 1000,
+    "tracker": "ByteTrack",
+    "analytics_included_classes": [
+      "bicycle",
+      "bus",
+      "car",
+      "motor",
+      "truck",
+      "van",
+      "tricycle",
+      "awning-tricycle"
+    ]
+  },
+  "performance": {
+    "frames_processed": 300,
+    "elapsed_s": 81.05490180000197,
+    "processing_fps": 3.701195033709765,
+    "track_rows": 52250,
+    "tracked_ids_raw_nonempty": 418,
+    "untracked_detection_rows": 74,
+    "analytics_vehicle_track_ids": 398
+  },
+  "integrity": {
+    "status": "passed",
+    "annotated_video_frames": 300,
+    "analytics_rows": 300,
+    "events_rows": 38,
+    "all_event_classes_in_vehicle_allowlist": true,
+    "overlay_manual_review": "passed_readability_with_boxes_only",
+    "outputs": {
+      "run.json": "bcc03bead63338dc67a45a2d061b74ab28b0742ef57045d2e2f1e4c01f673f74",
+      "summary.json": "2ad6e0ade1c2fa004286ee0bcedfe5352c4dc70ddd50a8c0f920f985f3153453",
+      "tracks.csv": "11b7202c27579bd2e0f4bcdfab5f7dd4fb2e62cbcb1473ce4b8df34e1f9970f5",
+      "events.jsonl": "bf40a2d3bc8e4191537aa375dd019f68be756e7f5dcddfd3351140e8958b527a",
+      "analytics.csv": "9a326a2cda5b433a52962024cdae945a2f33ae47f197e3512e2218954ec639be",
+      "evidence.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "annotated.mp4": "4106f4f5260234ebc00b95e94cfa9f3af8d433d3e01fa6dd8dd3f7328973a7ec"
+    }
+  },
+  "analytics_observation": {
+    "state_frames": {"NORMAL": 300},
+    "max_roi_track_count": 167,
+    "max_bbox_union_occupancy": 0.295910094420815,
+    "line_crossings": 38,
+    "congestion_transitions": 0,
+    "prolonged_stop_events": 0,
+    "interpretation": "The static image-space calibration did not transfer under UAV zoom/pan. Crossing values are not physical-flow counts, and the lack of a congestion transition is a failed alert-transfer case rather than evidence that the scene was normal."
+  },
+  "superseded_local_runs": {
+    "run23": "externally interrupted at 120-second terminal timeout",
+    "run24": "completed but invalidated because analytics included pedestrian/people and dense labels obscured the video"
+  }
+}

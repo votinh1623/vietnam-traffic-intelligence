@@ -394,6 +394,21 @@ it is not evidence that the thresholds generalize to other cameras. Crossing
 events were generated in both runs, but count accuracy is not reported because
 the clips have no counting ground truth and tracker ID error is not yet known.
 
+The final product-path benchmark processed frames 0-299 of a real 1080p aerial
+traffic-jam clip with the selected VisDrone 1280 profile, ByteTrack,
+`max_det=1000`, vehicle-only analytics, overlay, event output, and evidence
+export enabled. It produced 300 annotated frames, 52,250 raw track rows and 38
+vehicle crossing events at 3.70 end-to-end FPS on the RTX 3050. Artifact row
+counts, class allow-list, hashes, and visual overlay readability passed.
+
+This run also exposed the main unresolved failure: despite a visually congested
+scene and a maximum 167 vehicle tracks in the configured ROI, the moving/zooming
+camera span stayed `NORMAL` for all 300 frames. Static ROI occupancy peaked at
+only 0.296. The project therefore does not claim that the two-demo congestion
+calibration transfers to UAV camera motion; stabilization plus dynamic geometry
+or BEV calibration is required. The complete record is
+`experiments/uav_pipeline_e2e_v1_20260818/run.json`.
+
 The original Stage 2 implementation summed bbox areas and double-counted
 overlap. Local run2-run8 analytics artifacts are retained with an
 `INVALID_ANALYTICS.json` sidecar and must not be cited; their `tracks.csv`
@@ -661,7 +676,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Freeze the v5 detector and run its one-time locked-test evaluation.
 - [x] Compare standard, high-resolution, SAHI, and hybrid inference on VisDrone-DET.
 - [x] Feed the selected full-frame detector into ByteTrack once per source frame and compare 640 versus 1280.
-- [ ] Freeze and benchmark the complete CV pipeline end to end.
+- [x] Freeze and benchmark the complete CV pipeline end to end (with UAV alert-transfer failure documented).
 - [x] Repair and validate sequence-level class-aware tracking evaluation.
 - [x] Derive frame-count and image-space line-crossing ground truth from VisDrone-MOT trajectories and measure error.
 - [x] Implement deterministic analytics and event schema with synthetic tests.
@@ -678,7 +693,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Demo existing pretrained VLM and LLM without tuning (functional smoke; quality not established).
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
-- [ ] Run end-to-end UAV benchmarks on the RTX host.
+- [x] Run a bounded end-to-end UAV benchmark on the RTX host.
 - [ ] Deferred beyond current goal: validate an appropriate physical edge/NPU target.
 
 ## License
