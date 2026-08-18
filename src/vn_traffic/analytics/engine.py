@@ -21,6 +21,7 @@ from .geometry import (
     stable_line_side,
     to_pixels,
 )
+from .motion import GlobalMotionCompensator
 from .occupancy import BBoxUnionOccupancy
 from .state import CongestionStateMachine
 
@@ -57,6 +58,11 @@ class TrafficAnalytics:
             config.roi_polygon,
             config.occupancy_grid_size_px,
         )
+        self._motion = (
+            GlobalMotionCompensator(downscale=config.gmc_downscale)
+            if config.gmc_enabled
+            else None
+        )
 
     def _event(self, event_type: str, **payload: Any) -> dict[str, Any]:
         self._event_number += 1
@@ -75,11 +81,25 @@ class TrafficAnalytics:
         tracks: tuple[TrackObservation, ...],
         frame_width: int,
         frame_height: int,
+        frame: Any = None,
     ) -> AnalyticsBatch:
+        # roi/line here are always the reference-frame (frame 0) pixel
+        # positions. Without GMC that reference frame IS the current frame,
+        # so this is already the effective geometry. With GMC, warp_points()
+        # below re-projects them into the current frame instead.
         roi = to_pixels(self.config.roi_polygon, frame_width, frame_height)
         line_start, line_end = to_pixels(
             self.config.counting_line, frame_width, frame_height
         )
+        if self._motion is not None:
+            if frame is None:
+                raise ValueError(
+                    "analytics.gmc_enabled requires the raw frame to be passed "
+                    "to TrafficAnalytics.process(frame=...)"
+                )
+            self._motion.update(frame)
+            roi = tuple(self._motion.warp_points(roi))
+            line_start, line_end = self._motion.warp_points([line_start, line_end])
         boxes: list[tuple[float, float, float, float]] = []
         current_counts: Counter[str] = Counter()
         current_speeds: list[float] = []
@@ -210,6 +230,7 @@ class TrafficAnalytics:
             boxes,
             frame_width,
             frame_height,
+            roi_polygon_px=roi if self._motion is not None else None,
         )
         mean_speed = (
             sum(current_speeds) / len(current_speeds) if current_speeds else None
@@ -258,13 +279,46 @@ class TrafficAnalytics:
                 direction: dict(sorted(counts.items()))
                 for direction, counts in self._crossings.items()
             },
+            roi_polygon_px=tuple(roi),
+            counting_line_px=(line_start, line_end),
         )
         return AnalyticsBatch(snapshot=snapshot, events=tuple(events))
 
     def summary(self) -> dict[str, Any]:
+        if self.config.gmc_enabled:
+            mode_note = (
+                "analytics_mode=uav_motion, gmc_enabled=true: the roi_polygon/"
+                "counting_line defined on frame 0 are re-projected into every "
+                "frame using ECC-estimated camera motion (see "
+                "src/vn_traffic/analytics/motion.py), instead of collapsing to "
+                "the full frame. This is 2D image-plane motion compensation "
+                "only (no GPS/BEV georeferencing) and can lose lock under a "
+                "hard scene cut, fast motion, or low-texture frames -- see "
+                "gmc_consecutive_failures_at_end below."
+            )
+        elif self.config.analytics_mode == "uav_motion":
+            mode_note = (
+                "analytics_mode=uav_motion: the analytics region defaults to the "
+                "full frame instead of a hand-drawn ROI, because a fixed "
+                "ground-anchored polygon misplaces the congestion region within "
+                "seconds under camera pan/zoom (see "
+                "experiments/uav_pipeline_e2e_v1_20260818). This is not camera-"
+                "motion compensation: occupancy still shifts with zoom, and count "
+                "is a whole-frame track count rather than a location-specific one."
+            )
+        else:
+            mode_note = (
+                "analytics_mode=fixed_camera: ROI/occupancy assume a static "
+                "camera and are not valid if the source pans or zooms."
+            )
         return {
             "schema_version": ANALYTICS_SCHEMA_VERSION,
             "analytics_enabled": True,
+            "analytics_mode": self.config.analytics_mode,
+            "gmc_enabled": self.config.gmc_enabled,
+            "gmc_consecutive_failures_at_end": (
+                self._motion.consecutive_failures if self._motion is not None else None
+            ),
             "state_frames": dict(self._frames_by_state),
             "congestion_transitions": self._transition_count,
             "prolonged_stop_events": self._prolonged_stop_count,
@@ -285,6 +339,7 @@ class TrafficAnalytics:
                 "occupancy is image-plane box coverage, not physical road "
                 "occupancy; boxes include background and no BEV calibration is "
                 "applied. Prolonged-stop alerts use image-plane centroid speed and "
-                "can be invalid under camera motion or identity errors."
+                "can be invalid under camera motion or identity errors. "
+                + mode_note
             ),
         }

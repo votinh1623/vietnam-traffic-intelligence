@@ -43,6 +43,8 @@ class AnalyticsSnapshot:
     mean_speed_px_s: float | None
     current_counts: dict[str, int]
     cumulative_crossings: dict[str, dict[str, int]]
+    roi_polygon_px: tuple[tuple[float, float], ...]
+    counting_line_px: tuple[tuple[float, float], tuple[float, float]]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

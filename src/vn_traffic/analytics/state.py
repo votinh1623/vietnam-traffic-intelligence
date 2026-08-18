@@ -31,14 +31,27 @@ class CongestionStateMachine:
         mean_speed: float | None,
     ) -> str:
         speed = float("inf") if mean_speed is None else mean_speed
+        # fixed_camera keeps the original design: a high count alone must be
+        # corroborated by ROI occupancy, because count on a small ground-
+        # anchored ROI is noisy. uav_motion drops that co-requirement: with
+        # analytics_mode=uav_motion the "ROI" defaults to the full frame, so
+        # occupancy is diluted by background/road far from the camera and
+        # structurally cannot reach the ground-camera-calibrated thresholds
+        # even in a genuinely dense scene (see
+        # experiments/uav_pipeline_e2e_v1_20260818 and its Option A rerun).
+        # Whole-frame track count is the more trustworthy signal there.
+        uav_motion = self.config.analytics_mode == "uav_motion"
         if self.state == "CONGESTED":
             remains_congested = (
                 bbox_union_occupancy
                 >= self.config.congested_exit_bbox_union_occupancy
                 or (
                     count >= self.config.congested_exit_count
-                    and bbox_union_occupancy
-                    >= self.config.dense_exit_bbox_union_occupancy
+                    and (
+                        uav_motion
+                        or bbox_union_occupancy
+                        >= self.config.dense_exit_bbox_union_occupancy
+                    )
                     and speed <= self.config.congested_release_speed_px_s
                 )
             ) and speed <= self.config.congested_release_speed_px_s
@@ -49,8 +62,11 @@ class CongestionStateMachine:
             >= self.config.congested_enter_bbox_union_occupancy
             or (
                 count >= self.config.congested_enter_count
-                and bbox_union_occupancy
-                >= self.config.dense_enter_bbox_union_occupancy
+                and (
+                    uav_motion
+                    or bbox_union_occupancy
+                    >= self.config.dense_enter_bbox_union_occupancy
+                )
                 and speed <= self.config.congested_max_speed_px_s
             )
         ) and speed <= self.config.congested_max_speed_px_s
@@ -62,8 +78,11 @@ class CongestionStateMachine:
                 bbox_union_occupancy >= self.config.dense_exit_bbox_union_occupancy
                 or (
                     count >= self.config.dense_exit_count
-                    and bbox_union_occupancy
-                    >= self.config.dense_exit_bbox_union_occupancy
+                    and (
+                        uav_motion
+                        or bbox_union_occupancy
+                        >= self.config.dense_exit_bbox_union_occupancy
+                    )
                     and speed <= self.config.congested_max_speed_px_s
                 )
             )
@@ -72,8 +91,11 @@ class CongestionStateMachine:
                 bbox_union_occupancy >= self.config.dense_enter_bbox_union_occupancy
                 or (
                     count >= self.config.dense_enter_count
-                    and bbox_union_occupancy
-                    >= self.config.dense_exit_bbox_union_occupancy
+                    and (
+                        uav_motion
+                        or bbox_union_occupancy
+                        >= self.config.dense_exit_bbox_union_occupancy
+                    )
                     and speed <= self.config.congested_max_speed_px_s
                 )
             )

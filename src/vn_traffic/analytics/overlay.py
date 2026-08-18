@@ -9,7 +9,6 @@ import numpy as np
 
 from ..config import AnalyticsConfig
 from ..schemas import AnalyticsSnapshot
-from .geometry import to_pixels
 
 
 class AnalyticsOverlay:
@@ -23,11 +22,11 @@ class AnalyticsOverlay:
         self.config = config
 
     def draw(self, frame: Any, snapshot: AnalyticsSnapshot) -> Any:
-        height, width = frame.shape[:2]
-        roi = np.array(
-            to_pixels(self.config.roi_polygon, width, height), dtype=np.int32
-        )
-        line = to_pixels(self.config.counting_line, width, height)
+        # Drawn from the snapshot's own (possibly GMC-warped) geometry rather
+        # than recomputed from the static config, so the overlay always shows
+        # the region analytics actually used for this frame.
+        roi = np.array(snapshot.roi_polygon_px, dtype=np.int32)
+        line = snapshot.counting_line_px
         color = self.COLORS[snapshot.congestion_state]
         cv2.polylines(frame, [roi], isClosed=True, color=(255, 180, 0), thickness=2)
         cv2.line(

@@ -1,0 +1,80 @@
+schema_version: 1
+
+# UAV / moving-camera profile, Option B (GMC): unlike
+# offline_video_uav.yaml, this keeps a small, hand-drawn ground-anchored ROI
+# (the intersection/road area, excluding the empty dirt field at the bottom
+# of the frame) instead of collapsing to the full frame. src/vn_traffic/
+# analytics/motion.py estimates the camera's frame-to-frame motion with ECC
+# and re-projects this ROI (and the counting line) every frame, so occupancy
+# and count stay location-specific under pan/zoom instead of being diluted
+# by background. This is still only 2D image-plane motion compensation, not
+# GPS/BEV georeferencing, and can lose lock under a hard scene cut, fast
+# motion, or low-texture frames -- see gmc_consecutive_failures_at_end in
+# summary.json after a run.
+source: datasets/raw_videos/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p.mp4
+model: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+
+perception:
+  imgsz: 1280
+  confidence: 0.1
+  iou: 0.7
+  max_det: 1000
+  show_labels: true
+  show_confidence: true
+  line_width: 2
+  device: "0"
+  tracker: bytetrack_custom.yaml
+
+video:
+  codec: mp4v
+  fallback_fps: 30.0
+  max_frames: 300
+
+output:
+  root: output/pipeline
+
+evidence:
+  enabled: false
+
+# Thresholds are carried over unchanged from the fixed-camera profile as a
+# starting point only; they have not been re-selected for this ROI/camera.
+analytics:
+  mode: uav_motion
+  gmc_enabled: true
+  gmc_downscale: 4
+  included_classes:
+    - bicycle
+    - bus
+    - car
+    - motor
+    - motorcycle
+    - truck
+    - van
+    - tricycle
+    - awning-tricycle
+  # Hand-drawn once on frame 0: the intersection/road area, excluding the
+  # empty dirt field visible in the lower-left of the first frame.
+  roi_polygon:
+    - [0.0, 0.0]
+    - [1.0, 0.0]
+    - [1.0, 0.55]
+    - [0.0, 0.55]
+  counting_line:
+    - [0.0, 0.45]
+    - [1.0, 0.45]
+  line_tolerance_px: 8
+  trajectory_history: 30
+  occupancy_grid_size_px: 1
+  congestion:
+    dense_enter_bbox_union_occupancy: 0.30
+    dense_exit_bbox_union_occupancy: 0.25
+    congested_enter_bbox_union_occupancy: 0.50
+    congested_exit_bbox_union_occupancy: 0.40
+    dense_enter_count: 45
+    dense_exit_count: 40
+    congested_enter_count: 50
+    congested_exit_count: 45
+    congested_max_speed_px_s: 150
+    congested_release_speed_px_s: 170
+    transition_confirm_s: 2
+    release_confirm_s: 4

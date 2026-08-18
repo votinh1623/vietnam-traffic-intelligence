@@ -14,10 +14,31 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 NormalizedPoint = tuple[float, float]
 
+ANALYTICS_MODES = ("fixed_camera", "uav_motion")
+
+# A moving/zooming UAV camera makes a hand-drawn ground-anchored ROI point at
+# the wrong region within seconds (see experiments/uav_pipeline_e2e_v1_20260818).
+# uav_motion mode defaults the analytics region to the full frame instead, so
+# occupancy/count reflect the whole visible scene rather than a stale patch of
+# ground. This does not compensate for camera motion (no GMC); zoom changes
+# still shift raw occupancy, and this remains a coarser signal than a properly
+# ground-anchored ROI on a static camera.
+UAV_MOTION_DEFAULT_ROI_POLYGON: tuple[NormalizedPoint, ...] = (
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
+)
+UAV_MOTION_DEFAULT_COUNTING_LINE: tuple[NormalizedPoint, NormalizedPoint] = (
+    (0.0, 0.5),
+    (1.0, 0.5),
+)
+
 
 @dataclass(frozen=True)
 class AnalyticsConfig:
     enabled: bool = True
+    analytics_mode: str = "fixed_camera"
     included_classes: tuple[str, ...] = (
         "bicycle",
         "bus",
@@ -42,6 +63,16 @@ class AnalyticsConfig:
     line_tolerance_px: float = 8.0
     trajectory_history: int = 30
     occupancy_grid_size_px: int = 1
+    # ECC-based global motion compensation (see src/vn_traffic/analytics/motion.py).
+    # Only meaningful for analytics_mode="uav_motion": it re-projects the
+    # roi_polygon/counting_line defined on frame 0 into every later frame's
+    # pixels instead of collapsing the analytics region to the whole frame,
+    # recovering location-specific ROI semantics under camera pan/zoom. It is
+    # not GPS/BEV georeferencing and can lose lock (see
+    # GlobalMotionCompensator.consecutive_failures) under a hard scene cut,
+    # fast motion, or low-texture frames.
+    gmc_enabled: bool = False
+    gmc_downscale: int = 4
     dense_enter_bbox_union_occupancy: float = 0.30
     dense_exit_bbox_union_occupancy: float = 0.25
     congested_enter_bbox_union_occupancy: float = 0.50
@@ -182,10 +213,22 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
             "legacy summed-occupancy fields are invalid; use bbox-union "
             f"threshold names instead: {', '.join(found_legacy)}"
         )
+    mode = str(analytics.get("mode", defaults.analytics_mode))
+    mode_default_roi = (
+        UAV_MOTION_DEFAULT_ROI_POLYGON
+        if mode == "uav_motion"
+        else defaults.roi_polygon
+    )
+    mode_default_line = (
+        UAV_MOTION_DEFAULT_COUNTING_LINE
+        if mode == "uav_motion"
+        else defaults.counting_line
+    )
     roi = analytics.get("roi_polygon")
     line = analytics.get("counting_line")
     config = AnalyticsConfig(
         enabled=bool(analytics.get("enabled", defaults.enabled)),
+        analytics_mode=mode,
         included_classes=_event_types(
             analytics.get("included_classes"),
             "analytics.included_classes",
@@ -194,12 +237,12 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
         roi_polygon=(
             _normalized_points(roi, "analytics.roi_polygon")
             if roi is not None
-            else defaults.roi_polygon
+            else mode_default_roi
         ),
         counting_line=(
             _normalized_points(line, "analytics.counting_line", 2)  # type: ignore[arg-type]
             if line is not None
-            else defaults.counting_line
+            else mode_default_line
         ),
         line_tolerance_px=float(
             analytics.get("line_tolerance_px", defaults.line_tolerance_px)
@@ -209,6 +252,10 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
         ),
         occupancy_grid_size_px=int(
             analytics.get("occupancy_grid_size_px", defaults.occupancy_grid_size_px)
+        ),
+        gmc_enabled=bool(analytics.get("gmc_enabled", defaults.gmc_enabled)),
+        gmc_downscale=int(
+            analytics.get("gmc_downscale", defaults.gmc_downscale)
         ),
         dense_enter_bbox_union_occupancy=float(
             congestion.get(
@@ -406,6 +453,8 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
 
 
 def validate_analytics_config(config: AnalyticsConfig) -> None:
+    if config.analytics_mode not in ANALYTICS_MODES:
+        raise ValueError(f"analytics.mode must be one of {ANALYTICS_MODES}")
     if not config.included_classes:
         raise ValueError("analytics.included_classes cannot be empty")
     if len(config.roi_polygon) < 3:
@@ -425,6 +474,10 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         raise ValueError("analytics.trajectory_history must be at least two")
     if config.occupancy_grid_size_px < 1:
         raise ValueError("analytics.occupancy_grid_size_px must be at least one")
+    if config.gmc_downscale < 1:
+        raise ValueError("analytics.gmc_downscale must be at least one")
+    if config.gmc_enabled and config.analytics_mode != "uav_motion":
+        raise ValueError("analytics.gmc_enabled requires analytics.mode: uav_motion")
     occupancy_values = (
         config.dense_exit_bbox_union_occupancy,
         config.dense_enter_bbox_union_occupancy,

@@ -5,6 +5,9 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
+import cv2
+import numpy as np
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -187,6 +190,47 @@ class TrafficAnalyticsTests(unittest.TestCase):
             ("NORMAL", "CONGESTED"),
         )
 
+    def test_uav_motion_mode_allows_count_alone_to_signal_congestion(self) -> None:
+        config = replace(
+            self.config,
+            analytics_mode="uav_motion",
+            transition_confirm_s=1.0,
+            release_confirm_s=2.0,
+        )
+        # Same occupancy/count pair that stays NORMAL for fixed_camera in
+        # test_calibrated_normal_and_jam_signals_separate: low whole-frame
+        # occupancy (diluted by background far from a moving/zooming UAV
+        # camera) must not suppress a genuinely high track count.
+        uav = CongestionStateMachine(config)
+        high_count_low_coverage = dict(
+            bbox_union_occupancy=0.13,
+            count=195,
+            mean_speed_px_s=37.0,
+        )
+        self.assertIsNone(uav.update(timestamp_s=0.0, **high_count_low_coverage))
+        transition = uav.update(timestamp_s=1.0, **high_count_low_coverage)
+        self.assertEqual(
+            (transition.previous, transition.current),
+            ("NORMAL", "CONGESTED"),
+        )
+
+    def test_fixed_camera_mode_still_requires_occupancy_with_count(self) -> None:
+        config = replace(
+            self.config,
+            analytics_mode="fixed_camera",
+            transition_confirm_s=1.0,
+            release_confirm_s=2.0,
+        )
+        fixed = CongestionStateMachine(config)
+        high_count_low_coverage = dict(
+            bbox_union_occupancy=0.13,
+            count=195,
+            mean_speed_px_s=37.0,
+        )
+        self.assertIsNone(fixed.update(timestamp_s=0.0, **high_count_low_coverage))
+        self.assertIsNone(fixed.update(timestamp_s=1.0, **high_count_low_coverage))
+        self.assertEqual(fixed.state, "NORMAL")
+
     def test_prolonged_stop_alert_has_duration_release_and_no_repeat(self) -> None:
         config = replace(
             self.config,
@@ -253,6 +297,86 @@ class TrafficAnalyticsTests(unittest.TestCase):
         self.assertTrue(
             any(event["event_type"] == "prolonged_stop" for event in alert.events)
         )
+
+
+def _gmc_textured_frame(width: int = 160, height: int = 120, seed: int = 0) -> np.ndarray:
+    # Same parameters verified in test_motion.py to give ECC a reliable
+    # convergence basin; duplicated here rather than imported so this file
+    # stays a self-contained fixture like the rest of the test suite.
+    rng = np.random.default_rng(seed)
+    noise = rng.integers(0, 256, size=(height, width), dtype=np.uint8)
+    blurred = cv2.GaussianBlur(noise, (0, 0), sigmaX=2.0)
+    return cv2.cvtColor(blurred, cv2.COLOR_GRAY2BGR)
+
+
+def _gmc_shift(frame: np.ndarray, shift_x: float, shift_y: float) -> np.ndarray:
+    height, width = frame.shape[:2]
+    matrix = np.array([[1.0, 0.0, shift_x], [0.0, 1.0, shift_y]], dtype=np.float32)
+    return cv2.warpAffine(
+        frame, matrix, (width, height), borderMode=cv2.BORDER_REFLECT101
+    )
+
+
+class GmcAnalyticsIntegrationTests(unittest.TestCase):
+    def test_warped_roi_keeps_a_stationary_vehicle_inside_the_region(self) -> None:
+        # A small ROI (not full-frame) around the image center, so this only
+        # passes if the ROI genuinely follows the camera instead of falling
+        # back to whole-frame coverage.
+        config = AnalyticsConfig(
+            analytics_mode="uav_motion",
+            gmc_enabled=True,
+            gmc_downscale=1,
+            roi_polygon=((0.45, 0.4), (0.55, 0.4), (0.55, 0.6), (0.45, 0.6)),
+            counting_line=((0.0, 0.5), (1.0, 0.5)),
+            transition_confirm_s=100.0,
+            release_confirm_s=100.0,
+        )
+        engine = TrafficAnalytics(config)
+        frame0 = _gmc_textured_frame(seed=0)
+        shift_x, shift_y = 8.0, -5.0
+        frame1 = _gmc_shift(frame0, shift_x, shift_y)
+
+        # Stationary real-world vehicle at the frame-0 ROI center (80, 60).
+        first = engine.process(
+            frame_index=0,
+            timestamp_s=0.0,
+            tracks=(observation(1, y=60.0, x=80.0),),
+            frame_width=160,
+            frame_height=120,
+            frame=frame0,
+        )
+        self.assertEqual(first.snapshot.roi_track_count, 1)
+
+        # The camera panned by (shift_x, shift_y): the same still-parked
+        # vehicle's pixel position drifts by the same amount, exactly as a
+        # detector would report it in the raw shifted video.
+        second = engine.process(
+            frame_index=1,
+            timestamp_s=1.0,
+            tracks=(observation(1, y=60.0 + shift_y, x=80.0 + shift_x),),
+            frame_width=160,
+            frame_height=120,
+            frame=frame1,
+        )
+        self.assertEqual(second.snapshot.roi_track_count, 1)
+        # The warped ROI center should itself have moved by ~(shift_x, shift_y)
+        # from its frame-0 position, not stayed put.
+        roi_x = [x for x, _ in second.snapshot.roi_polygon_px]
+        roi_y = [y for _, y in second.snapshot.roi_polygon_px]
+        self.assertAlmostEqual(sum(roi_x) / len(roi_x), 80.0 + shift_x, delta=3.0)
+        self.assertAlmostEqual(sum(roi_y) / len(roi_y), 60.0 + shift_y, delta=3.0)
+
+    def test_gmc_enabled_without_a_frame_raises(self) -> None:
+        config = AnalyticsConfig(analytics_mode="uav_motion", gmc_enabled=True)
+        engine = TrafficAnalytics(config)
+        with self.assertRaisesRegex(ValueError, "gmc_enabled"):
+            engine.process(
+                frame_index=0,
+                timestamp_s=0.0,
+                tracks=(),
+                frame_width=160,
+                frame_height=120,
+            )
 
 
 if __name__ == "__main__":

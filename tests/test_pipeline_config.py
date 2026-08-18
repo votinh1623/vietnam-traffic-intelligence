@@ -97,6 +97,82 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.analytics.prolonged_stop_min_duration_s, 4.0)
             self.assertEqual(config.analytics.prolonged_stop_max_gap_s, 0.5)
 
+    def test_uav_motion_mode_defaults_roi_to_full_frame(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  mode: uav_motion\n",
+                encoding="utf-8",
+            )
+            config = load_pipeline_config(path)
+            self.assertEqual(config.analytics.analytics_mode, "uav_motion")
+            self.assertEqual(
+                config.analytics.roi_polygon,
+                ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
+            )
+            self.assertEqual(
+                config.analytics.counting_line, ((0.0, 0.5), (1.0, 0.5))
+            )
+
+    def test_uav_motion_mode_still_honors_explicit_roi(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  mode: uav_motion\n  roi_polygon:\n"
+                "    - [0.1, 0.1]\n    - [0.9, 0.1]\n"
+                "    - [0.9, 0.9]\n    - [0.1, 0.9]\n",
+                encoding="utf-8",
+            )
+            config = load_pipeline_config(path)
+            self.assertEqual(
+                config.analytics.roi_polygon,
+                ((0.1, 0.1), (0.9, 0.1), (0.9, 0.9), (0.1, 0.9)),
+            )
+
+    def test_fixed_camera_mode_is_the_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text("source: input.mp4\nmodel: model.pt\n", encoding="utf-8")
+            config = load_pipeline_config(path)
+            self.assertEqual(config.analytics.analytics_mode, "fixed_camera")
+
+    def test_loads_gmc_settings_under_uav_motion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  mode: uav_motion\n"
+                "  gmc_enabled: true\n  gmc_downscale: 2\n",
+                encoding="utf-8",
+            )
+            config = load_pipeline_config(path)
+            self.assertTrue(config.analytics.gmc_enabled)
+            self.assertEqual(config.analytics.gmc_downscale, 2)
+
+    def test_rejects_gmc_enabled_without_uav_motion_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  gmc_enabled: true\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "gmc_enabled"):
+                load_pipeline_config(path)
+
+    def test_rejects_unknown_analytics_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  mode: bev_calibrated\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "analytics.mode"):
+                load_pipeline_config(path)
+
     def test_resolves_repository_tracker_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "pipeline.yaml"
