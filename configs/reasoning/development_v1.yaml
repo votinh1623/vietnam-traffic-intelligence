@@ -1,5 +1,5 @@
 schema_version: 1
-status: vlm_fp16_smoke_passed_llm_fp16_fallback_downloaded
+status: pretrained_vlm_llm_sequential_smoke_passed
 split: development
 input_lock: manifests/reasoning/evidence_dev_v1/input_lock.json
 artifact_root: output/pipeline/run16
@@ -33,5 +33,6 @@ claim_boundary: >-
   The pinned VLM artifact passed one development-case FP16 execution and
   contract smoke test. Qwen3-1.7B could not load because the Windows paging
   file was too small, so the downloaded clean-run fallback is Qwen3-0.6B
-  FP16. No fallback execution result is claimed by this config. Quantization,
-  broader quality, and performance remain TBD.
+  FP16. One sequential development-case smoke passed the final assembled
+  contract, with generic and ambiguous wording noted in the experiment record.
+  Quantization, broader quality, and performance remain TBD.

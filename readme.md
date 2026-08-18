@@ -122,7 +122,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Export and quantization benchmark | Deferred beyond current goal | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
 | VLM/LLM reasoning contract | Inputs locked; both reviews complete; one disagreement and final adjudication pending | [Reasoning protocol](docs/reasoning_protocol.md) |
-| VLM/LLM model inference | VLM FP16 smoke passed; 1.7B LLM blocked by host pagefile; pinned 0.6B FP16 fallback downloaded for guarded demo | [Reasoning protocol](docs/reasoning_protocol.md) |
+| VLM/LLM model inference | Sequential pretrained demo passed on one frozen case; 1.7B blocked by pagefile, 0.6B fallback output remains generic | [Reasoning protocol](docs/reasoning_protocol.md) |
 
 The detector locked test was consumed once after validation-only checkpoint
 selection. Its result is final for v5 and must not be used for further model or
@@ -675,7 +675,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [ ] Resolve or formally defer the reasoning adjudication queue; it does not block CV delivery.
 - [x] Freeze a separate run16 development set and record initial RTX model candidates.
 - [x] Pin, hash, and smoke-test the Qwen3-VL-2B FP16 development adapter.
-- [ ] Demo existing pretrained VLM and LLM without tuning.
+- [x] Demo existing pretrained VLM and LLM without tuning (functional smoke; quality not established).
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
 - [ ] Run end-to-end UAV benchmarks on the RTX host.

@@ -140,6 +140,15 @@ The adapter and downloaded files alone are not an LLM quality or execution
 result; that claim requires a contract-valid generated artifact from a clean
 commit.
 
+That clean-run functional demo is recorded in
+`experiments/qwen3_vl_llm_dev_demo_20260818/run.json`. Qwen3-0.6B generated the
+two prose fields in 14.87 seconds with 1,380,997,120 peak allocated VRAM bytes;
+the application assembled the authoritative fields and the complete report
+passed contract validation. Manual review still found generic wording and an
+ambiguous reference to speed, so this is a functionality smoke only—not a
+reasoning-quality result. The failed 1.7B load and two rejected 0.6B prompt
+iterations are retained in the experiment record rather than hidden.
+
 Primary model cards:
 
 - <https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct>

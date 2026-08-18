@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "status": "passed_functional_contract_smoke_with_quality_limitations",
+  "claim_boundary": "One frozen development case only. This proves sequential pretrained VLM-to-LLM execution and contract enforcement, not reasoning quality, latency distribution, concurrent-model feasibility, or readiness for operational alerts.",
+  "recorded_at_utc": "2026-08-18T06:57:13.3135822Z",
+  "source": {
+    "git_commit": "0199da05245f4c77a6bea39def9c9aa2ca19f37d",
+    "worktree_clean_at_run_start": true,
+    "case_id": "development-0001",
+    "event_id": "event-000001",
+    "config_sha256": "916cb696bfbc19926c6962fccee91b1481ee143eff3e36b20d945c7af343105b",
+    "prompt_sha256": "90568fa857cb5564d0e217888356c4026d9526856084806f19948a1fdb7e2219",
+    "vlm_output_sha256": "37fd7314d0c5f7c34601e971b011435e546b8d17974716c629a7a76068ac554d"
+  },
+  "models": {
+    "vlm": {
+      "model_id": "Qwen/Qwen3-VL-2B-Instruct",
+      "revision": "89644892e4d85e24eaac8bacfd4f463576704203",
+      "prior_smoke_record": "experiments/qwen3_vl_2b_dev_smoke_20260817/run.json"
+    },
+    "llm": {
+      "model_id": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "dtype": "float16",
+      "manifest_sha256": "b793de8345576c84d1df915d48c27a22c303f9e51b45e1933aa187a39729739b",
+      "weight_sha256": "f47f71177f32bcd101b7573ec9171e6a57f4f4d31148d38e382306f42996874b"
+    }
+  },
+  "environment": {
+    "python_environment": "traffic",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.14.1",
+    "cuda_runtime": "12.4",
+    "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+    "gpu_total_memory_mib": 6144,
+    "offline_inference": true,
+    "execution_policy": "sequential_load_run_unload"
+  },
+  "attempts": [
+    {
+      "model_id": "Qwen/Qwen3-1.7B",
+      "status": "load_failed",
+      "reason": "Windows error 1455: paging file too small before generation"
+    },
+    {
+      "model_id": "Qwen/Qwen3-0.6B",
+      "status": "contract_valid_but_manual_quality_failed",
+      "output_sha256": "1760ce3d98e2059c82ecd7ac450c4ccadf3f08ad54516cf1c0a346bd548a16bd",
+      "reason": "The model copied generic example wording from the prompt"
+    },
+    {
+      "model_id": "Qwen/Qwen3-0.6B",
+      "status": "contract_invalid",
+      "output_sha256": "e025a0c75414284ae494d438512cce1293ad1d91356ef29207d624d65ceb3534",
+      "reason": "The model omitted required authoritative fields"
+    }
+  ],
+  "result": {
+    "contract_status": "valid",
+    "manual_review": "functional_pass_with_generic_and_ambiguous_wording",
+    "elapsed_generation_s": 14.870078699997975,
+    "peak_vram_allocated_bytes": 1380997120,
+    "output_path_ignored": "output/reasoning/dev_v1/development-0001-llm-fp16-v3.json",
+    "output_sha256": "e1dc5d27a1e76e502a1de1f0ef8f66679f422ca8ab8a48b3a4de38860ff26fb7",
+    "summary_vi": "Quan sát thấy các phương tiện trong khung hình.",
+    "quality_note": "The action wording does not clearly distinguish pixel speed from physical speed; broader reasoning quality remains unmeasured."
+  }
+}
