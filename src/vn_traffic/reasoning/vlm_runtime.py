@@ -96,13 +96,22 @@ def _prompt_text(request: dict[str, Any]) -> str:
             "timestamp_s",
         )
     }
+    # claim_vi below is a schema placeholder, not a model answer: it starts
+    # with "<" and reads as an instruction, not prose, specifically so a
+    # small model cannot satisfy the request by copying it verbatim. Every
+    # run before this fix reproduced the previous literal example
+    # ("Quan sát thấy các phương tiện trong khung hình.") word for word --
+    # see output/reasoning/adhoc/*.json and output/reasoning/dev_v1/*.json --
+    # so the placeholder must not itself be valid-looking Vietnamese prose.
     output_shape = {
         "schema_version": 1,
         "case_id": request["case_id"],
         "event_id": request["event"]["event_id"],
         "observations": [
             {
-                "claim_vi": "Quan sát thấy các phương tiện trong khung hình.",
+                "claim_vi": "<mo ta cu the: loai phuong tien chiem da so va cac "
+                "loai khac, mat do (thua/vua/dong/rat dong); KHONG duoc chep "
+                "nguyen van vi du nay>",
                 "confidence": 0.5,
                 "evidence_refs": ["keyframe-1"],
             }
@@ -117,7 +126,9 @@ def _prompt_text(request: dict[str, Any]) -> str:
     return (
         "Event identity JSON (not visual ground truth):\n"
         + json.dumps(visual_context, ensure_ascii=False, sort_keys=True)
-        + "\n\nOutput exactly one JSON object matching this shape:\n"
+        + "\n\nOutput exactly one JSON object matching this shape (claim_vi "
+        "below is a placeholder describing what to write, not example text "
+        "to copy):\n"
         + json.dumps(output_shape, ensure_ascii=False)
     )
 

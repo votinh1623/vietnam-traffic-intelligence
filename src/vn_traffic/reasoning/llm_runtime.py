@@ -73,11 +73,17 @@ def build_report_prompt(request: dict[str, Any]) -> str:
         + json.dumps(request, ensure_ascii=False, sort_keys=True)
         + "\n\nReturn exactly one JSON object containing only summary_vi and action. "
         "Write a concrete Vietnamese summary_vi about this specific event using "
-        "only the input. action must be an object containing only level (one of "
-        "none, monitor, review, alert) and a cautious Vietnamese message_vi. Do "
-        "not output IDs, numeric_facts, traffic_state, visual_findings, limitations, "
-        "schema fields, explanations, or Markdown; the application owns those "
-        "authoritative fields."
+        "only the input: state the traffic_state, then the dominant vehicle "
+        "types and density qualifier if vlm_assessment.observations mentions "
+        "them. Do not write a generic sentence like 'quan sat thay cac phuong "
+        "tien trong khung hinh' -- if vlm_assessment truly has no specific "
+        "detail, say explicitly that visual detail is limited instead of "
+        "restating that generic phrase. action must be an object containing "
+        "only level (one of none, monitor, review, alert) and a cautious "
+        "Vietnamese message_vi. Do not output IDs, numeric_facts, "
+        "traffic_state, visual_findings, limitations, schema fields, "
+        "explanations, or Markdown; the application owns those authoritative "
+        "fields."
     )
 
 
