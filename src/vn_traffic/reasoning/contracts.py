@@ -381,6 +381,14 @@ def validate_llm_report(payload: Any, request_payload: Any) -> None:
             )
 
     _string_list(report["visual_findings"], "visual_findings")
+    expected_findings = [
+        observation["claim_vi"]
+        for observation in request["vlm_assessment"]["observations"]
+    ]
+    if report["visual_findings"] != expected_findings:
+        raise ContractError(
+            "visual_findings must exactly preserve validated VLM observations"
+        )
     action = _mapping(report["action"], "action")
     _exact_keys(
         action,
@@ -391,3 +399,7 @@ def validate_llm_report(payload: Any, request_payload: Any) -> None:
         raise ContractError("unsupported action level")
     _nonempty_text(action["message_vi"], "action.message_vi")
     _string_list(report["limitations"], "limitations")
+    if report["limitations"] != request["vlm_assessment"]["limitations"]:
+        raise ContractError(
+            "limitations must exactly preserve validated VLM limitations"
+        )

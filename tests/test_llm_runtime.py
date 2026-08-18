@@ -73,6 +73,8 @@ class LlmRuntimeTests(unittest.TestCase):
         self.assertIn('"traffic_state": "UNSPECIFIED"', prompt)
         self.assertIn('"source_path": "event.measurements.speed_px_s"', prompt)
         self.assertIn('"value": 12.5', prompt)
+        self.assertNotIn("Tóm tắt thận trọng", prompt)
+        self.assertNotIn("Nêu giới hạn của evidence", prompt)
 
     def test_rejects_vlm_result_marked_invalid(self) -> None:
         result = _result()

@@ -142,15 +142,20 @@ class ReasoningContractTests(unittest.TestCase):
                     "value": 42,
                 }
             ],
-            "visual_findings": ["Mật độ phương tiện quan sát được ở mức cao."],
+            "visual_findings": [],
             "action": {"level": "monitor", "message_vi": "Tiếp tục theo dõi."},
-            "limitations": ["Chưa có hiệu chuẩn tốc độ vật lý."],
+            "limitations": [],
         }
 
         validate_llm_report(report, llm_request)
 
         report["numeric_facts"][0]["value"] = 43
         with self.assertRaisesRegex(ContractError, "differs from deterministic"):
+            validate_llm_report(report, llm_request)
+
+        report["numeric_facts"][0]["value"] = 42
+        report["visual_findings"] = ["Quan sát không có trong VLM."]
+        with self.assertRaisesRegex(ContractError, "exactly preserve"):
             validate_llm_report(report, llm_request)
 
     def test_builds_request_from_frozen_case(self) -> None:

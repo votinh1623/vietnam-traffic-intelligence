@@ -38,27 +38,31 @@ def build_report_prompt(request: dict[str, Any]) -> str:
         for name, value in event.get("measurements", {}).items()
         if isinstance(value, (int, float)) and not isinstance(value, bool)
     ]
-    output_shape = {
+    fixed_fields = {
         "schema_version": 1,
         "case_id": request["vlm_request"]["case_id"],
         "event_id": event["event_id"],
-        "summary_vi": "Tóm tắt thận trọng dựa trên các đầu vào được cung cấp.",
         "traffic_state": event.get("current_state", "UNSPECIFIED"),
         "numeric_facts": numeric_facts,
-        "visual_findings": ["Chỉ diễn đạt lại quan sát có trong VLM assessment."],
-        "action": {
-            "level": "monitor",
-            "message_vi": "Tiếp tục theo dõi và xác minh khi cần.",
-        },
-        "limitations": ["Nêu giới hạn của evidence và mô hình."],
+        "visual_findings": [
+            observation["claim_vi"]
+            for observation in request["vlm_assessment"]["observations"]
+        ],
+        "limitations": request["vlm_assessment"]["limitations"],
     }
     return (
         "Input JSON:\n"
         + json.dumps(request, ensure_ascii=False, sort_keys=True)
-        + "\n\nReturn exactly one JSON object matching this shape. Preserve every "
-        "provided case ID, event ID, traffic state, numeric source_path and numeric "
-        "value exactly; do not add numeric facts:\n"
-        + json.dumps(output_shape, ensure_ascii=False)
+        + "\n\nCreate exactly one JSON report with exactly these keys: "
+        "schema_version, case_id, event_id, summary_vi, traffic_state, "
+        "numeric_facts, visual_findings, action, limitations. Copy every value "
+        "in Fixed fields JSON exactly into its corresponding output field; do not "
+        "add numeric or visual facts. Write a concrete Vietnamese summary_vi about "
+        "this specific event using only the input. Write action as an object with "
+        "exactly level (one of none, monitor, review, alert) and a cautious Vietnamese "
+        "message_vi. Do not copy these instructions into the report.\n\n"
+        "Fixed fields JSON:\n"
+        + json.dumps(fixed_fields, ensure_ascii=False, sort_keys=True)
     )
 
 
