@@ -20,13 +20,15 @@ from vn_traffic.config import AnalyticsConfig  # noqa: E402
 from vn_traffic.schemas import TrackObservation  # noqa: E402
 
 
-def observation(track_id: int, y: float, x: float = 50.0) -> TrackObservation:
+def observation(
+    track_id: int, y: float, x: float = 50.0, class_name: str = "car"
+) -> TrackObservation:
     return TrackObservation(
         frame_index=0,
         timestamp_s=0.0,
         track_id=track_id,
         class_id=1,
-        class_name="car",
+        class_name=class_name,
         confidence=0.9,
         x1=x - 5,
         y1=y - 5,
@@ -110,6 +112,17 @@ class TrafficAnalyticsTests(unittest.TestCase):
         batch = self.process(engine, 0, observation(1, 20.0, x=80.0))
         self.assertEqual(batch.snapshot.roi_track_count, 0)
         self.assertEqual(batch.snapshot.current_counts, {})
+
+    def test_excludes_non_vehicle_classes_from_all_analytics(self) -> None:
+        engine = TrafficAnalytics(self.config)
+        first = observation(9, 70.0, class_name="pedestrian")
+        second = observation(9, 40.0, class_name="pedestrian")
+        self.process(engine, 0, first)
+        batch = self.process(engine, 1, second)
+        self.assertEqual(batch.events, ())
+        self.assertEqual(batch.snapshot.roi_track_count, 0)
+        self.assertEqual(batch.snapshot.current_counts, {})
+        self.assertEqual(engine.summary()["unique_track_ids"], 0)
 
     def test_congestion_hysteresis_requires_time_confirmation(self) -> None:
         config = replace(

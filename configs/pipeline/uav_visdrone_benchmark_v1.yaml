@@ -10,6 +10,9 @@ perception:
   confidence: 0.1
   iou: 0.7
   max_det: 1000
+  show_labels: false
+  show_confidence: false
+  line_width: 1
   device: "0"
   tracker: bytetrack_custom.yaml
 
@@ -36,6 +39,7 @@ evidence:
 # zoom/pan means line-crossing and occupancy values are not accuracy evidence.
 analytics:
   enabled: true
+  included_classes: [bicycle, bus, car, motor, truck, van, tricycle, awning-tricycle]
   roi_polygon:
     - [0.00, 0.47]
     - [0.47, 0.40]

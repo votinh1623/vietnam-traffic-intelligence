@@ -63,5 +63,10 @@ class UltralyticsPerception:
                     )
                 )
         return PerceptionResult(
-            annotated_frame=result.plot(), tracks=tuple(observations)
+            annotated_frame=result.plot(
+                labels=self.config.show_labels,
+                conf=self.config.show_confidence,
+                line_width=self.config.line_width,
+            ),
+            tracks=tuple(observations),
         )

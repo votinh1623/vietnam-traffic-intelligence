@@ -87,6 +87,8 @@ class TrafficAnalytics:
         events: list[dict[str, Any]] = []
 
         for track in tracks:
+            if track.class_name not in self.config.included_classes:
+                continue
             point = ((track.x1 + track.x2) / 2.0, (track.y1 + track.y2) / 2.0)
             inside_roi = point_in_polygon(point, roi)
             boxes.append((track.x1, track.y1, track.x2, track.y2))

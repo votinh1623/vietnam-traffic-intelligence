@@ -18,6 +18,17 @@ NormalizedPoint = tuple[float, float]
 @dataclass(frozen=True)
 class AnalyticsConfig:
     enabled: bool = True
+    included_classes: tuple[str, ...] = (
+        "bicycle",
+        "bus",
+        "car",
+        "motor",
+        "motorcycle",
+        "truck",
+        "van",
+        "tricycle",
+        "awning-tricycle",
+    )
     roi_polygon: tuple[NormalizedPoint, ...] = (
         (0.48, 0.05),
         (0.62, 0.05),
@@ -80,6 +91,9 @@ class PipelineConfig:
     confidence: float = 0.4
     iou: float = 0.7
     max_det: int = 300
+    show_labels: bool = True
+    show_confidence: bool = True
+    line_width: int = 2
     device: str = "0"
     tracker: str = "bytetrack.yaml"
     codec: str = "mp4v"
@@ -172,6 +186,11 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
     line = analytics.get("counting_line")
     config = AnalyticsConfig(
         enabled=bool(analytics.get("enabled", defaults.enabled)),
+        included_classes=_event_types(
+            analytics.get("included_classes"),
+            "analytics.included_classes",
+            defaults.included_classes,
+        ),
         roi_polygon=(
             _normalized_points(roi, "analytics.roi_polygon")
             if roi is not None
@@ -339,6 +358,9 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         confidence=float(perception.get("confidence", 0.4)),
         iou=float(perception.get("iou", 0.7)),
         max_det=int(perception.get("max_det", 300)),
+        show_labels=bool(perception.get("show_labels", True)),
+        show_confidence=bool(perception.get("show_confidence", True)),
+        line_width=int(perception.get("line_width", 2)),
         device=str(perception.get("device", "0")),
         tracker=resolve_tracker(str(perception.get("tracker", "bytetrack.yaml"))),
         codec=str(video.get("codec", "mp4v")),
@@ -371,6 +393,8 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
         raise ValueError("perception.iou must be between 0 and 1")
     if config.max_det <= 0:
         raise ValueError("perception.max_det must be positive")
+    if config.line_width <= 0:
+        raise ValueError("perception.line_width must be positive")
     if len(config.codec) != 4:
         raise ValueError("video.codec must contain exactly four characters")
     if config.fallback_fps <= 0:
@@ -382,6 +406,8 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
 
 
 def validate_analytics_config(config: AnalyticsConfig) -> None:
+    if not config.included_classes:
+        raise ValueError("analytics.included_classes cannot be empty")
     if len(config.roi_polygon) < 3:
         raise ValueError("analytics.roi_polygon must contain at least three points")
     for name, points in (

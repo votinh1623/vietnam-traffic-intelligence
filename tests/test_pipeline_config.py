@@ -29,6 +29,9 @@ class PipelineConfigTests(unittest.TestCase):
                         "  imgsz: 640",
                         "  confidence: 0.25",
                         "  max_det: 1000",
+                        "  show_labels: false",
+                        "  show_confidence: false",
+                        "  line_width: 1",
                         "  device: cpu",
                         "video:",
                         "  codec: mp4v",
@@ -44,8 +47,13 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.imgsz, 640)
             self.assertEqual(config.confidence, 0.25)
             self.assertEqual(config.max_det, 1000)
+            self.assertFalse(config.show_labels)
+            self.assertFalse(config.show_confidence)
+            self.assertEqual(config.line_width, 1)
             self.assertEqual(config.device, "cpu")
             self.assertTrue(config.analytics.enabled)
+            self.assertIn("car", config.analytics.included_classes)
+            self.assertNotIn("pedestrian", config.analytics.included_classes)
             self.assertEqual(config.analytics.occupancy_grid_size_px, 1)
             self.assertFalse(config.evidence.enabled)
 

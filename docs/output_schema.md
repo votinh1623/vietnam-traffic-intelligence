@@ -87,7 +87,10 @@ requires the explicit `*_bbox_union_occupancy` names.
 Run-level analytics summary containing state-frame counts, cumulative
 crossings, unique track IDs, `max_bbox_union_occupancy`, maximum ROI track
 count, raster grid size, and an explicit claim boundary. Counts may be biased
-by tracker ID switches or track fragmentation.
+by tracker ID switches or track fragmentation. Analytics only consumes classes
+listed in `analytics.included_classes`; raw `tracks.csv` may still contain
+other detector classes for audit. Dense-scene label/confidence rendering can
+be disabled without changing those raw rows or analytics inputs.
 
 ## `evidence.jsonl` and `evidence/`
 

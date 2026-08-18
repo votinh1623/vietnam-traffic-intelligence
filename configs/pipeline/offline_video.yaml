@@ -10,6 +10,9 @@ perception:
   confidence: 0.4
   iou: 0.7
   max_det: 300
+  show_labels: true
+  show_confidence: true
+  line_width: 2
   device: "0"
   tracker: bytetrack_custom.yaml
 
@@ -36,6 +39,7 @@ evidence:
 # defaults, not production calibration for a new camera or viewpoint.
 analytics:
   enabled: true
+  included_classes: [bus, car, motorcycle, truck]
   roi_polygon:
     - [0.48, 0.05]
     - [0.62, 0.05]
