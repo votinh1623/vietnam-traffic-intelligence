@@ -79,12 +79,14 @@ commit.
 `Qwen/Qwen3-VL-2B-Instruct` for visual assessment and `Qwen/Qwen3-1.7B` for
 Vietnamese report generation. Both are upstream Qwen Apache-2.0 checkpoints;
 the text model advertises multilingual support across more than 100 languages.
-The local Transformers 5.14.1 environment now hosts the pinned VLM artifact;
-the LLM artifact is not downloaded yet. The VLM repository contains
+The local Transformers 5.14.1 environment now hosts both pinned artifacts.
+The VLM repository contains
 4,266,648,961 bytes across 12 hashed files. Its weight file SHA-256 is
 `7de1838c87a5349b016c26a1c3f7d2bc400a3d485f95ef39a7059ffd734977a0`;
 the full local file manifest is
-`manifests/models/qwen3-vl-2b-instruct.json`.
+`manifests/models/qwen3-vl-2b-instruct.json`. The LLM repository contains
+4,079,450,110 bytes across 12 hashed files; its manifest is
+`manifests/models/qwen3-1.7b.json`.
 
 The two models must load, run, and unload sequentially because concurrent
 residency is not assumed to fit the RTX 3050 6 GB. FP16 is the reference path;
@@ -108,6 +110,22 @@ provenance is in `experiments/qwen3_vl_2b_dev_smoke_20260817/run.json`. This
 single cold-process run only proves load/generate/validate feasibility. It is
 not a latency distribution, quality result, or evidence that FP16 leaves
 enough headroom for concurrent detector execution.
+
+The LLM adapter accepts only a stored VLM result whose contract is marked
+valid and whose case, event, citations, and assessment all revalidate against
+the frozen request. A dry run verifies this boundary without loading weights:
+
+```powershell
+python scripts/reasoning/run_llm.py `
+  --config configs/reasoning/development_v1.yaml `
+  --case-id development-0001 `
+  --vlm-result output/reasoning/dev_v1/development-0001-clean.json `
+  --dry-run
+```
+
+The adapter and downloaded files alone are not an LLM quality or execution
+result; that claim requires a contract-valid generated artifact from a clean
+commit.
 
 Primary model cards:
 

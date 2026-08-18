@@ -1,5 +1,5 @@
 schema_version: 1
-status: vlm_fp16_smoke_passed_llm_not_downloaded
+status: vlm_fp16_smoke_passed_llm_fp16_adapter_ready
 split: development
 input_lock: manifests/reasoning/evidence_dev_v1/input_lock.json
 artifact_root: output/pipeline/run16
@@ -32,5 +32,6 @@ generation:
 
 claim_boundary: >-
   The pinned VLM artifact passed one development-case FP16 execution and
-  contract smoke test. This is not a quality or latency benchmark. The LLM is
-  not downloaded; quantization, broader quality, and performance remain TBD.
+  contract smoke test. The pinned LLM artifact is downloaded and its guarded
+  FP16 adapter is ready, but no LLM execution result is claimed by this config.
+  Quantization, broader quality, and performance remain TBD.
