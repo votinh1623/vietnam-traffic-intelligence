@@ -17,6 +17,12 @@ remain traceable with status `invalid` and a reason.
 - record scene density/candidate count, peak RAM/VRAM, and thermal state;
 - never infer power or energy from latency.
 
+Bbox-union raster-grid selection was measured over 583 acceptance frames.
+Grid 1 (default) costs 3.63-5.51 ms/frame; grid 2 reduces this to
+0.89-1.22 ms/frame at up to 0.007 absolute occupancy error versus grid 1;
+grid 4 costs 0.26-0.29 ms/frame at up to 0.021 error. All three preserve the
+two demo timelines and remain configurable for future edge benchmarks.
+
 ## Quality gates
 
 A quantized artifact is benchmarkable only after it:
@@ -43,6 +49,38 @@ fidelity, and traffic-state fidelity are automatic gates. Human annotations
 are still required before supported-claim precision, incident accuracy,
 summary correctness, or quantization parity can be reported.
 
+## Detector training and validation
+
+YOLOv8s was first initialized from COCO and fine-tuned on VisDrone2019-DET as
+an initialization checkpoint (`mAP50=0.389`, `mAP50-95=0.225` at the best
+validation epoch, 74). The historical `vietnam_dataset_v2` run
+(`mAP50=0.745`, `mAP50-95=0.481`, input 1280, `freeze=10`, optimizer `auto`)
+is retained for reference only: it is **invalid for scientific comparison**
+because that split leaked sources across train/validation/test.
+
+The leakage-controlled Vietnam v5 run fine-tunes full weights (`freeze=0`)
+from the VisDrone checkpoint: 30 epochs, input 1280, batch 4, AdamW at
+learning rate 0.0005, weight decay 0.0005, mosaic/mixup 1.0/0.3, seed 0,
+deterministic mode and AMP enabled, checkpoint selected on validation only.
+Epoch 29 was selected by highest validation `mAP50-95`
+(precision 0.762, recall 0.504, mAP50 0.600, mAP50-95 0.344; checkpoint
+SHA-256 `729c66e676345e9c...`), with no locked-test samples used for
+selection.
+
+| Split | Precision | Recall | mAP50 | mAP50-95 | Use |
+|---|---:|---:|---:|---:|---|
+| Validation | 0.762 | 0.504 | 0.600 | 0.344 | Checkpoint selection |
+| Locked test | 0.215 | 0.287 | 0.148 | 0.062 | Final reporting only |
+
+The validation-to-test gap is real, not an evaluation bug: locked-test boxes
+are far smaller than validation boxes (82.9%-100% of test boxes, by class,
+cover under 0.1% of the image, versus 1.3%-70.0% on validation), and
+pedestrian test AP50-95 is only 0.0009 while car is the strongest class at
+0.193. Full hashes and per-class results are recorded in
+`experiments/yolov8s_v5_locked_test_20260818/run.json`. This diagnostic does
+not retune v5; v5 is a functional prototype on this locked test, not a
+production-general detector.
+
 ## Tracking evaluation status
 
 The local motmetrics evaluator is valid for CLEAR MOT and identity metrics
@@ -57,6 +95,13 @@ The v5 class-aware integration baseline is recorded at
 `MOTA=0.020`, 462 ID switches, and MOTP distance 0.289. This result is not an
 official VisDrone benchmark because non-target ignore-region handling and HOTA
 are not implemented. It is also not Vietnam-domain tracking evidence.
+
+A controlled candidate lowered `track_high_thresh` and `new_track_thresh` to
+the detector confidence of 0.4. Recall increased by 0.021, but IDF1 and MOTA
+fell, precision decreased, ID switches rose by 257, and fragmentations rose by
+566; it was rejected, and `bytetrack_custom.yaml` remains the selected
+integration configuration
+(`experiments/tracking_visdrone_mot_val_cv_v1_20260818/run.json`).
 
 HOTA, DetA, and AssA are not provided by motmetrics. They remain `TBD` until
 TrackEval is integrated and verified on a synthetic fixture. Historical root
@@ -94,6 +139,16 @@ is explicitly excluded. Standard 1280 reduced frame-count micro WAPE from
 0.372 to 0.319 and line-crossing WAPE from 0.593 to 0.560 relative to the
 controlled 640 profile, so it is selected for quality-first counting.
 
+| Tracking profile | Frame-count macro MAE (veh/frame) | Frame-count micro WAPE | Crossing WAPE | Crossing signed error |
+|---|---:|---:|---:|---:|
+| Standard 640 | 10.45 | 0.372 | 0.593 | -235 |
+| Standard 1280 | 9.80 | 0.319 | 0.560 | -178 |
+
+The result is not uniformly good: 1280 frame-count WAPE reaches 0.609 on
+`uav0000305_00000_v`, and both profiles severely undercount
+`uav0000268_05773_v` — this demonstrates measurable counting, not
+production-grade accuracy.
+
 The line-crossing protocol runs the production analytics state machine at
 three normalized horizontal lines. Because the UAV viewpoints move and no
 stabilization or BEV transform is applied, these crossings measure agreement
@@ -112,6 +167,19 @@ covered by synthetic duration, release, continuity, and tracking-gap tests;
 there is no labeled real abnormal-stop clip, so real-video accuracy remains
 unmeasured.
 
+A separate, longer acceptance run (v5 checkpoint, `imgsz=640`, confidence
+0.4, center-corridor ROI in `configs/pipeline/offline_video.yaml`) measured
+bbox-union occupancy and speed directly:
+
+| Acceptance clip | Evaluated span | Bbox-union occupancy median (range) | Speed median px/s | State timeline |
+|---|---:|---:|---:|---|
+| `traffic_jam.mp4` | 283 frames / 11.3 s | 0.589 (0.488-0.724) | 78.0 | `NORMAL` to `CONGESTED` at 2.12 s; 230 congested frames |
+| `traffic_normal.mp4` | 300 frames / 10.0 s | 0.135 (0.069-0.219) | 104.6 | `NORMAL` for 300/300 frames |
+
+Thresholds were selected only after inspecting these two timelines, so this
+is deterministic separation for these two scenes and this resolution, not
+evidence that thresholds generalize to another camera.
+
 ## End-to-end UAV product benchmark
 
 `experiments/uav_pipeline_e2e_v1_20260818/run.json` records a clean-commit,
@@ -128,3 +196,33 @@ the run is throughput and integration evidence only. It is a recorded failure
 case motivating stabilization, dynamic ROI/line geometry, or BEV calibration;
 its line crossings and state timeline must not be cited as physical traffic
 accuracy.
+
+## UAV moving-camera analytics (GMC)
+
+Two fixes address the failure above, both re-run on the same real aerial clip
+(`configs/pipeline/offline_video_uav_gmc.yaml`, 300 frames, VisDrone baseline
+checkpoint). First, `analytics.mode: uav_motion` drops the fixed
+ground-anchored ROI in favor of a full-frame region by default, and the
+congestion state machine stops requiring ROI occupancy to corroborate a high
+track count in this mode (`fixed_camera` keeps its original, tested
+co-requirement unchanged). This alone still under-triggered: full-frame
+occupancy tops out at 0.132 even in a visibly jammed scene, because a wide
+aerial frame is mostly background.
+
+Second, `analytics.gmc_enabled` adds `src/vn_traffic/analytics/motion.py`: an
+ECC-based (`cv2.findTransformECC`) global motion compensator that re-projects
+a hand-drawn ROI/counting-line from frame 0 into every later frame instead of
+collapsing to the full frame, restoring location-specific occupancy under
+pan/zoom. The transform direction is easy to get backwards without symptom;
+it is verified in `tests/test_motion.py` against a known synthetic pixel
+shift (the first implementation was wrong and failed that test before being
+corrected). On the real clip, `gmc_consecutive_failures_at_end` was 0 across
+all 300 frames (no lost lock), and the run correctly transitioned
+`NORMAL`->`CONGESTED` at frame 51 with a location-specific ROI, instead of
+staying `NORMAL` for all 300 frames as the original run did.
+
+GMC is still only 2D image-plane motion compensation, not GPS/BEV
+georeferencing, and can lose lock under a hard scene cut, fast motion, or
+low-texture frames -- check `gmc_consecutive_failures_at_end` in
+`summary.json` before trusting a given run's geometry. These runs are local
+ad-hoc reruns, not a new hashed experiment record.

@@ -147,12 +147,61 @@ the application assembled the authoritative fields and the complete report
 passed contract validation. Manual review still found generic wording and an
 ambiguous reference to speed, so this is a functionality smoke only—not a
 reasoning-quality result. The failed 1.7B load and two rejected 0.6B prompt
-iterations are retained in the experiment record rather than hidden.
+iterations are retained in the experiment record rather than hidden. The
+"generic wording" here was later root-caused to a copyable example sentence
+in the prompt itself; see "Prompt-copying bug: v1 to v3" below.
 
 Primary model cards:
 
 - <https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct>
 - <https://huggingface.co/Qwen/Qwen3-1.7B>
+
+## Prompt-copying bug: v1 to v3
+
+Every VLM/LLM run recorded before this fix, on every case tried, reproduced
+one example sentence from the prompt verbatim ("Quan sát thấy các phương
+tiện trong khung hình.") instead of describing the image -- this is the
+source of the "generic wording" noted in the functional-demo paragraph
+above. `configs/reasoning/prompts_v1.yaml`'s user-turn JSON example used
+that sentence as the `claim_vi` value, and the 2B model copied it as a free
+answer. `_prompt_text()` in `src/vn_traffic/reasoning/vlm_runtime.py` was
+changed to use a non-Vietnamese placeholder instead
+(`tests/test_vlm_runtime.py::test_prompt_example_is_not_copyable_vietnamese_prose`).
+
+That alone was insufficient: `prompts_v2.yaml`'s *system* prompt illustrated
+the required structure with a different complete sentence ("chủ yếu là xe
+máy, có nhiều ô tô con và vài xe buýt hoặc xe tải"), and the model copied
+that one instead -- on a real truck-dominated highway keyframe where the
+pipeline's own analytics recorded `car:17, motorcycle:1, truck:46`, the
+model still answered "chủ yếu là xe máy" (mostly motorcycles)
+(`output/reasoning/adhoc/run34-vlm-v2prompt.json`). Any complete,
+grammatical example sentence anywhere in the prompt is copyable, regardless
+of which prompt it lives in.
+
+`prompts_v3.yaml` replaces every example with a fill-in-the-brackets
+template (`"Phần lớn phương tiện là [LOẠI XE CHIẾM ĐA SỐ...], ngoài ra có
+[...]; mật độ [...]."`) that is not itself a valid answer if copied
+literally
+(`tests/test_vlm_runtime.py::test_system_prompt_v3_has_no_copyable_example_sentence`).
+Re-run on two real, distinct keyframes, it produced grounded, differing
+answers matching the pipeline's own analytics: motorcycle-dominant on the
+jam clip (`output/reasoning/adhoc/run32-vlm-v3prompt.json`, occupancy
+0.709) versus truck-dominant on the highway clip
+(`output/reasoning/adhoc/run34-vlm-v3prompt.json`). The raw VLM sentence is
+sometimes mildly repetitive; the downstream LLM report cleans it into a
+single sentence while keeping `numeric_facts` exactly equal to the
+deterministic event measurements. This is not a formally re-frozen evidence
+set or a measured quality result -- v1 and v2 stay unchanged for historical
+hash reference, and these are local ad-hoc runs, not new experiment
+records.
+
+A related, still-open gap: `validate_grounding_policy` only forbids motion
+claims when the VLM request has no clip evidence, but `run_vlm_case` never
+actually loads or shows clip frames to the model -- it is keyframe-only
+regardless of what the request references. A future motion claim on a
+clip-bearing event would therefore not be caught as ungrounded even though
+the model never saw the clip. It happened not to matter in the runs above
+because the model made no motion claims, but the gap is real and unfixed.
 
 ## Annotation and metrics
 

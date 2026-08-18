@@ -10,9 +10,6 @@ on an NVIDIA RTX 3050 Laptop GPU with 6 GB VRAM. Quantization and physical
 edge/NPU deployment are explicitly deferred until the current research goal is
 complete.
 
-<!-- IMAGE PLACEHOLDER: hero image showing detector, tracks, traffic analytics,
-VLM/LLM report, and the optional future edge/NPU path. -->
-
 ---
 
 ## Why this project
@@ -104,9 +101,6 @@ The LLM and VLM are intentionally outside the per-frame critical path. They
 are invoked on selected events or at a configured interval to limit latency,
 memory use, and hallucination surface.
 
-<!-- IMAGE PLACEHOLDER: complete 16:9 architecture block diagram. Use solid
-lines for the current host path and dashed lines for future edge/NPU paths. -->
-
 ## Research status
 
 | Area | Status | Evidence |
@@ -165,381 +159,102 @@ Users are responsible for the rights and licenses of their own source media.
 
 ## Detector results
 
-### VisDrone initialization baseline
-
-YOLOv8s was initialized from COCO and fine-tuned on VisDrone2019-DET. The best
-validation epoch in the stored training log is epoch 74.
-
-| Model | Validation scope | Best epoch | mAP50 | mAP50-95 | Research use |
-|---|---|---:|---:|---:|---|
-| YOLOv8s VisDrone baseline | VisDrone2019-DET validation, 10 classes | 74 | 0.389 | 0.225 | Initialization checkpoint |
-
-### VisDrone small-object inference selection
-
-Four frozen inference modes were compared on all 548 VisDrone2019-DET
-validation images (38,759 valid objects). Metrics below are COCO-style with
-`maxDets=1000`; ignored regions are excluded, so they are not official
-VisDrone leaderboard metrics.
-
-| Mode | AP | AP50 | AP-small | AP-medium | AR | p50 latency (ms/image) | Decision |
-|---|---:|---:|---:|---:|---:|---:|---|
-| Standard 640 | 0.212 | 0.359 | 0.118 | 0.325 | 0.302 | 23.7 | Reference |
-| **Standard 1280** | **0.264** | **0.445** | **0.194** | **0.352** | **0.397** | 130.8 | **Selected for CV integration** |
-| SAHI 640 tiles | 0.193 | 0.357 | 0.142 | 0.255 | 0.315 | 282.0 | Small-object ablation only |
-| Hybrid full-frame + tiles | 0.177 | 0.333 | 0.117 | 0.248 | 0.300 | 200.1 | Rejected |
-
-SAHI improved AP-small over standard 640 by 0.023, but reduced overall AP by
-0.019 and increased median latency by about 11.9x. Standard 1280 produced the
-best AP, AP50, AP75, AP-small, AP-medium, and AR of the tested modes, while
-remaining about 2.2x faster than SAHI by median latency. It is therefore the
-selected detector configuration for the next ByteTrack experiment. This does
-not yet establish a tracking or counting improvement. The complete record is
-`experiments/visdrone_det_small_object_v1_20260818/run.json`.
-
-### Historical Vietnam v2 result
-
-| Model | Input | Batch | Freeze | Optimizer | mAP50 | mAP50-95 | Validity |
-|---|---:|---:|---:|---|---:|---:|---|
-| YOLOv8s Vietnam v2 | 1280 | 8 | 10 | `auto` | 0.745 | 0.481 | **Invalid for scientific comparison: split leakage** |
-
-The table records what was actually stored in `args.yaml`; it corrects the old
-README claim that this run used `freeze=0`.
-
-### Leakage-controlled Vietnam v5
-
-The primary run uses full fine-tuning (`freeze=0`) from the VisDrone checkpoint.
-
-| Parameter | Value |
-|---|---:|
-| Epochs | 30 |
-| Input size | 1280 |
-| Batch | 4 |
-| Optimizer | AdamW |
-| Initial learning rate | 0.0005 |
-| Weight decay | 0.0005 |
-| Mosaic / MixUp | 1.0 / 0.3 |
-| Seed | 0 |
-| Deterministic mode | Enabled |
-| AMP | Enabled |
-| Model selection split | Validation only |
-
-The one-epoch smoke run completed successfully at 640 pixels and batch 2. It
-verified the data loader, class remapping, explicit AdamW configuration, CUDA
-execution, and locked-test guard. Its validation values (`mAP50=0.120`,
-`mAP50-95=0.040`) are pipeline diagnostics, not research results.
-
-The full 30-epoch run completed successfully. Epoch 29 was selected by the
-highest validation `mAP50-95`; no locked-test samples were used.
-
-| Selected epoch | Precision | Recall | mAP50 | mAP50-95 | Checkpoint SHA-256 |
-|---:|---:|---:|---:|---:|---|
-| 29 | 0.762 | 0.504 | 0.600 | 0.344 | `729c66e676345e9c...` |
-
-The final content-addressed test was then evaluated once from clean commit
-`ac2ab2d`, covering 176 images and 11,643 boxes:
+YOLOv8s was initialized from COCO, fine-tuned on VisDrone2019-DET
+(`mAP50=0.389` at epoch 74), then fine-tuned again on the leakage-controlled
+Vietnam v5 dataset with full weights (`freeze=0`, 30 epochs, input 1280;
+epoch 29 selected on validation only). Standard 1280 inference was selected
+over SAHI/hybrid tiling for the downstream tracking pipeline (best AP,
+AP-small, and AR among four compared modes, at about 2.2x SAHI's speed). The
+historical `vietnam_dataset_v2` result (`mAP50=0.745`) is invalid for
+scientific comparison because that split leaked sources across train,
+validation, and test.
 
 | Split | Precision | Recall | mAP50 | mAP50-95 | Use |
 |---|---:|---:|---:|---:|---|
 | Validation | 0.762 | 0.504 | 0.600 | 0.344 | Checkpoint selection |
 | Locked test | 0.215 | 0.287 | 0.148 | 0.062 | Final reporting only |
 
-The large generalization gap is real. Post-hoc diagnosis shows a strong
-source/object-scale shift: depending on class, 82.9%–100% of locked-test boxes
-cover less than 0.1% of the image, compared with 1.3%–70.0% on validation.
-Pedestrian test AP50-95 is only 0.0009; car is the strongest class at 0.193.
-These diagnostics document failure modes and are not used to retune v5. Full
-hashes and per-class results are recorded in
-`experiments/yolov8s_v5_locked_test_20260818/run.json`.
-
-<!-- IMAGE PLACEHOLDER: v5 training curves generated by Ultralytics. -->
-
-<!-- IMAGE PLACEHOLDER: per-class PR curves and confusion matrix. -->
-
-<!-- IMAGE PLACEHOLDER: qualitative Vietnamese traffic detections covering
-small motorcycles, dense traffic, pedestrians, and failure cases. -->
+The validation-to-test gap is real and driven by an object-scale/source
+shift (locked-test boxes are far smaller), not an evaluation bug; v5 is a
+functional prototype, not a production-general detector. Full training
+hyperparameters, the small-object inference comparison, and the per-class
+generalization-gap diagnosis are in
+[the benchmark protocol](docs/benchmark_protocol.md); checkpoint and dataset
+hashes are in `experiments/yolov8s_v5_locked_test_20260818/run.json`.
 
 ## Tracking and analytics
 
 ByteTrack is integrated through `src/vn_traffic/perception.py` and
-`bytetrack_custom.yaml`. Historical `tracking_metrics_*.csv` outputs were
-removed from the active workspace: the original evaluator inverted an already
-distance-form IoU matrix and therefore produced invalid associations.
+`bytetrack_custom.yaml`. The local motmetrics evaluator originally inverted
+an already distance-form IoU matrix and produced invalid associations
+(historical `tracking_metrics_*.csv` outputs were removed); the repaired
+evaluator uses `1-IoU` directly, includes prediction-only frames, and
+aggregates a combined OVERALL accumulator, covered by synthetic regression
+tests. The provenance-controlled integration baseline (VisDrone-MOT-val, 7
+sequences / 2,846 frames, `imgsz=1280`) is not an official VisDrone
+benchmark or Vietnam-domain evidence; its low recall and 462 ID switches
+show tracking remains a material limitation for counting.
 
-The repaired evaluator now uses `1-IoU` directly, applies the configured IoU
-gate, includes prediction-only frames, and produces a combined OVERALL
-accumulator instead of averaging sequence metrics. It also weights OVERALL
-MOTP by matched detections so empty sequence/class slices cannot turn a valid
-aggregate into `NaN`. Synthetic regression tests cover the metric construction
-and class-aware benchmark loading.
+A resolution comparison (640 vs. 1280, vehicle classes only) traded 0.085
+precision and 0.082 MOTA for 0.071 recall and 0.009 IDF1, so resolution
+selection was deferred to the downstream counting task instead of being
+decided from identity metrics alone. There, standard 1280 reduced both
+frame-count and line-crossing error against ground-truth VisDrone MOT
+trajectories (micro WAPE 0.372 to 0.319; crossing WAPE 0.593 to 0.560) and
+was selected — but crossing WAPE of 0.560 means this demonstrates
+measurable counting, not production-grade accuracy, especially since these
+UAV cameras move/zoom and no stabilization or BEV transform is applied. Full
+numbers for both comparisons are in
+[the benchmark protocol](docs/benchmark_protocol.md).
 
-An end-to-end diagnostic over seven existing VisDrone prediction files
-completed after the repair:
+The deterministic analytics engine (`src/vn_traffic/analytics`) tracks
+per-track trajectories, counts directional line crossings, measures unique
+bbox-union ROI coverage, estimates centroid speed, and applies hysteresis
+across `NORMAL`/`DENSE`/`CONGESTED`; a narrowly defined `prolonged_stop`
+alert covers eligible tracks with synthetic-tested duration/release/gap
+handling. Schema and artifact details are in
+[the output schema](docs/output_schema.md). A clean two-clip acceptance run
+separated `traffic_normal.mp4` (`NORMAL` throughout) from `traffic_jam.mp4`
+(`NORMAL`→`CONGESTED` at 2.12 s), but thresholds were only tuned against
+these two scenes and do not yet transfer to other cameras — see
+[the benchmark protocol](docs/benchmark_protocol.md) for the full
+acceptance numbers.
 
-| Scope | MOTA | MOTP distance | IDF1 | ID switches | Validity |
-|---|---:|---:|---:|---:|---|
-| 7 VisDrone-MOT sequences, OVERALL | 0.123 | 0.272 | 0.339 | 203 | Legacy integration check only |
+The end-to-end product-path benchmark (300 real 1080p UAV frames, selected
+VisDrone 1280 profile, full pipeline including evidence export) ran at 3.70
+FPS on the RTX 3050, but exposed the main unresolved failure at the time:
+despite a visually congested scene, the moving/zooming camera kept the
+fixed-ROI state machine `NORMAL` for all 300 frames (static occupancy peaked
+at only 0.296). `analytics.mode: uav_motion` with optional
+`gmc_enabled` (ECC-based global motion compensation, verified against a
+synthetic shift in `tests/test_motion.py`) fixes this: re-run on the same
+clip, it correctly transitioned `NORMAL`→`CONGESTED` at frame 51 with zero
+GMC lock failures across all 300 frames. GMC remains 2D image-plane
+compensation only (no BEV/GPS) and can lose lock under hard cuts or
+low-texture frames. Full details are in
+[the benchmark protocol](docs/benchmark_protocol.md#uav-moving-camera-analytics-gmc).
 
-The prediction files used by this check lack complete model/config provenance,
-so these values are not a v5 tracking result and must not be used for model
-comparison.
-
-The first provenance-controlled v5 integration benchmark then processed all
-2,846 frames from the same seven sequences at `imgsz=1280`, confidence 0.4,
-and class-aware IoU matching at 0.5:
-
-| Scope | MOTA | MOTP distance | IDF1 | ID switches | Precision | Recall | Validity |
-|---|---:|---:|---:|---:|---:|---:|---|
-| VisDrone-MOT-val, 7 sequences / 2,846 frames | 0.020 | 0.289 | 0.309 | 462 | 0.523 | 0.303 | Valid CV integration baseline |
-| Candidate with aligned 0.4 track/new thresholds | -0.044 | 0.293 | 0.296 | 719 | 0.475 | 0.324 | Rejected |
-
-The model/config, annotations, predictions, metrics, environment, and clean Git
-commit are hashed in
-`experiments/tracking_visdrone_mot_val_v1_20260818/run.json`. This is not an
-official VisDrone benchmark: non-target ignore-region handling and HOTA are not
-implemented, and the dataset is not evidence of Vietnam-domain identity
-performance. The low recall, 462 ID switches, and 1,491 fragmentations show
-that tracking remains a material limitation for counting.
-
-A controlled candidate lowered `track_high_thresh` and `new_track_thresh` to
-the detector confidence of 0.4. Recall increased by 0.021, but IDF1 and MOTA
-fell, precision decreased, ID switches rose by 257, and fragmentations rose by
-566. It was therefore rejected; `bytetrack_custom.yaml` remains the selected
-integration configuration. The negative experiment is retained at
-`experiments/tracking_visdrone_mot_val_cv_v1_20260818/run.json`.
-
-### Resolution-controlled vehicle tracking
-
-The VisDrone 10-class checkpoint was then compared at 640 and 1280 on the same
-seven MOT validation sequences. This comparison evaluates the eight vehicle
-classes only, with confidence 0.1, `max_det=1000`, the retained ByteTrack
-configuration, and identical class-aware matching.
-
-| Mode | IDF1 | MOTA | Precision | Recall | ID switches | Fragmentations | Run time (s) |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Standard 640 | 0.473 | **0.215** | **0.663** | 0.449 | **411** | **1,260** | **267** |
-| Standard 1280 | **0.481** | 0.132 | 0.578 | **0.521** | 568 | 1,495 | 461 |
-
-Higher resolution improved recall by 0.071 and IDF1 by 0.009, but it reduced
-precision by 0.085 and MOTA by 0.082 while adding 157 ID switches and 235
-fragmentations. Therefore 1280 is not promoted as the tracking default from
-identity metrics alone. Both prediction sets are retained for the next
-line-crossing count benchmark, which will choose the task-level profile. The
-comparison is recorded in
-`experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`.
-
-### Ground-truth trajectory counting
-
-Counting was evaluated against native VisDrone MOT trajectories on 2,382
-frames from six traffic sequences. The basketball-court sequence was excluded
-before evaluation because it contains no traffic roadway. Frame-level total
-vehicle count is the primary metric. The same production analytics state
-machine was also evaluated at three frozen horizontal lines (`y=0.35`, `0.50`,
-and `0.65`).
-
-| Tracking profile | Frame-count macro MAE (vehicles/frame) | Frame-count micro WAPE | Crossing WAPE | Crossing signed error |
-|---|---:|---:|---:|---:|
-| Standard 640 | 10.45 | 0.372 | 0.593 | -235 |
-| **Standard 1280** | **9.80** | **0.319** | **0.560** | **-178** |
-
-Standard 1280 is selected as the quality-first counting profile because it
-reduced both frame-count and crossing error. Standard 640 remains the faster,
-higher-precision tracking profile. The result is not uniformly good: 1280
-frame-count WAPE reaches 0.609 on `uav0000305_00000_v`, while both profiles
-severely undercount `uav0000268_05773_v`. Overall 1280 line-crossing WAPE is
-still 0.560, so the current system demonstrates measurable counting rather
-than accurate production-grade counting.
-
-The cameras move or zoom in these UAV sequences. Consequently, fixed
-image-space line crossings are an implementation-level state-machine test, not
-a physical traffic-flow measurement; stabilization, dynamic ROI/line geometry,
-or BEV calibration is required for that stronger claim. Full hashes and
-failure cases are stored in
-`experiments/counting_visdrone_mot_v1_20260818/run.json`.
-
-Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
-It maintains per-track trajectories, counts one crossing per direction and
-track ID, measures unique bbox-union coverage inside the ROI, estimates centroid
-speed in pixels per second, and applies temporal hysteresis to `NORMAL`,
-`DENSE`, and `CONGESTED`. Geometry is normalized in YAML and kept separate from
-the state machine.
-
-The same engine now emits a narrowly defined `prolonged_stop` alert when an
-eligible vehicle track remains inside the ROI below a configured image-plane
-speed for a confirmed duration. Entry continuity, release-speed hysteresis,
-tracking-gap reset, and one-event-per-active-stop behavior are covered by
-synthetic tests. The default evidence policy exports a raw keyframe and clip.
-This is not yet a calibrated physical-stop detector: camera motion,
-perspective, and ID switches can invalidate centroid-speed evidence.
-
-A clean 180-frame acceptance run kept `traffic_normal.mp4` in `NORMAL` for all
-frames and transitioned `traffic_jam.mp4` from `NORMAL` to `CONGESTED` after
-51 frames. Neither clip emitted a prolonged-stop event. This verifies the
-configured demo separation, not alert accuracy: the clips have no alert GT and
-no labeled real abnormal-stop example is available. The hashed record is
-`experiments/alerts_acceptance_v1_20260818/run.json`.
-
-Initial acceptance used the v5 checkpoint at `imgsz=640`, confidence 0.4, and
-the initial center-corridor ROI/counting line in
-`configs/pipeline/offline_video.yaml`. The jam clip was processed in full; the
-normal clip used its first 300 frames. Overlay frames were visually inspected
-to confirm that the normalized ROI and line intersect the intended road
-corridor. These are calibration/demo videos, not the locked test.
-
-| Acceptance clip | Evaluated span | Bbox-union occupancy median (range) | Speed median px/s | State timeline | Result |
-|---|---:|---:|---:|---|---|
-| `traffic_jam.mp4` | 283 frames / 11.3 s | 0.589 (0.488-0.724) | 78.0 | `NORMAL` to `CONGESTED` at 2.12 s; 230 congested frames | Pass |
-| `traffic_normal.mp4` | 300 frames / 10.0 s | 0.135 (0.069-0.219) | 104.6 | `NORMAL` for 300/300 frames | Pass |
-
-The thresholds were selected only after inspecting these two timelines. This
-demonstrates deterministic separation for the current scenes and resolution;
-it is not evidence that the thresholds generalize to other cameras. Crossing
-events were generated in both runs, but count accuracy is not reported because
-the clips have no counting ground truth and tracker ID error is not yet known.
-
-The final product-path benchmark processed frames 0-299 of a real 1080p aerial
-traffic-jam clip with the selected VisDrone 1280 profile, ByteTrack,
-`max_det=1000`, vehicle-only analytics, overlay, event output, and evidence
-export enabled. It produced 300 annotated frames, 52,250 raw track rows and 38
-vehicle crossing events at 3.70 end-to-end FPS on the RTX 3050. Artifact row
-counts, class allow-list, hashes, and visual overlay readability passed.
-
-This run also exposed the main unresolved failure: despite a visually congested
-scene and a maximum 167 vehicle tracks in the configured ROI, the moving/zooming
-camera span stayed `NORMAL` for all 300 frames. Static ROI occupancy peaked at
-only 0.296. The project therefore does not claim that the two-demo congestion
-calibration transfers to UAV camera motion; stabilization plus dynamic geometry
-or BEV calibration is required. The complete record is
-`experiments/uav_pipeline_e2e_v1_20260818/run.json`.
-
-### UAV moving-camera analytics (`analytics.mode: uav_motion`)
-
-Two fixes address the failure above, both re-run on the same real aerial clip
-(`configs/pipeline/offline_video_uav_gmc.yaml`, 300 frames, VisDrone baseline
-checkpoint). First, `uav_motion` mode drops the fixed ground-anchored ROI in
-favor of a full-frame region by default, and the congestion state machine
-stops requiring ROI occupancy to corroborate a high track count in this mode
-(`fixed_camera` keeps the original, tested co-requirement unchanged). This
-alone still under-triggered: full-frame occupancy tops out at 0.132 even in a
-visibly jammed scene, because a wide aerial frame is mostly background.
-
-Second, `analytics.gmc_enabled` adds `src/vn_traffic/analytics/motion.py`: an
-ECC-based (`cv2.findTransformECC`) global motion compensator that re-projects
-a hand-drawn ROI/counting-line from frame 0 into every later frame instead of
-collapsing to the full frame, restoring location-specific occupancy under
-pan/zoom. The transform direction is easy to get backwards without symptom;
-it is verified in `tests/test_motion.py` against a known synthetic pixel
-shift (the first implementation was wrong and failed that test before being
-corrected). On the real clip, `gmc_consecutive_failures_at_end` was 0 across
-all 300 frames (no lost lock), and the run correctly transitioned
-`NORMAL`→`CONGESTED` at frame 51 with a location-specific ROI, instead of
-staying `NORMAL` for all 300 frames as the original run did. GMC is still
-only 2D image-plane motion compensation, not GPS/BEV georeferencing, and can
-lose lock under a hard scene cut, fast motion, or low-texture frames -- see
-`gmc_consecutive_failures_at_end` in `summary.json` before trusting a given
-run's geometry. These runs are local ad-hoc reruns, not a new hashed
-experiment record.
-
-The original Stage 2 implementation summed bbox areas and double-counted
-overlap. Local run2-run8 analytics artifacts are retained with an
-`INVALID_ANALYTICS.json` sidecar and must not be cited; their `tracks.csv`
-inputs remain reusable. Run1 predates analytics and is unaffected. Corrected
-metric diagnostics start at run9; final acceptance evidence is run11-run12
-with analytics schema version 2. The new schema deliberately renames the metric
-to `bbox_union_occupancy` instead of silently changing legacy `occupancy`
-semantics.
-
-Raster-grid selection was measured over all 583 acceptance frames. Grid 1 is
-the default because its 3.63-5.51 ms/frame cost is small relative to the current
-detector/tracker pipeline. Grid 2 reduced the metric cost to 0.89-1.22 ms/frame
-with maximum absolute error 0.007 versus grid 1; grid 4 cost 0.26-0.29 ms/frame
-with maximum error 0.021. Both candidates preserved the two demo timelines and
-remain configurable options for future edge benchmarks.
-
-Stage 3 adds a deterministic evidence boundary before any VLM is loaded. The
-pipeline reopens the raw source once after event generation and decodes the
-processed span sequentially, without random frame seeking. It exports hashed
-keyframes for all configured event types and feeds overlapping temporal clip
-writers only for configured high-level events. The default congestion window
-is 2 seconds before and 3 seconds after the transition, clamped to the
-processed span. Evidence schema version 2 records the source-video hash, exact
-decoded BGR-frame hash, and encoded artifact hash.
-
-| Evidence acceptance | Events | Raw keyframes | Clips | Verification |
-|---|---:|---:|---:|---|
-| `traffic_jam.mp4`, run15 | 14 | 14 | 1 congestion clip / 126 frames | 14/14 decoded BGR hashes, source/artifact hashes, and clip length verified |
-| `traffic_normal.mp4`, run16 | 146 | 146 (137 unique source frames) | 2 congestion clips / 151 frames each | 137/137 decoded BGR hashes, source/artifact hashes, and both clip lengths verified |
-
-Run15 covers all 283 frames of the jam clip. Run16 deliberately covers all
-1,305 frames of the file named `traffic_normal.mp4`, unlike the earlier
-300-frame Stage 2 calibration span. Its later content produces two congestion
-transitions; the filename is contextual, not a ground-truth label. Therefore
-the Stage 2 `NORMAL` 300/300 statement above applies only to the explicitly
-listed first-300-frame span and is not generalized to the full video.
-
-The sequential exporter is covered by a capture that raises on every seek
-attempt, overlapping clip windows clamped at both processed-span boundaries,
-and raw-frame hash comparison. On the two H.264 acceptance sources, all 160
-evidence records, three clips, and 151 unique selected source frames were
-validated; duplicate events at one source frame intentionally share that
-decoded frame.
-
-This stage performs selection and packaging only. It makes no caption,
-incident, severity, or causal claim; VLM/LLM quality remains unmeasured.
-
-Reasoning evaluation v1 freezes all 14 run15 evidence records under lock
-SHA-256 `ecfd9a1e44ae1be4991f5e87dbf65d3ce9e42c4185a00db782e728258673d18b`.
-Versioned VLM/LLM contracts enforce known evidence citations, immutable
-deterministic numbers, and explicit uncertainty. The input lock is complete,
-but human reference annotations are still pending, so no reasoning-model or
-quantization quality result is claimed. See the
+Stage 3 adds a deterministic evidence boundary (sequential, no-seek frame
+decode; hashed keyframes and clips) before any VLM is loaded, documented in
+[the output schema](docs/output_schema.md). Two acceptance runs validated
+it end to end: `traffic_jam.mp4` (14/14 events, decoded-frame hashes, and
+artifact hashes verified) and `traffic_normal.mp4` (146 events, 137/137
+unique frame hashes verified). Reasoning evaluation v1 then freezes all 14
+`traffic_jam.mp4` evidence records under lock SHA-256
+`ecfd9a1e44ae1be4991f5e87dbf65d3ce9e42c4185a00db782e728258673d18b`; input
+lock is complete, but human reference annotations are still pending, so no
+reasoning-model quality result is claimed yet. See the
 [reasoning protocol](docs/reasoning_protocol.md).
 
-### Prompt-copying bug: v1 to v3
-
-Every VLM/LLM run recorded before this fix, on every case tried, reproduced
-one example sentence from the prompt verbatim
-("Quan sát thấy các phương tiện trong khung hình.") instead of describing the
-image. `configs/reasoning/prompts_v1.yaml`'s user-turn JSON example used that
-sentence as the `claim_vi` value, and the 2B model copied it as a free
-answer. `_prompt_text()` in `src/vn_traffic/reasoning/vlm_runtime.py` was
-changed to use a non-Vietnamese placeholder instead
-(`tests/test_vlm_runtime.py::test_prompt_example_is_not_copyable_vietnamese_prose`).
-
-That alone was insufficient: `prompts_v2.yaml`'s *system* prompt illustrated
-the required structure with a different complete sentence ("chủ yếu là xe
-máy, có nhiều ô tô con và vài xe buýt hoặc xe tải"), and the model copied
-that one instead -- on a real truck-dominated highway keyframe where the
-pipeline's own analytics recorded `car:17, motorcycle:1, truck:46`, the model
-still answered "chủ yếu là xe máy" (mostly motorcycles), because the words
-came from the prompt, not the image
-(`output/reasoning/adhoc/run34-vlm-v2prompt.json`). The lesson: any complete,
-grammatical example sentence anywhere in the prompt is copyable, regardless
-of which prompt it lives in.
-
-`prompts_v3.yaml` replaces every example with a fill-in-the-brackets
-template (`"Phần lớn phương tiện là [LOẠI XE CHIẾM ĐA SỐ...], ngoài ra có
-[...]; mật độ [...]."`) that is not itself a valid answer if copied
-literally
-(`tests/test_vlm_runtime.py::test_system_prompt_v3_has_no_copyable_example_sentence`).
-Re-run on two real, distinct keyframes, it produced grounded, differing
-answers: "Phần lớn phương tiện là xe máy, ngoài ra có xe ô tô và xe buýt; mật
-độ rất đông" on the jam clip (`output/reasoning/adhoc/run32-vlm-v3prompt.json`,
-occupancy 0.709) versus "Phần lớn phương tiện là xe tải, ngoài ra có xe ô tô,
-xe máy...; mật độ rất đông" on the truck-heavy highway clip
-(`output/reasoning/adhoc/run34-vlm-v3prompt.json`). The raw VLM sentence is
-sometimes mildly repetitive; the downstream LLM report cleans it into a
-single clean sentence and still keeps `numeric_facts` exactly equal to the
-deterministic event measurements. This is not a formally re-frozen evidence
-set or a measured quality result -- v1 and v2 stay unchanged for historical
-hash reference, and these are local ad-hoc runs, not new experiment records.
-
-A related, still-open gap: `validate_grounding_policy` only forbids motion
-claims when the VLM request has no clip evidence, but `run_vlm_case` never
-actually loads or shows clip frames to the model -- it is keyframe-only
-regardless of what the request references. A future motion claim on a
-clip-bearing event would therefore not be caught as ungrounded even though
-the model never saw the clip. It happened not to matter in the runs above
-because the model made no motion claims, but the gap is real and unfixed.
+A significant early VLM/LLM bug is worth calling out here: every run before
+the fix copied a literal example sentence out of the prompt instead of
+describing the actual image, regardless of image content — including once
+onto a factually wrong answer for a truck-dominated scene. The three-attempt
+fix (replacing every copyable example sentence with a fill-in-the-brackets
+template) is documented in
+[the reasoning protocol](docs/reasoning_protocol.md#prompt-copying-bug-v1-to-v3),
+along with a still-open gap where clip evidence is referenced but never
+actually shown to the VLM.
 
 | Metric | Current status |
 |---|---|
@@ -548,9 +263,6 @@ because the model made no motion claims, but the gap is real and unfixed.
 | MOTA | 0.020 on the provenance-controlled VisDrone integration baseline |
 | ID switches | 462 across 7 sequences / 2,846 frames |
 | Detector + tracker latency | Pending benchmark |
-
-<!-- IMAGE PLACEHOLDER: track trajectories, line crossings, and traffic-density
-overlay on a representative video frame. -->
 
 ## Deployment readiness
 
@@ -568,9 +280,6 @@ INT8 calibration must use the calibration split only. The locked test is not
 used to select precision, thresholds, prompts, runtime backends, or tracker
 parameters. ONNX Runtime, TensorRT, and physical NPU claims remain pending until
 their backends and target hardware are installed and measured.
-
-<!-- IMAGE PLACEHOLDER: accuracy-versus-latency and model-size comparison for
-FP32, FP16, and INT8 after export benchmarks exist. -->
 
 ## Repository layout
 
