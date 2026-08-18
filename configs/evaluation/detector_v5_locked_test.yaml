@@ -1,0 +1,29 @@
+schema_version: 1
+evaluation_id: yolov8s_v5_locked_test_v1
+status: frozen_final_test
+
+model:
+  weights: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+  expected_sha256: 729c66e676345e9cdcd504e21f6a94fe1d682582eca3ded39a2aec2a99e7f1db
+
+dataset:
+  data_yaml: datasets/vietnam_dataset_v5/data.yaml
+  materialization_manifest: datasets/vietnam_dataset_v5/manifest.csv
+  test_lock: manifests/datasets/vietnam_v5/test_lock.json
+  expected_test_lock_sha256: 6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3
+  split: test
+
+validation:
+  imgsz: 1280
+  batch: 4
+  device: "0"
+  workers: 0
+  plots: true
+
+provenance:
+  require_clean_worktree: true
+  output_root: benchmark_outputs/detector_v5_locked_test
+  claim_boundary: >-
+    One final evaluation of the validation-selected v5 detector on the
+    content-addressed locked test. These results must not be used to select or
+    tune checkpoints, thresholds, augmentations, or backends.

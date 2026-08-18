@@ -229,6 +229,7 @@ and class-aware IoU matching at 0.5:
 | Scope | MOTA | MOTP distance | IDF1 | ID switches | Precision | Recall | Validity |
 |---|---:|---:|---:|---:|---:|---:|---|
 | VisDrone-MOT-val, 7 sequences / 2,846 frames | 0.020 | 0.289 | 0.309 | 462 | 0.523 | 0.303 | Valid CV integration baseline |
+| Candidate with aligned 0.4 track/new thresholds | -0.044 | 0.293 | 0.296 | 719 | 0.475 | 0.324 | Rejected |
 
 The model/config, annotations, predictions, metrics, environment, and clean Git
 commit are hashed in
@@ -237,6 +238,13 @@ official VisDrone benchmark: non-target ignore-region handling and HOTA are not
 implemented, and the dataset is not evidence of Vietnam-domain identity
 performance. The low recall, 462 ID switches, and 1,491 fragmentations show
 that tracking remains a material limitation for counting.
+
+A controlled candidate lowered `track_high_thresh` and `new_track_thresh` to
+the detector confidence of 0.4. Recall increased by 0.021, but IDF1 and MOTA
+fell, precision decreased, ID switches rose by 257, and fragmentations rose by
+566. It was therefore rejected; `bytetrack_custom.yaml` remains the selected
+integration configuration. The negative experiment is retained at
+`experiments/tracking_visdrone_mot_val_cv_v1_20260818/run.json`.
 
 Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
 It maintains per-track trajectories, counts one crossing per direction and
