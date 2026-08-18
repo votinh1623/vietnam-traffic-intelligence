@@ -172,6 +172,28 @@ validation epoch in the stored training log is epoch 74.
 |---|---|---:|---:|---:|---|
 | YOLOv8s VisDrone baseline | VisDrone2019-DET validation, 10 classes | 74 | 0.389 | 0.225 | Initialization checkpoint |
 
+### VisDrone small-object inference selection
+
+Four frozen inference modes were compared on all 548 VisDrone2019-DET
+validation images (38,759 valid objects). Metrics below are COCO-style with
+`maxDets=1000`; ignored regions are excluded, so they are not official
+VisDrone leaderboard metrics.
+
+| Mode | AP | AP50 | AP-small | AP-medium | AR | p50 latency (ms/image) | Decision |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Standard 640 | 0.212 | 0.359 | 0.118 | 0.325 | 0.302 | 23.7 | Reference |
+| **Standard 1280** | **0.264** | **0.445** | **0.194** | **0.352** | **0.397** | 130.8 | **Selected for CV integration** |
+| SAHI 640 tiles | 0.193 | 0.357 | 0.142 | 0.255 | 0.315 | 282.0 | Small-object ablation only |
+| Hybrid full-frame + tiles | 0.177 | 0.333 | 0.117 | 0.248 | 0.300 | 200.1 | Rejected |
+
+SAHI improved AP-small over standard 640 by 0.023, but reduced overall AP by
+0.019 and increased median latency by about 11.9x. Standard 1280 produced the
+best AP, AP50, AP75, AP-small, AP-medium, and AR of the tested modes, while
+remaining about 2.2x faster than SAHI by median latency. It is therefore the
+selected detector configuration for the next ByteTrack experiment. This does
+not yet establish a tracking or counting improvement. The complete record is
+`experiments/visdrone_det_small_object_v1_20260818/run.json`.
+
 ### Historical Vietnam v2 result
 
 | Model | Input | Batch | Freeze | Optimizer | mAP50 | mAP50-95 | Validity |
@@ -573,7 +595,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Add reproducible detector training and smoke validation.
 - [x] Complete v5 fine-tuning and validation-based checkpoint selection.
 - [x] Freeze the v5 detector and run its one-time locked-test evaluation.
-- [ ] Compare standard and SAHI sliced inference on VisDrone-DET for small objects.
+- [x] Compare standard, high-resolution, SAHI, and hybrid inference on VisDrone-DET.
 - [ ] Merge sliced detections in source-frame coordinates before ByteTrack.
 - [ ] Freeze and benchmark the complete CV pipeline end to end.
 - [x] Repair and validate sequence-level class-aware tracking evaluation.

@@ -61,3 +61,18 @@ are not implemented. It is also not Vietnam-domain tracking evidence.
 HOTA, DetA, and AssA are not provided by motmetrics. They remain `TBD` until
 TrackEval is integrated and verified on a synthetic fixture. Historical root
 tracking CSV files predate the repair and remain `invalid`.
+
+## Small-object detection selection
+
+The frozen comparison in
+`experiments/visdrone_det_small_object_v1_20260818/run.json` evaluates four
+inference modes on all 548 VisDrone2019-DET validation images and 38,759 valid
+objects. It uses COCO-style AP with `maxDets=1000` and excludes VisDrone ignore
+regions; it is therefore not an official VisDrone benchmark.
+
+Standard inference at 1280 was selected. Relative to standard 640, AP increased
+from 0.212 to 0.264 and AP-small from 0.118 to 0.194, with median latency rising
+from 23.7 to 130.8 ms/image. SAHI 640 raised AP-small to 0.142 but reduced AP to
+0.193 and raised median latency to 282.0 ms/image. Hybrid inference was worse
+than the 640 reference on both AP and AP-small. No tracking or counting claim
+is derived from this detector-only validation experiment.

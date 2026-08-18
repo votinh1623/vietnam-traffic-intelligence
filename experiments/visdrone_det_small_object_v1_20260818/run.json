@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "visdrone_det_small_object_v1",
+  "status": "completed_selected",
+  "decision": "Select standard_1280 for the next CV integration experiment. It achieved the best overall AP, AP50, AP75, AP-small, AP-medium, and AR among the four frozen modes. Keep sahi_640 as an ablation: it improved AP-small over standard_640 but reduced overall AP and was substantially slower.",
+  "claim_boundary": "COCO-style comparison on all 548 VisDrone2019-DET validation images and 38,759 valid objects with maxDets=1000. Ignored regions are excluded instead of following official VisDrone matching, so these values are not official VisDrone leaderboard metrics. The validation result selects an inference configuration; it is not evidence of improved tracking or counting.",
+  "git": {
+    "commit": "b6998b7c96c6f89c5fac0d05acbd5378c4a7870a",
+    "dirty": false
+  },
+  "config": {
+    "path": "configs/evaluation/visdrone_det_sahi.yaml",
+    "sha256": "c3b59973a5f9ee153cc751358762197932c90daf2cb896059386923854b82946"
+  },
+  "model": {
+    "path": "runs/detect/baseline/yolov8s_visdrone/weights/best.pt",
+    "sha256": "0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08"
+  },
+  "dataset": {
+    "name": "VisDrone2019-DET-val",
+    "image_count": 548,
+    "valid_object_count": 38759,
+    "image_manifest_sha256": "67d32e24b00398e469cf26686b9e64b0a32529c8f8ea2195735b52d1f4d92967",
+    "annotation_manifest_sha256": "320499bf9b95591c8656b4803b7a2036fb37f8cb9c5adfd51655e5a339841a0a"
+  },
+  "hardware": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+  "results": [
+    {
+      "mode": "standard_640",
+      "selected": false,
+      "ap": 0.21216046979842051,
+      "ap50": 0.3588837650484431,
+      "ap75": 0.21188475181784241,
+      "ap_small": 0.11823227228049926,
+      "ap_medium": 0.3245225610682308,
+      "ap_large": 0.4600342265468923,
+      "ar_max_dets": 0.3017198949406204,
+      "latency_p50_ms_per_image": 23.66265000000567,
+      "latency_p95_ms_per_image": 39.77054500028315,
+      "peak_vram_allocated_bytes": 67219456,
+      "raw_run_artifact": {
+        "ignored_path": "benchmark_outputs/visdrone_det_small_object_v1/standard_640/run.json",
+        "sha256": "420ebbb3a448829a49e2f778357a02ff4d2ffc5ce0ee9be6bf81ba17cd779429"
+      }
+    },
+    {
+      "mode": "standard_1280",
+      "selected": true,
+      "ap": 0.2635331994601399,
+      "ap50": 0.444804008998253,
+      "ap75": 0.2659423362336926,
+      "ap_small": 0.19380973711353866,
+      "ap_medium": 0.3521534380737445,
+      "ap_large": 0.3033438607182194,
+      "ar_max_dets": 0.3971429097315393,
+      "latency_p50_ms_per_image": 130.7956999999078,
+      "latency_p95_ms_per_image": 307.6779149992944,
+      "peak_vram_allocated_bytes": 131912192,
+      "raw_run_artifact": {
+        "ignored_path": "benchmark_outputs/visdrone_det_small_object_v1/standard_1280/run.json",
+        "sha256": "ce345daee1ab340c4b30f8bed0f0e0a5b98ccb3b0c5f0fff27fd4b7951be4e14"
+      }
+    },
+    {
+      "mode": "sahi_640",
+      "selected": false,
+      "ap": 0.19267627816643315,
+      "ap50": 0.3570599891138332,
+      "ap75": 0.18483995376162385,
+      "ap_small": 0.14161896254775336,
+      "ap_medium": 0.2550432394385286,
+      "ap_large": 0.24347488329893213,
+      "ar_max_dets": 0.31456730921538745,
+      "latency_p50_ms_per_image": 282.04139999979816,
+      "latency_p95_ms_per_image": 592.3347700000704,
+      "peak_vram_allocated_bytes": 199054848,
+      "raw_run_artifact": {
+        "ignored_path": "benchmark_outputs/visdrone_det_small_object_v1/sahi_640/run.json",
+        "sha256": "596e004a5d7754be5b761d046ac5578c2893f7da6ef4c6fbf294e90e128910dd"
+      }
+    },
+    {
+      "mode": "hybrid_640",
+      "selected": false,
+      "ap": 0.1772617591739949,
+      "ap50": 0.33328319052940686,
+      "ap75": 0.16684573168817032,
+      "ap_small": 0.11699015603105235,
+      "ap_medium": 0.24822195346732068,
+      "ap_large": 0.3493926882348498,
+      "ar_max_dets": 0.3001686551091124,
+      "latency_p50_ms_per_image": 200.11040000008506,
+      "latency_p95_ms_per_image": 354.1556900006981,
+      "peak_vram_allocated_bytes": 199054848,
+      "raw_run_artifact": {
+        "ignored_path": "benchmark_outputs/visdrone_det_small_object_v1/hybrid_640/run.json",
+        "sha256": "c393ac74a08d90ad89dc80120861bdf634b34faedcde06e40290b413bda50669"
+      }
+    }
+  ],
+  "selected_mode_caveats": [
+    "The standard_1280 run emitted one Ultralytics NMS time-limit warning on a dense image.",
+    "Latency contains cold start and is a single run; it is suitable for within-run mode selection but is not the final runtime benchmark protocol.",
+    "The selected detector must still be evaluated with ByteTrack once per full source frame before any tracking or counting claim is made."
+  ]
+}
