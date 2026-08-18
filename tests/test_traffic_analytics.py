@@ -152,6 +152,15 @@ class TrafficAnalyticsTests(unittest.TestCase):
         self.assertIsNone(normal.update(timestamp_s=2.0, **moving_traffic))
         self.assertEqual(normal.state, "NORMAL")
 
+        high_count_low_coverage = dict(
+            bbox_union_occupancy=0.20,
+            count=60,
+            mean_speed_px_s=50.0,
+        )
+        self.assertIsNone(normal.update(timestamp_s=3.0, **high_count_low_coverage))
+        self.assertIsNone(normal.update(timestamp_s=5.0, **high_count_low_coverage))
+        self.assertEqual(normal.state, "NORMAL")
+
         jam = CongestionStateMachine(config)
         stopped_dense_traffic = dict(
             bbox_union_occupancy=0.65,
@@ -163,6 +172,73 @@ class TrafficAnalyticsTests(unittest.TestCase):
         self.assertEqual(
             (transition.previous, transition.current),
             ("NORMAL", "CONGESTED"),
+        )
+
+    def test_prolonged_stop_alert_has_duration_release_and_no_repeat(self) -> None:
+        config = replace(
+            self.config,
+            prolonged_stop_enabled=True,
+            prolonged_stop_classes=("car",),
+            prolonged_stop_max_speed_px_s=1.0,
+            prolonged_stop_release_speed_px_s=5.0,
+            prolonged_stop_min_duration_s=2.0,
+            prolonged_stop_max_gap_s=1.0,
+        )
+        engine = TrafficAnalytics(config)
+        self.process(engine, 0, observation(9, 20.0, x=20.0))
+        self.assertEqual(self.process(engine, 1, observation(9, 20.0, x=20.0)).events, ())
+        alert = self.process(engine, 2, observation(9, 20.0, x=20.0))
+        stop_events = [
+            event for event in alert.events if event["event_type"] == "prolonged_stop"
+        ]
+        self.assertEqual(len(stop_events), 1)
+        self.assertEqual(stop_events[0]["measurements"]["stopped_duration_s"], 2.0)
+        repeated = self.process(engine, 3, observation(9, 20.0, x=20.0))
+        self.assertFalse(
+            any(event["event_type"] == "prolonged_stop" for event in repeated.events)
+        )
+
+        self.process(engine, 4, observation(9, 20.0, x=80.0))
+        self.process(engine, 5, observation(9, 20.0, x=80.0))
+        second_alert = self.process(engine, 6, observation(9, 20.0, x=80.0))
+        self.assertTrue(
+            any(event["event_type"] == "prolonged_stop" for event in second_alert.events)
+        )
+        self.assertEqual(engine.summary()["prolonged_stop_events"], 2)
+
+    def test_prolonged_stop_does_not_bridge_long_tracking_gap(self) -> None:
+        config = replace(
+            self.config,
+            prolonged_stop_enabled=True,
+            prolonged_stop_classes=("car",),
+            prolonged_stop_min_duration_s=2.0,
+            prolonged_stop_max_gap_s=1.0,
+        )
+        engine = TrafficAnalytics(config)
+        self.process(engine, 0, observation(4, 20.0))
+        batch = self.process(engine, 10, observation(4, 20.0))
+        self.assertFalse(
+            any(event["event_type"] == "prolonged_stop" for event in batch.events)
+        )
+
+    def test_prolonged_stop_entry_requires_continuous_low_speed(self) -> None:
+        config = replace(
+            self.config,
+            prolonged_stop_enabled=True,
+            prolonged_stop_classes=("car",),
+            prolonged_stop_max_speed_px_s=1.0,
+            prolonged_stop_release_speed_px_s=5.0,
+            prolonged_stop_min_duration_s=2.0,
+            prolonged_stop_max_gap_s=1.0,
+        )
+        engine = TrafficAnalytics(config)
+        self.process(engine, 0, observation(8, 20.0, x=20.0))
+        self.process(engine, 1, observation(8, 20.0, x=20.0))
+        self.process(engine, 2, observation(8, 20.0, x=23.0))
+        self.process(engine, 3, observation(8, 20.0, x=23.0))
+        alert = self.process(engine, 4, observation(8, 20.0, x=23.0))
+        self.assertTrue(
+            any(event["event_type"] == "prolonged_stop" for event in alert.events)
         )
 
 

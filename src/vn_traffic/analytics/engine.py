@@ -33,6 +33,8 @@ class TrackMemory:
     stable_point: Point | None = None
     counted_directions: set[str] = field(default_factory=set)
     trajectory: deque[Point] = field(default_factory=deque)
+    stop_candidate_since_s: float | None = None
+    prolonged_stop_active: bool = False
 
 
 class TrafficAnalytics:
@@ -48,6 +50,7 @@ class TrafficAnalytics:
         self._event_number = 0
         self._frames_by_state: Counter[str] = Counter()
         self._transition_count = 0
+        self._prolonged_stop_count = 0
         self._max_bbox_union_occupancy = 0.0
         self._max_roi_track_count = 0
         self._occupancy = BBoxUnionOccupancy(
@@ -119,6 +122,48 @@ class TrafficAnalytics:
                 speed = math.dist(memory.last_point, point) / elapsed
                 if inside_roi:
                     current_speeds.append(speed)
+
+            stop_eligible = (
+                self.config.prolonged_stop_enabled
+                and inside_roi
+                and track.class_name in self.config.prolonged_stop_classes
+                and speed is not None
+                and 0 < elapsed <= self.config.prolonged_stop_max_gap_s
+            )
+            if not stop_eligible:
+                memory.stop_candidate_since_s = None
+                memory.prolonged_stop_active = False
+            elif speed <= self.config.prolonged_stop_max_speed_px_s:
+                if memory.stop_candidate_since_s is None:
+                    memory.stop_candidate_since_s = memory.last_timestamp_s
+                stopped_duration_s = timestamp_s - memory.stop_candidate_since_s
+                if (
+                    not memory.prolonged_stop_active
+                    and stopped_duration_s >= self.config.prolonged_stop_min_duration_s
+                ):
+                    memory.prolonged_stop_active = True
+                    self._prolonged_stop_count += 1
+                    events.append(
+                        self._event(
+                            "prolonged_stop",
+                            timestamp_s=timestamp_s,
+                            frame_index=frame_index,
+                            track_id=track.track_id,
+                            class_id=track.class_id,
+                            class_name=track.class_name,
+                            measurements={
+                                "speed_px_s": speed,
+                                "stopped_duration_s": stopped_duration_s,
+                            },
+                        )
+                    )
+            elif speed >= self.config.prolonged_stop_release_speed_px_s:
+                memory.stop_candidate_since_s = None
+                memory.prolonged_stop_active = False
+            elif not memory.prolonged_stop_active:
+                # Entry requires continuous evidence below the entry threshold;
+                # the hysteresis band only preserves an already-active alert.
+                memory.stop_candidate_since_s = None
 
             current_side = stable_line_side(
                 point,
@@ -220,6 +265,7 @@ class TrafficAnalytics:
             "analytics_enabled": True,
             "state_frames": dict(self._frames_by_state),
             "congestion_transitions": self._transition_count,
+            "prolonged_stop_events": self._prolonged_stop_count,
             "cumulative_crossings": {
                 direction: dict(sorted(counts.items()))
                 for direction, counts in self._crossings.items()
@@ -230,11 +276,13 @@ class TrafficAnalytics:
             "occupancy_grid_size_px": self.config.occupancy_grid_size_px,
             "claim_boundary": (
                 "Counts can be biased by ByteTrack ID switches or fragmentation; "
-                "demo-video count error has not yet been measured. Congestion "
+                "VisDrone trajectory count error has been measured, but demo-video "
+                "count error has not. Congestion "
                 "thresholds have only initial two-video demo calibration and may "
                 "not transfer to another camera or viewpoint. Bbox-union "
                 "occupancy is image-plane box coverage, not physical road "
                 "occupancy; boxes include background and no BEV calibration is "
-                "applied."
+                "applied. Prolonged-stop alerts use image-plane centroid speed and "
+                "can be invalid under camera motion or identity errors."
             ),
         }

@@ -37,6 +37,8 @@ class CongestionStateMachine:
                 >= self.config.congested_exit_bbox_union_occupancy
                 or (
                     count >= self.config.congested_exit_count
+                    and bbox_union_occupancy
+                    >= self.config.dense_exit_bbox_union_occupancy
                     and speed <= self.config.congested_release_speed_px_s
                 )
             ) and speed <= self.config.congested_release_speed_px_s
@@ -47,6 +49,8 @@ class CongestionStateMachine:
             >= self.config.congested_enter_bbox_union_occupancy
             or (
                 count >= self.config.congested_enter_count
+                and bbox_union_occupancy
+                >= self.config.dense_enter_bbox_union_occupancy
                 and speed <= self.config.congested_max_speed_px_s
             )
         ) and speed <= self.config.congested_max_speed_px_s
@@ -58,6 +62,8 @@ class CongestionStateMachine:
                 bbox_union_occupancy >= self.config.dense_exit_bbox_union_occupancy
                 or (
                     count >= self.config.dense_exit_count
+                    and bbox_union_occupancy
+                    >= self.config.dense_exit_bbox_union_occupancy
                     and speed <= self.config.congested_max_speed_px_s
                 )
             )
@@ -66,6 +72,8 @@ class CongestionStateMachine:
                 bbox_union_occupancy >= self.config.dense_enter_bbox_union_occupancy
                 or (
                     count >= self.config.dense_enter_count
+                    and bbox_union_occupancy
+                    >= self.config.dense_exit_bbox_union_occupancy
                     and speed <= self.config.congested_max_speed_px_s
                 )
             )

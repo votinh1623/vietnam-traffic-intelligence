@@ -67,6 +67,26 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.evidence.pre_event_s, 1.5)
             self.assertEqual(config.evidence.post_event_s, 2.5)
 
+    def test_loads_prolonged_stop_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  abnormal:\n"
+                "    prolonged_stop_enabled: true\n"
+                "    prolonged_stop_classes: [car, bus]\n"
+                "    prolonged_stop_max_speed_px_s: 3\n"
+                "    prolonged_stop_release_speed_px_s: 7\n"
+                "    prolonged_stop_min_duration_s: 4\n"
+                "    prolonged_stop_max_gap_s: 0.5\n",
+                encoding="utf-8",
+            )
+            config = load_pipeline_config(path)
+            self.assertTrue(config.analytics.prolonged_stop_enabled)
+            self.assertEqual(config.analytics.prolonged_stop_classes, ("car", "bus"))
+            self.assertEqual(config.analytics.prolonged_stop_min_duration_s, 4.0)
+            self.assertEqual(config.analytics.prolonged_stop_max_gap_s, 0.5)
+
     def test_resolves_repository_tracker_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "pipeline.yaml"
@@ -107,6 +127,19 @@ class PipelineConfigTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(ValueError, "legacy summed-occupancy"):
+                load_pipeline_config(path)
+
+    def test_rejects_inverted_prolonged_stop_speed_hysteresis(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  abnormal:\n"
+                "    prolonged_stop_max_speed_px_s: 10\n"
+                "    prolonged_stop_release_speed_px_s: 5\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "release_speed"):
                 load_pipeline_config(path)
 
 

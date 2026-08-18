@@ -361,6 +361,14 @@ speed in pixels per second, and applies temporal hysteresis to `NORMAL`,
 `DENSE`, and `CONGESTED`. Geometry is normalized in YAML and kept separate from
 the state machine.
 
+The same engine now emits a narrowly defined `prolonged_stop` alert when an
+eligible vehicle track remains inside the ROI below a configured image-plane
+speed for a confirmed duration. Entry continuity, release-speed hysteresis,
+tracking-gap reset, and one-event-per-active-stop behavior are covered by
+synthetic tests. The default evidence policy exports a raw keyframe and clip.
+This is not yet a calibrated physical-stop detector: camera motion,
+perspective, and ID switches can invalidate centroid-speed evidence.
+
 Initial acceptance used the v5 checkpoint at `imgsz=640`, confidence 0.4, and
 the initial center-corridor ROI/counting line in
 `configs/pipeline/offline_video.yaml`. The jam clip was processed in full; the
@@ -651,7 +659,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Derive frame-count and image-space line-crossing ground truth from VisDrone-MOT trajectories and measure error.
 - [x] Implement deterministic analytics and event schema with synthetic tests.
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
-- [ ] Add and test narrowly defined wrong-way/prolonged-stop alerts.
+- [x] Add and synthetic-test a narrowly defined prolonged-stop alert with speed hysteresis and gap reset.
 - [x] Add deterministic event keyframe/clip evidence selection.
 - [x] Remove codec-dependent random seeking and add evidence provenance hashes.
 - [x] Freeze VLM/LLM evaluation inputs and add JSON/prompt contract v1.

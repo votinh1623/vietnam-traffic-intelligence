@@ -43,6 +43,17 @@ class AnalyticsConfig:
     congested_release_speed_px_s: float = 170.0
     transition_confirm_s: float = 2.0
     release_confirm_s: float = 4.0
+    prolonged_stop_enabled: bool = False
+    prolonged_stop_classes: tuple[str, ...] = (
+        "bus",
+        "car",
+        "motorcycle",
+        "truck",
+    )
+    prolonged_stop_max_speed_px_s: float = 5.0
+    prolonged_stop_release_speed_px_s: float = 10.0
+    prolonged_stop_min_duration_s: float = 5.0
+    prolonged_stop_max_gap_s: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -143,6 +154,7 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
     defaults = AnalyticsConfig()
     analytics = _mapping(raw.get("analytics"), "analytics")
     congestion = _mapping(analytics.get("congestion"), "analytics.congestion")
+    abnormal = _mapping(analytics.get("abnormal"), "analytics.abnormal")
     legacy_occupancy_fields = {
         "dense_enter_occupancy",
         "dense_exit_occupancy",
@@ -232,6 +244,37 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
         ),
         release_confirm_s=float(
             congestion.get("release_confirm_s", defaults.release_confirm_s)
+        ),
+        prolonged_stop_enabled=bool(
+            abnormal.get("prolonged_stop_enabled", defaults.prolonged_stop_enabled)
+        ),
+        prolonged_stop_classes=_event_types(
+            abnormal.get("prolonged_stop_classes"),
+            "analytics.abnormal.prolonged_stop_classes",
+            defaults.prolonged_stop_classes,
+        ),
+        prolonged_stop_max_speed_px_s=float(
+            abnormal.get(
+                "prolonged_stop_max_speed_px_s",
+                defaults.prolonged_stop_max_speed_px_s,
+            )
+        ),
+        prolonged_stop_release_speed_px_s=float(
+            abnormal.get(
+                "prolonged_stop_release_speed_px_s",
+                defaults.prolonged_stop_release_speed_px_s,
+            )
+        ),
+        prolonged_stop_min_duration_s=float(
+            abnormal.get(
+                "prolonged_stop_min_duration_s",
+                defaults.prolonged_stop_min_duration_s,
+            )
+        ),
+        prolonged_stop_max_gap_s=float(
+            abnormal.get(
+                "prolonged_stop_max_gap_s", defaults.prolonged_stop_max_gap_s
+            )
         ),
     )
     validate_analytics_config(config)
@@ -401,6 +444,21 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         )
     if config.transition_confirm_s < 0 or config.release_confirm_s < 0:
         raise ValueError("analytics confirmation durations cannot be negative")
+    if not config.prolonged_stop_classes:
+        raise ValueError("prolonged_stop_classes cannot be empty")
+    if config.prolonged_stop_max_speed_px_s < 0:
+        raise ValueError("prolonged_stop_max_speed_px_s cannot be negative")
+    if (
+        config.prolonged_stop_release_speed_px_s
+        < config.prolonged_stop_max_speed_px_s
+    ):
+        raise ValueError(
+            "prolonged_stop_release_speed_px_s must not be below entry speed"
+        )
+    if config.prolonged_stop_min_duration_s <= 0:
+        raise ValueError("prolonged_stop_min_duration_s must be positive")
+    if config.prolonged_stop_max_gap_s <= 0:
+        raise ValueError("prolonged_stop_max_gap_s must be positive")
 
 
 def validate_evidence_config(config: EvidenceConfig) -> None:

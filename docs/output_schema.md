@@ -26,7 +26,7 @@ One row represents one detection/track observation in one frame.
 ## `events.jsonl`
 
 One JSON object per deterministic analytics event. The current event types are
-`line_crossing` and `congestion_transition`; the pipeline never invents
+`line_crossing`, `congestion_transition`, and `prolonged_stop`; the pipeline never invents
 placeholder events. Analytics schema version 2 introduces union-based bbox
 coverage and replaces the invalid legacy `occupancy` field. A line-crossing
 event has this shape:
@@ -50,6 +50,15 @@ A congestion transition replaces the track/class/direction fields with
 `previous_state` and `current_state`; its measurements contain
 `bbox_union_occupancy`, ROI-track count, and mean pixel speed. All events retain
 `schema_version`, `event_id`, `event_type`, `timestamp_s`, and `frame_index`.
+
+A `prolonged_stop` event is emitted once when an eligible vehicle track remains
+inside the ROI below the configured entry speed for the configured duration.
+Its measurements contain `speed_px_s` and `stopped_duration_s`. A release-speed
+hysteresis resets the alert so a later stop can emit a new event; tracking gaps
+longer than `prolonged_stop_max_gap_s` reset the candidate instead of being
+misread as continuous stationary evidence. This remains an image-plane motion
+heuristic. Camera motion, ID switches, and perspective can invalidate a
+physical-stop interpretation unless the video is stabilized/calibrated.
 
 ## `analytics.csv`
 
@@ -121,9 +130,9 @@ selection does not depend on codec/backend random-seek behavior.
 }
 ```
 
-The default policy writes a raw JPEG keyframe for `line_crossing` and
-`congestion_transition`, but writes a pre/post clip only for congestion
-transitions. Clip bounds are clamped to the processed video span. Files are
+The default policy writes a raw JPEG keyframe for `line_crossing`,
+`congestion_transition`, and `prolonged_stop`, and writes pre/post clips for
+congestion transitions and prolonged stops. Clip bounds are clamped to the processed video span. Files are
 content-hashed, event IDs are validated before becoming filenames, and the
 manifest is replaced atomically. Overlapping clip windows are written from the
 same sequential decode pass. `source_video_sha256` identifies the source file;
