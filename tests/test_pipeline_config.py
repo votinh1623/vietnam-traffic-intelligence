@@ -28,6 +28,7 @@ class PipelineConfigTests(unittest.TestCase):
                         "perception:",
                         "  imgsz: 640",
                         "  confidence: 0.25",
+                        "  max_det: 1000",
                         "  device: cpu",
                         "video:",
                         "  codec: mp4v",
@@ -42,6 +43,7 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.model, model.resolve())
             self.assertEqual(config.imgsz, 640)
             self.assertEqual(config.confidence, 0.25)
+            self.assertEqual(config.max_det, 1000)
             self.assertEqual(config.device, "cpu")
             self.assertTrue(config.analytics.enabled)
             self.assertEqual(config.analytics.occupancy_grid_size_px, 1)

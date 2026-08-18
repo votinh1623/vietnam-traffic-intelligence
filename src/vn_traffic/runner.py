@@ -203,6 +203,7 @@ class PipelineRunner:
                 "imgsz": self.config.imgsz,
                 "confidence": self.config.confidence,
                 "iou": self.config.iou,
+                "max_det": self.config.max_det,
                 "device": self.config.device,
                 "tracker": self.config.tracker,
             },

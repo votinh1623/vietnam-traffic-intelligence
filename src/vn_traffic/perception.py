@@ -29,6 +29,7 @@ class UltralyticsPerception:
             imgsz=self.config.imgsz,
             conf=self.config.confidence,
             iou=self.config.iou,
+            max_det=self.config.max_det,
             device=self.config.device,
             verbose=False,
         )

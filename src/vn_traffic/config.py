@@ -79,6 +79,7 @@ class PipelineConfig:
     imgsz: int = 1280
     confidence: float = 0.4
     iou: float = 0.7
+    max_det: int = 300
     device: str = "0"
     tracker: str = "bytetrack.yaml"
     codec: str = "mp4v"
@@ -337,6 +338,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         imgsz=int(perception.get("imgsz", 1280)),
         confidence=float(perception.get("confidence", 0.4)),
         iou=float(perception.get("iou", 0.7)),
+        max_det=int(perception.get("max_det", 300)),
         device=str(perception.get("device", "0")),
         tracker=resolve_tracker(str(perception.get("tracker", "bytetrack.yaml"))),
         codec=str(video.get("codec", "mp4v")),
@@ -367,6 +369,8 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
         raise ValueError("perception.confidence must be between 0 and 1")
     if not 0.0 <= config.iou <= 1.0:
         raise ValueError("perception.iou must be between 0 and 1")
+    if config.max_det <= 0:
+        raise ValueError("perception.max_det must be positive")
     if len(config.codec) != 4:
         raise ValueError("video.codec must contain exactly four characters")
     if config.fallback_fps <= 0:
