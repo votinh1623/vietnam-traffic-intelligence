@@ -1,0 +1,42 @@
+schema_version: 1
+benchmark_id: tracking_visdrone_mot_selected_v1
+
+dataset:
+  root: datasets/VisDrone/VisDrone2019-MOT-val
+  sequences_dir: sequences
+  annotations_dir: annotations
+  # Vehicle categories only; pedestrian/people are outside the project target.
+  class_map:
+    3: bicycle
+    4: car
+    5: van
+    6: truck
+    7: tricycle
+    8: awning-tricycle
+    9: bus
+    10: motor
+
+model:
+  weights: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+  expected_sha256: 0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08
+  expected_classes: [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+  evaluation_classes: [bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+
+perception:
+  imgsz: 1280
+  confidence: 0.1
+  iou: 0.7
+  max_det: 1000
+  device: "0"
+  tracker: bytetrack_custom.yaml
+
+evaluation:
+  metric_iou_threshold: 0.5
+  sequences: all
+  output_root: benchmark_outputs/tracking_visdrone_mot_selected_v1
+  require_clean_worktree: true
+  claim_boundary: >-
+    Class-aware vehicle tracking integration benchmark on VisDrone2019-MOT-val
+    using the validation-selected standard-1280 detector. It is not an official
+    VisDrone benchmark because ignore-region handling and HOTA are not
+    implemented, and it does not by itself establish line-crossing accuracy.

@@ -4,7 +4,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
+import cv2
+import numpy as np
 import pandas as pd
 
 
@@ -17,6 +20,7 @@ from benchmark_tracking import (  # noqa: E402
     file_manifest_sha256,
     load_visdrone_ground_truth,
     sequence_frames,
+    track_sequence,
 )
 from tracking_metrics import compute_many_motchallenge_metrics  # noqa: E402
 
@@ -78,6 +82,38 @@ class TrackingBenchmarkTests(unittest.TestCase):
         self.assertEqual(summary.loc["OVERALL", "num_false_positives"], 1)
         self.assertEqual(summary.loc["OVERALL", "num_matches"], 0)
         self.assertEqual(summary.loc["OVERALL", "idf1"], 0)
+
+    def test_tracking_forwards_dense_scene_max_det(self) -> None:
+        class FakeModel:
+            predictor = None
+            names = {0: "car"}
+
+            def __init__(self) -> None:
+                self.kwargs = None
+
+            def track(self, _image, **kwargs):
+                self.kwargs = kwargs
+                return [SimpleNamespace(boxes=None)]
+
+        with tempfile.TemporaryDirectory() as directory:
+            frame = Path(directory) / "0000001.jpg"
+            cv2.imwrite(str(frame), np.zeros((16, 16, 3), dtype=np.uint8))
+            model = FakeModel()
+            result = track_sequence(
+                model,
+                sequence="dense",
+                frame_paths=[frame],
+                perception={
+                    "tracker": "bytetrack_custom.yaml",
+                    "imgsz": 1280,
+                    "confidence": 0.1,
+                    "iou": 0.7,
+                    "max_det": 1000,
+                    "device": "0",
+                },
+            )
+            self.assertTrue(result.empty)
+            self.assertEqual(model.kwargs["max_det"], 1000)
 
 
 if __name__ == "__main__":

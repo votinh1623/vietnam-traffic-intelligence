@@ -123,6 +123,7 @@ def track_sequence(
             imgsz=int(perception["imgsz"]),
             conf=float(perception["confidence"]),
             iou=float(perception["iou"]),
+            max_det=int(perception.get("max_det", 300)),
             device=str(perception["device"]),
             verbose=False,
         )[0]
@@ -221,7 +222,10 @@ def main() -> int:
     if file_sha256(weights) != model_config["expected_sha256"]:
         raise ValueError("model SHA-256 does not match the benchmark config")
     class_map = {int(key): value for key, value in dataset["class_map"].items()}
-    class_names = list(model_config["expected_classes"])
+    expected_classes = list(model_config["expected_classes"])
+    class_names = list(model_config.get("evaluation_classes", expected_classes))
+    if not set(class_names).issubset(expected_classes):
+        raise ValueError("evaluation classes must be a subset of model classes")
 
     available = sorted(path.name for path in sequences_root.iterdir() if path.is_dir())
     selected = args.sequences or (
@@ -230,8 +234,17 @@ def main() -> int:
     unknown = sorted(set(selected).difference(available))
     if unknown:
         raise ValueError(f"unknown sequences: {unknown}")
+    git = git_evidence()
+    if (
+        args.max_frames is None
+        and evaluation.get("require_clean_worktree", False)
+        and git["dirty"]
+    ):
+        raise ValueError("full tracking benchmark requires a clean worktree")
     output = resolve_path(args.output or evaluation["output_root"])
-    output.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise FileExistsError(f"output already exists: {output}")
+    output.mkdir(parents=True)
     predictions_dir = output / "predictions"
     predictions_dir.mkdir(parents=True, exist_ok=True)
 
@@ -240,7 +253,7 @@ def main() -> int:
     import ultralytics
 
     model = YOLO(str(weights))
-    if list(model.names.values()) != class_names:
+    if list(model.names.values()) != expected_classes:
         raise ValueError(f"unexpected model classes: {model.names}")
     all_accumulators: list[Any] = []
     accumulator_names: list[str] = []
@@ -315,7 +328,7 @@ def main() -> int:
             "cuda": torch.version.cuda,
             "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
         },
-        "git": git_evidence(),
+        "git": git,
     }
     temporary = output / "run.json.tmp"
     temporary.write_text(json.dumps(run, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
