@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import cv2
 import numpy as np
@@ -87,8 +88,13 @@ class PipelineRunnerTests(unittest.TestCase):
                 "summary.json",
                 "evidence.jsonl",
                 "run.json",
+                "latest_frame.jpg",
             ):
                 self.assertTrue((run_dir / name).is_file(), name)
+            self.assertEqual(list(run_dir.glob("latest_frame*.tmp*")), [])
+            last_frame = cv2.imread(str(run_dir / "latest_frame.jpg"))
+            self.assertIsNotNone(last_frame)
+            self.assertEqual(last_frame.shape[:2], (48, 64))
             with (run_dir / "tracks.csv").open(newline="", encoding="utf-8") as stream:
                 tracks = list(csv.DictReader(stream))
             self.assertEqual(len(tracks), 3)
@@ -126,6 +132,41 @@ class PipelineRunnerTests(unittest.TestCase):
             output_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
             capture.release()
             self.assertEqual(output_frames, 3)
+
+    def test_live_frame_write_failure_does_not_crash_the_run(self) -> None:
+        # Regression test: on Windows, os.replace() can raise WinError 5
+        # (Access is denied) if latest_frame.jpg is momentarily locked by
+        # another process (antivirus/indexer scanning the new file). The
+        # live-frame preview is a dashboard convenience, not a required
+        # artifact, so this must never crash the pipeline run.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            model = root / "placeholder.pt"
+            create_fixture_video(source)
+            model.write_bytes(b"fake model for dependency-injected test")
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=model,
+                output_root=root / "outputs",
+                imgsz=64,
+                device="cpu",
+            )
+
+            real_replace = Path.replace
+
+            def flaky_replace(self, target):
+                if self.name.startswith("latest_frame"):
+                    raise PermissionError(5, "Access is denied")
+                return real_replace(self, target)
+
+            with patch.object(Path, "replace", flaky_replace):
+                run_dir = PipelineRunner(config, FakePerception()).run()
+
+            metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "completed")
+            self.assertFalse((run_dir / "latest_frame.jpg").exists())
 
     def test_records_failed_run_without_hiding_the_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

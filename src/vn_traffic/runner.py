@@ -40,6 +40,7 @@ class AnalyticsProcessor(Protocol):
         tracks: tuple[TrackObservation, ...],
         frame_width: int,
         frame_height: int,
+        frame: Any = None,
     ) -> AnalyticsBatch: ...
 
     def summary(self) -> dict[str, Any]: ...
@@ -70,6 +71,7 @@ class NoEvents:
         tracks: tuple[TrackObservation, ...],
         frame_width: int,
         frame_height: int,
+        frame: Any = None,
     ) -> AnalyticsBatch:
         return AnalyticsBatch(snapshot=None, events=())
 
@@ -169,6 +171,12 @@ class PipelineRunner:
         analytics_path = run_dir / "analytics.csv"
         summary_path = run_dir / "summary.json"
         metadata_path = run_dir / "run.json"
+        # annotated.mp4 is not a live view: most containers (mp4 included)
+        # only finalize their index when the writer closes, so a dashboard
+        # cannot play it while the run is still in progress. latest_frame.jpg
+        # is the actual live view -- overwritten every frame via a temp file
+        # plus atomic rename so a reader never sees a half-written JPEG.
+        latest_frame_path = run_dir / "latest_frame.jpg"
         writer = cv2.VideoWriter(
             str(video_path),
             cv2.VideoWriter_fourcc(*self.config.codec),
@@ -220,6 +228,7 @@ class PipelineRunner:
                 "analytics": "analytics.csv",
                 "summary": "summary.json",
                 "evidence": "evidence.jsonl",
+                "latest_frame": "latest_frame.jpg",
             },
         }
         write_json_atomic(metadata_path, metadata)
@@ -227,6 +236,7 @@ class PipelineRunner:
         frame_count = 0
         track_count = 0
         event_count = 0
+        last_progress_write = started_clock
         try:
             with tracks_path.open("w", newline="", encoding="utf-8") as tracks_file, (
                 events_path.open("w", encoding="utf-8")
@@ -264,6 +274,7 @@ class PipelineRunner:
                         tracks=result.tracks,
                         frame_width=width,
                         frame_height=height,
+                        frame=frame,
                     )
                     if analytics_batch.snapshot is not None:
                         analytics_writer.writerow(
@@ -274,12 +285,61 @@ class PipelineRunner:
                                 annotated, analytics_batch.snapshot
                             )
                     writer.write(annotated)
+
+                    # Ghi frame mới nhất ra ảnh để dashboard đọc theo thời
+                    # gian thực. Ghi vào file tạm trước, chỉ đổi tên thành
+                    # file chính sau khi ghi xong hoàn toàn -- os.replace là
+                    # thao tác nguyên tử nên dashboard không bao giờ đọc phải
+                    # một file .jpg đang ghi dở. ".tmp" đứng trước ".jpg" (thay
+                    # vì sau) để phần mở rộng cuối cùng vẫn là ".jpg" -- cv2.imwrite
+                    # chọn codec theo đúng phần mở rộng cuối của tên file.
+                    #
+                    # Đây chỉ là tiện ích xem trực tiếp cho dashboard, không
+                    # phải artifact bắt buộc: trên Windows, os.replace() có
+                    # thể tạm thời bị từ chối (WinError 5) nếu file đích đang
+                    # bị khoá bởi tiến trình khác (Defender/OneDrive quét file
+                    # mới) trong đúng khoảnh khắc đó. Lỗi này không được phép
+                    # làm crash cả pipeline -- bỏ qua khung hình này, khung
+                    # tiếp theo sẽ tự thử lại.
+                    temp_frame_path = latest_frame_path.with_stem(
+                        latest_frame_path.stem + ".tmp"
+                    )
+                    try:
+                        if cv2.imwrite(
+                            str(temp_frame_path),
+                            annotated,
+                            [cv2.IMWRITE_JPEG_QUALITY, 85],
+                        ):
+                            temp_frame_path.replace(latest_frame_path)
+                    except OSError:
+                        pass
+
                     for event in analytics_batch.events:
                         events_file.write(
                             json.dumps(event, ensure_ascii=False) + "\n"
                         )
                         event_count += 1
                     frame_count += 1
+                    # Flush so a dashboard tailing these files while the run
+                    # is still in progress sees this frame's rows without
+                    # waiting for the OS text-buffer to fill or the run to
+                    # finish; cheap relative to per-frame model inference.
+                    tracks_file.flush()
+                    analytics_file.flush()
+                    events_file.flush()
+                    now = time.perf_counter()
+                    if now - last_progress_write >= 1.0:
+                        last_progress_write = now
+                        metadata.update(
+                            {
+                                "frames_processed": frame_count,
+                                "track_rows": track_count,
+                                "events_written": event_count,
+                                "elapsed_s": now - started_clock,
+                                "processing_fps": frame_count / (now - started_clock),
+                            }
+                        )
+                        write_json_atomic(metadata_path, metadata)
                     if (
                         self.config.max_frames is not None
                         and frame_count >= self.config.max_frames

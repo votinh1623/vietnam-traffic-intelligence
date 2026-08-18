@@ -28,6 +28,9 @@ small-object = [
     "sahi==0.12.2",
     "pycocotools==2.0.11",
 ]
+dashboard = [
+    "streamlit==1.61.1",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
