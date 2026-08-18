@@ -75,11 +75,12 @@ commit.
 
 ## Initial development candidates
 
-`configs/reasoning/development_v1.yaml` records the first RTX-host candidates:
-`Qwen/Qwen3-VL-2B-Instruct` for visual assessment and `Qwen/Qwen3-1.7B` for
-Vietnamese report generation. Both are upstream Qwen Apache-2.0 checkpoints;
-the text model advertises multilingual support across more than 100 languages.
-The local Transformers 5.14.1 environment now hosts both pinned artifacts.
+`configs/reasoning/development_v1.yaml` records the RTX-host candidates:
+`Qwen/Qwen3-VL-2B-Instruct` for visual assessment and Qwen3 text checkpoints
+for Vietnamese report generation. They are upstream Qwen Apache-2.0
+checkpoints; the text-model family advertises multilingual support across more
+than 100 languages. The local Transformers 5.14.1 environment hosts the pinned
+VLM and text artifacts.
 The VLM repository contains
 4,266,648,961 bytes across 12 hashed files. Its weight file SHA-256 is
 `7de1838c87a5349b016c26a1c3f7d2bc400a3d485f95ef39a7059ffd734977a0`;
@@ -87,6 +88,14 @@ the full local file manifest is
 `manifests/models/qwen3-vl-2b-instruct.json`. The LLM repository contains
 4,079,450,110 bytes across 12 hashed files; its manifest is
 `manifests/models/qwen3-1.7b.json`.
+
+Qwen3-1.7B FP16 failed before generation on this host with Windows error 1455
+(`paging file is too small`) despite direct-GPU, low-CPU-memory loading. The
+project therefore keeps that artifact as an unexecuted primary candidate and
+uses pinned Qwen3-0.6B FP16 as the functional-demo fallback. The fallback
+contains 1,519,209,243 bytes across 10 hashed files, recorded in
+`manifests/models/qwen3-0.6b.json`. This is a host-memory compatibility choice,
+not evidence that the smaller model has sufficient report quality.
 
 The two models must load, run, and unload sequentially because concurrent
 residency is not assumed to fit the RTX 3050 6 GB. FP16 is the reference path;
