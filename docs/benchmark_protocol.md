@@ -45,6 +45,13 @@ converts a minimum IoU threshold `t` to the motmetrics maximum distance
 `1-t`, includes the union of GT and prediction frame indices, and aggregates
 sequences with a combined OVERALL accumulator.
 
+The v5 class-aware integration baseline is recorded at
+`experiments/tracking_visdrone_mot_val_v1_20260818/run.json`. It covers all
+2,846 frames in seven VisDrone2019-MOT-val sequences and records `IDF1=0.309`,
+`MOTA=0.020`, 462 ID switches, and MOTP distance 0.289. This result is not an
+official VisDrone benchmark because non-target ignore-region handling and HOTA
+are not implemented. It is also not Vietnam-domain tracking evidence.
+
 HOTA, DetA, and AssA are not provided by motmetrics. They remain `TBD` until
 TrackEval is integrated and verified on a synthetic fixture. Historical root
 tracking CSV files predate the repair and remain `invalid`.

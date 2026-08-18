@@ -36,7 +36,7 @@ This repository therefore separates four concerns:
 | Capability | Current implementation | Status |
 |---|---|---|
 | Image and video detection | YOLOv8, five Vietnamese traffic classes | Implemented |
-| Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; evaluator repaired, v5 benchmark pending |
+| Multi-object tracking | Ultralytics ByteTrack integration and custom tracker configuration | Implemented; provenance-controlled v5 integration benchmark complete |
 | Structured traffic analytics | Bbox-union ROI coverage, trajectories, directional counts, and congestion events | Implemented; initial two-video acceptance passed |
 | Event evidence selection | Raw keyframes for deterministic events and clips for congestion transitions | Implemented; two-video acceptance passed |
 | VLM scene understanding | Representative frames or event clips, not every frame | Architecture defined |
@@ -91,7 +91,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | YOLOv8s v5 full fine-tuning | Complete, 30 epochs | `experiments/yolov8s_v5_seed0_20260817T100644/run.json` |
 | Offline-video CLI and artifact contract | Integrated with v5 checkpoint | [Output schema](docs/output_schema.md) |
 | Deterministic analytics state machine | Synthetic tests and bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
-| Tracking evaluator | IoU association repaired and unit-tested; v5 benchmark pending | [Benchmark protocol](docs/benchmark_protocol.md) |
+| Tracking evaluator | IoU association and OVERALL MOTP aggregation repaired; 7-sequence v5 integration benchmark complete | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
 | VLM/LLM reasoning contract | Inputs locked; both reviews complete; one disagreement and final adjudication pending | [Reasoning protocol](docs/reasoning_protocol.md) |
@@ -206,9 +206,10 @@ distance-form IoU matrix and therefore produced invalid associations.
 
 The repaired evaluator now uses `1-IoU` directly, applies the configured IoU
 gate, includes prediction-only frames, and produces a combined OVERALL
-accumulator instead of averaging sequence metrics. Five synthetic tests cover
-perfect overlap, gated non-overlap, threshold behavior, perfect tracking, and
-prediction-only false positives.
+accumulator instead of averaging sequence metrics. It also weights OVERALL
+MOTP by matched detections so empty sequence/class slices cannot turn a valid
+aggregate into `NaN`. Synthetic regression tests cover the metric construction
+and class-aware benchmark loading.
 
 An end-to-end diagnostic over seven existing VisDrone prediction files
 completed after the repair:
@@ -220,6 +221,22 @@ completed after the repair:
 The prediction files used by this check lack complete model/config provenance,
 so these values are not a v5 tracking result and must not be used for model
 comparison.
+
+The first provenance-controlled v5 integration benchmark then processed all
+2,846 frames from the same seven sequences at `imgsz=1280`, confidence 0.4,
+and class-aware IoU matching at 0.5:
+
+| Scope | MOTA | MOTP distance | IDF1 | ID switches | Precision | Recall | Validity |
+|---|---:|---:|---:|---:|---:|---:|---|
+| VisDrone-MOT-val, 7 sequences / 2,846 frames | 0.020 | 0.289 | 0.309 | 462 | 0.523 | 0.303 | Valid CV integration baseline |
+
+The model/config, annotations, predictions, metrics, environment, and clean Git
+commit are hashed in
+`experiments/tracking_visdrone_mot_val_v1_20260818/run.json`. This is not an
+official VisDrone benchmark: non-target ignore-region handling and HOTA are not
+implemented, and the dataset is not evidence of Vietnam-domain identity
+performance. The low recall, 462 ID switches, and 1,491 fragmentations show
+that tracking remains a material limitation for counting.
 
 Stage 2 adds a deterministic analytics engine under `src/vn_traffic/analytics`.
 It maintains per-track trajectories, counts one crossing per direction and
@@ -304,9 +321,9 @@ quantization quality result is claimed. See the
 | Metric | Current status |
 |---|---|
 | HOTA | Pending TrackEval integration |
-| IDF1 | Evaluator repaired; provenance-controlled v5 run pending |
-| MOTA | Evaluator repaired; provenance-controlled v5 run pending |
-| ID switches | Evaluator repaired; provenance-controlled v5 run pending |
+| IDF1 | 0.309 on the provenance-controlled VisDrone integration baseline |
+| MOTA | 0.020 on the provenance-controlled VisDrone integration baseline |
+| ID switches | 462 across 7 sequences / 2,846 frames |
 | Detector + tracker latency | Pending benchmark |
 
 <!-- IMAGE PLACEHOLDER: track trajectories, line crossings, and traffic-density
@@ -480,8 +497,9 @@ The full measurement contract is defined in
   and test pedestrians.
 - The current locked test covers the available sources; broader geographic,
   weather, night, altitude, and camera-motion coverage is still required.
-- Legacy tracking CSV outputs were invalid and have been removed; a
-  provenance-controlled v5 tracking benchmark is still pending.
+- The provenance-controlled tracking result is an integration baseline on
+  VisDrone, not a Vietnam-domain or official VisDrone benchmark. Its low recall
+  and frequent identity switches limit counting reliability.
 - Traffic speed requires camera calibration or a documented approximation.
 - The initial congestion thresholds are calibrated on only two demo clips at
   their current resolutions; bbox-union coverage and pixel-speed thresholds may
@@ -497,13 +515,17 @@ The full measurement contract is defined in
 
 ## Roadmap
 
+Current delivery priority is the deterministic CV product. Reasoning work is
+frozen at pretrained-model smoke level until the CV pipeline is closed; VLM/LLM
+fine-tuning and all quantization work are explicitly deferred.
+
 - [x] Audit the legacy dataset and identify cross-split leakage.
 - [x] Build source-grouped train/calibration/validation/test splits.
 - [x] Lock test content by image and label hashes.
 - [x] Add reproducible detector training and smoke validation.
 - [x] Complete v5 fine-tuning and validation-based checkpoint selection.
 - [ ] Freeze the complete pipeline and run locked-test evaluation.
-- [ ] Repair and validate sequence-level tracking evaluation.
+- [x] Repair and validate sequence-level class-aware tracking evaluation.
 - [x] Implement deterministic analytics and event schema with synthetic tests.
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
 - [x] Add deterministic event keyframe/clip evidence selection.
@@ -511,12 +533,12 @@ The full measurement contract is defined in
 - [x] Freeze VLM/LLM evaluation inputs and add JSON/prompt contract v1.
 - [x] Add two-reviewer annotation templates, validation, and adjudication queue tooling.
 - [x] Complete two independent reviewer annotation sets for reasoning evaluation v1.
-- [ ] Resolve the 14-case adjudication queue with an independent adjudicator.
+- [ ] Resolve or formally defer the reasoning adjudication queue; it does not block CV delivery.
 - [x] Freeze a separate run16 development set and record initial RTX model candidates.
 - [x] Pin, hash, and smoke-test the Qwen3-VL-2B FP16 development adapter.
-- [ ] Add event-driven VLM and LLM modules.
-- [ ] Export and benchmark detector FP16/INT8 candidates.
-- [ ] Quantize and benchmark the selected VLM and LLM.
+- [ ] After CV completion, demo existing pretrained VLM and LLM without tuning.
+- [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
+- [ ] Deferred: quantize and benchmark the selected VLM and LLM.
 - [ ] Run end-to-end benchmarks on the RTX host.
 - [ ] Validate an appropriate physical edge/NPU target.
 
