@@ -369,6 +369,13 @@ synthetic tests. The default evidence policy exports a raw keyframe and clip.
 This is not yet a calibrated physical-stop detector: camera motion,
 perspective, and ID switches can invalidate centroid-speed evidence.
 
+A clean 180-frame acceptance run kept `traffic_normal.mp4` in `NORMAL` for all
+frames and transitioned `traffic_jam.mp4` from `NORMAL` to `CONGESTED` after
+51 frames. Neither clip emitted a prolonged-stop event. This verifies the
+configured demo separation, not alert accuracy: the clips have no alert GT and
+no labeled real abnormal-stop example is available. The hashed record is
+`experiments/alerts_acceptance_v1_20260818/run.json`.
+
 Initial acceptance used the v5 checkpoint at `imgsz=640`, confidence 0.4, and
 the initial center-corridor ROI/counting line in
 `configs/pipeline/offline_video.yaml`. The jam clip was processed in full; the

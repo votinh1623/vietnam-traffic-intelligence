@@ -100,3 +100,14 @@ stabilization or BEV transform is applied, these crossings measure agreement
 with image-space GT trajectories, not calibrated physical road flow. The
 remaining errors are material and must be reported: 1280 still undercounts the
 aggregate frozen crossings by 178 and has line-crossing WAPE 0.560.
+
+## Alert acceptance status
+
+The clean acceptance record is
+`experiments/alerts_acceptance_v1_20260818/run.json`. Over 180 frames,
+`traffic_normal.mp4` remained `NORMAL`, while `traffic_jam.mp4` transitioned
+to `CONGESTED` and remained there for 129 frames. This is a two-clip qualitative
+acceptance result, not precision/recall evidence. Prolonged-stop correctness is
+covered by synthetic duration, release, continuity, and tracking-gap tests;
+there is no labeled real abnormal-stop clip, so real-video accuracy remains
+unmeasured.

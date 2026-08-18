@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "alerts_acceptance_v1",
+  "status": "completed_partial",
+  "decision": "Retain the revised congestion gate: traffic_normal remained NORMAL for all 180 frames while traffic_jam transitioned to CONGESTED. Prolonged-stop logic passed synthetic state-machine tests but remains unvalidated on a labeled real abnormal-stop clip.",
+  "claim_boundary": "Two 180-frame unlabeled demo-video acceptance runs establish only qualitative separation of the configured normal and jam examples. They do not estimate alert precision/recall. Prolonged-stop uses image-plane centroid speed and cannot be interpreted as physical stopping under camera motion without stabilization or calibration.",
+  "git": {
+    "commit": "a2ad6a2bbf75ccd40588299eb72c7066d4d0a40e",
+    "dirty": false
+  },
+  "config": {
+    "path": "configs/pipeline/offline_video.yaml",
+    "sha256": "33b0f28cbaa54a1d3a3cf06f30f6030fd4a715a444c01819aab5137e1339f7a3"
+  },
+  "model_sha256": "729c66e676345e9cdcd504e21f6a94fe1d682582eca3ded39a2aec2a99e7f1db",
+  "results": [
+    {
+      "source": "traffic_normal.mp4",
+      "source_sha256": "fa1122cc4fe93625d128ec23986ea0833fe308d882dfa4a7d2e1cbad73b185eb",
+      "frames": 180,
+      "state_frames": {"NORMAL": 180},
+      "congestion_transitions": 0,
+      "prolonged_stop_events": 0,
+      "max_bbox_union_occupancy": 0.23597787599507797,
+      "max_roi_track_count": 63,
+      "raw_run": {
+        "ignored_path": "output/pipeline/run21/run.json",
+        "sha256": "a595b1003cb528e53bc4be7be5b955ee5fbd71de99aae64036eb00bb873a6fed"
+      },
+      "summary_sha256": "8bd82c52ceebd2098bed8deddb03081e2d030289205cdc98cd07808290016aec",
+      "events_sha256": "3eccc219984ceae722d6b66f2a61f283fe668872cd63e4b77374be193b1f1568"
+    },
+    {
+      "source": "traffic_jam.mp4",
+      "source_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
+      "frames": 180,
+      "state_frames": {"NORMAL": 51, "CONGESTED": 129},
+      "congestion_transitions": 1,
+      "prolonged_stop_events": 0,
+      "max_bbox_union_occupancy": 0.7162610167145814,
+      "max_roi_track_count": 45,
+      "raw_run": {
+        "ignored_path": "output/pipeline/run22/run.json",
+        "sha256": "0c1e7277b9faef972f77e6279b038388c0c4dabca65a012d9b3d29893c256ba1"
+      },
+      "summary_sha256": "9ee2c9f2daacc1d2e812e247783e1cdcdeb3beb626112489f744f5e48d406146",
+      "events_sha256": "f7df0bc37286b60a632d73cb2b3c7e9f178da995bd91e183619fe477d06a6663"
+    }
+  ],
+  "prolonged_stop_validation": {
+    "synthetic_tests": [
+      "duration confirmation and no repeated event while active",
+      "release-speed reset permits a later new stop event",
+      "long tracking gaps do not count as continuous stationary evidence",
+      "entry requires continuous speed below the entry threshold"
+    ],
+    "real_labeled_abnormal_clip": false
+  }
+}
