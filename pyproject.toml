@@ -1,7 +1,7 @@
 [project]
 name = "vn-traffic-readiness"
 version = "0.1.0"
-description = "Leakage-controlled Vietnamese traffic monitoring and multi-model deployment-readiness research"
+description = "UAV traffic detection, tracking, counting, alerting, and pretrained multimodal reporting research"
 readme = "readme.md"
 requires-python = ">=3.10,<3.11"
 license = { text = "AGPL-3.0-only" }

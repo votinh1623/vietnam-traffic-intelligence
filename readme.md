@@ -1,14 +1,14 @@
 # Vietnam Traffic Intelligence
 
-Leakage-controlled traffic detection, tracking, analytics, and multimodal
-deployment-readiness research for fixed cameras and UAV video.
+Leakage-controlled traffic detection, tracking, counting, alerting, and
+multimodal reporting for UAV traffic video.
 
 The current system fine-tunes YOLOv8 on Vietnamese traffic scenes and provides
 the foundation for ByteTrack-based tracking, structured traffic analytics, and
 event-driven VLM/LLM interpretation. Development and measurement currently run
-on an NVIDIA RTX 3050 Laptop GPU with 6 GB VRAM. Edge and NPU support is a
-roadmap and readiness target, not a claim of deployment on physical edge
-hardware.
+on an NVIDIA RTX 3050 Laptop GPU with 6 GB VRAM. Quantization and physical
+edge/NPU deployment are explicitly deferred until the current research goal is
+complete.
 
 <!-- IMAGE PLACEHOLDER: hero image showing detector, tracks, traffic analytics,
 VLM/LLM report, and the optional future edge/NPU path. -->
@@ -23,13 +23,12 @@ system must do more than draw boxes: it must preserve identities, aggregate
 traffic state, explain noteworthy events, and report the accuracy and runtime
 cost of every optimization honestly.
 
-This repository therefore separates four concerns:
+This repository therefore separates four current concerns:
 
 1. dataset integrity and leakage-controlled evaluation;
 2. object detection and multi-object tracking;
 3. traffic analytics and multimodal interpretation;
-4. deployment readiness through export, quantization, and hardware-specific
-   benchmarking.
+4. source-disjoint evaluation on real UAV datasets such as VisDrone.
 
 ## What it does
 
@@ -41,12 +40,39 @@ This repository therefore separates four concerns:
 | Event evidence selection | Raw keyframes for deterministic events and clips for congestion transitions | Implemented; two-video acceptance passed |
 | VLM scene understanding | Representative frames or event clips, not every frame | Architecture defined |
 | LLM reasoning and reports | Event-driven summaries using structured analytics plus VLM evidence | Architecture defined |
-| Detector quantization | FP16/INT8 export and accuracy-latency evaluation | Planned |
-| VLM/LLM quantization | Backend-specific FP16/INT8 or weight-only evaluation | Planned |
-| Physical edge/NPU execution | Target-specific validation | Not yet measured |
+| Detector quantization | FP16/INT8 export and accuracy-latency evaluation | Deferred beyond current goal |
+| VLM/LLM quantization | Backend-specific FP16/INT8 or weight-only evaluation | Deferred beyond current goal |
+| Physical edge/NPU execution | Target-specific validation | Deferred beyond current goal |
 
 See [the multimodel architecture](docs/multimodel_architecture.md) for component
 boundaries and the intended event-driven VLM/LLM path.
+
+## Current research goal
+
+The current goal is complete only when the project demonstrates and evaluates
+all of the following without relying on quantization or physical deployment:
+
+1. detect and count vehicles from UAV video;
+2. improve counting reliability with tracking and explicit handling of
+   detection/tracking errors;
+3. use pretrained VLM/LLM models to generate a traffic description;
+4. emit alerts for high density or a narrowly defined abnormal event; and
+5. evaluate the system on real UAV data, primarily VisDrone.
+
+| Goal | Required evidence for completion |
+|---|---|
+| Small-object detection | Standard-versus-sliced inference on VisDrone-DET with overall, per-class, object-scale, and latency metrics |
+| Tracking | Class-aware IDF1, MOTA, MOTP distance, ID switches, and fragmentations on VisDrone-MOT |
+| Counting | Ground-truth trajectory-derived line-crossing counts and error metrics; comparison against the selected tracker output |
+| Alerts | Deterministic high-density alert plus explicitly configured wrong-way or prolonged-stop event, with synthetic tests and video evidence |
+| VLM/LLM description | At least one end-to-end report from pretrained models with structured-event numbers kept separate from visual claims |
+| UAV system evaluation | Reproducible detector, tracker, counting, alert, and end-to-end results with model/config/data hashes |
+
+SAHI is evaluated first as an inference-only small-object method on VisDrone;
+it is not assumed to improve tracking until merged full-frame detections have
+been passed once per source frame to ByteTrack and measured. The consumed
+Vietnam v5 locked test remains final and is not used to select slicing
+parameters.
 
 ## System architecture
 
@@ -93,7 +119,7 @@ lines for the current host path and dashed lines for future edge/NPU paths. -->
 | Offline-video CLI and artifact contract | Integrated with v5 checkpoint | [Output schema](docs/output_schema.md) |
 | Deterministic analytics state machine | Synthetic tests and bbox-union two-video acceptance passed | [Output schema](docs/output_schema.md) |
 | Tracking evaluator | IoU association and OVERALL MOTP aggregation repaired; 7-sequence v5 integration benchmark complete | [Benchmark protocol](docs/benchmark_protocol.md) |
-| Export and quantization benchmark | Not started | [Benchmark protocol](docs/benchmark_protocol.md) |
+| Export and quantization benchmark | Deferred beyond current goal | [Benchmark protocol](docs/benchmark_protocol.md) |
 | Event evidence selector | Sequential no-seek exporter implemented; two-video acceptance passed | [Multimodel architecture](docs/multimodel_architecture.md) |
 | VLM/LLM reasoning contract | Inputs locked; both reviews complete; one disagreement and final adjudication pending | [Reasoning protocol](docs/reasoning_protocol.md) |
 | VLM/LLM model inference | Pinned 2B VLM downloaded and one-case FP16 smoke passed; LLM not downloaded | [Reasoning protocol](docs/reasoning_protocol.md) |
@@ -538,8 +564,8 @@ The full measurement contract is defined in
 ## Roadmap
 
 Current delivery priority is the deterministic CV product. Reasoning work is
-frozen at pretrained-model smoke level until the CV pipeline is closed; VLM/LLM
-fine-tuning and all quantization work are explicitly deferred.
+limited to pretrained-model integration and demo quality; VLM/LLM fine-tuning,
+all quantization work, and physical deployment are explicitly deferred.
 
 - [x] Audit the legacy dataset and identify cross-split leakage.
 - [x] Build source-grouped train/calibration/validation/test splits.
@@ -547,10 +573,14 @@ fine-tuning and all quantization work are explicitly deferred.
 - [x] Add reproducible detector training and smoke validation.
 - [x] Complete v5 fine-tuning and validation-based checkpoint selection.
 - [x] Freeze the v5 detector and run its one-time locked-test evaluation.
+- [ ] Compare standard and SAHI sliced inference on VisDrone-DET for small objects.
+- [ ] Merge sliced detections in source-frame coordinates before ByteTrack.
 - [ ] Freeze and benchmark the complete CV pipeline end to end.
 - [x] Repair and validate sequence-level class-aware tracking evaluation.
+- [ ] Derive line-crossing ground truth from VisDrone-MOT trajectories and measure counting error.
 - [x] Implement deterministic analytics and event schema with synthetic tests.
 - [x] Complete initial ROI, counting-line, and congestion acceptance on two demo videos.
+- [ ] Add and test narrowly defined wrong-way/prolonged-stop alerts.
 - [x] Add deterministic event keyframe/clip evidence selection.
 - [x] Remove codec-dependent random seeking and add evidence provenance hashes.
 - [x] Freeze VLM/LLM evaluation inputs and add JSON/prompt contract v1.
@@ -559,11 +589,11 @@ fine-tuning and all quantization work are explicitly deferred.
 - [ ] Resolve or formally defer the reasoning adjudication queue; it does not block CV delivery.
 - [x] Freeze a separate run16 development set and record initial RTX model candidates.
 - [x] Pin, hash, and smoke-test the Qwen3-VL-2B FP16 development adapter.
-- [ ] After CV completion, demo existing pretrained VLM and LLM without tuning.
+- [ ] Demo existing pretrained VLM and LLM without tuning.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
-- [ ] Run end-to-end benchmarks on the RTX host.
-- [ ] Validate an appropriate physical edge/NPU target.
+- [ ] Run end-to-end UAV benchmarks on the RTX host.
+- [ ] Deferred beyond current goal: validate an appropriate physical edge/NPU target.
 
 ## License
 
