@@ -198,6 +198,15 @@ def run_training(config_path: Path, smoke: bool) -> int:
         "evidence": evidence,
         "training_arguments": training_arguments(config, smoke),
     }
+    loss_patch = config.get("loss_patch")
+    if loss_patch:
+        from nwd_loss import patch_bbox_loss
+
+        patch_bbox_loss(
+            alpha=float(loss_patch.get("alpha", 0.5)),
+            constant=float(loss_patch.get("constant", 12.8)),
+        )
+        record["loss_patch"] = loss_patch
     run_manifest.write_text(json.dumps(record, indent=2), encoding="utf-8")
     try:
         from ultralytics import YOLO
