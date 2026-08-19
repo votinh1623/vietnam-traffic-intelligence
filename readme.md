@@ -148,15 +148,32 @@ VisDrone2019-DET validation images, four inference modes, COCO-style AP):
 | SAHI 640 tiles | 0.193 | 0.142 | 282.0 | Small-object ablation only |
 | Hybrid full-frame + tiles | 0.177 | 0.117 | 200.1 | Rejected |
 
+NWD bbox-loss ablation (ties the loss directly to the object-scale gap
+above; identical dataset/init/hyperparameters as the baseline, only the
+bbox loss differs -- see [benchmark protocol](docs/benchmark_protocol.md#nwd-bbox-loss-ablation-rejected)
+for how the two runs were verified hash-identical apart from that):
+
+| Split | Precision | Recall | mAP50 | mAP50-95 | Result |
+|---|---:|---:|---:|---:|---|
+| Locked test, baseline (CIoU) | 0.215 | 0.287 | 0.148 | 0.062 | Selected |
+| Locked test, NWD (alpha=0.5, C=16) | 0.194 | 0.251 | 0.128 | 0.054 | **Rejected -- worse on every metric and every class** |
+
 **Evidence.** `experiments/yolov8s_v5_locked_test_20260818/run.json`,
-`experiments/visdrone_det_small_object_v1_20260818/run.json`.
+`experiments/visdrone_det_small_object_v1_20260818/run.json`,
+`experiments/yolov8s_v5_seed0_nwd_20260819T094236/run.json`,
+`benchmark_outputs/detector_v5_nwd_locked_test/run.json`.
 
 **Caveat.** The validation-to-test gap is real and driven by an
 object-scale/source shift (82.9%-100% of locked-test boxes cover under 0.1%
 of the image, by class, versus 1.3%-70.0% on validation), not an evaluation
 bug. V5 is a functional prototype, not a production-general detector. The
 historical `vietnam_dataset_v2` result (`mAP50=0.745`) is excluded here
-because it is invalid for scientific comparison (split leakage). Full
+because it is invalid for scientific comparison (split leakage). The NWD
+attempt at closing that gap failed at these settings, plausibly because its
+constant was tuned to the *test* box-size distribution while the loss trains
+on *train* boxes roughly 3x larger, saturating the similarity term near zero
+for most training data -- untested variants (train-scaled constant, lower
+alpha, epoch-scheduled alpha) might still work; none have been run. Full
 per-class diagnosis: [benchmark protocol](docs/benchmark_protocol.md).
 
 ### Tracking
@@ -164,16 +181,18 @@ per-class diagnosis: [benchmark protocol](docs/benchmark_protocol.md).
 **Setup.** ByteTrack over the selected VisDrone checkpoint, all 2,846 frames
 across 7 VisDrone2019-MOT-val sequences, class-aware IoU matching at 0.5.
 
-| Metric | Value |
-|---|---:|
-| IDF1 | 0.309 |
-| MOTA | 0.020 |
-| MOTP distance | 0.289 |
-| ID switches | 462 |
-| Fragmentations | 1,491 |
-| HOTA / DetA / AssA | Pending TrackEval integration |
+| Metric | ByteTrack (baseline) | BoT-SORT | BoT-SORT+ReID |
+|---|---:|---:|---:|
+| IDF1 | 0.309 | 0.355 | 0.358 |
+| MOTA | 0.020 | 0.005 | 0.004 |
+| ID switches | 462 | **207** | 209 |
+| Fragmentations | 1,491 | 1,673 | 1,673 |
+| HOTA | 0.288 | 0.323 | 0.325 |
+| DetA | 0.197 | 0.207 | 0.207 |
+| AssA | 0.453 | 0.536 | 0.541 |
 
-Resolution comparison (640 vs. 1280, vehicle classes only, same sequences):
+Resolution comparison (640 vs. 1280, vehicle classes only, same sequences,
+ByteTrack):
 
 | Mode | IDF1 | MOTA | Precision | Recall | ID switches |
 |---|---:|---:|---:|---:|---:|
@@ -181,13 +200,25 @@ Resolution comparison (640 vs. 1280, vehicle classes only, same sequences):
 | Standard 1280 | **0.481** | 0.132 | 0.578 | **0.521** | 568 |
 
 **Evidence.** `experiments/tracking_visdrone_mot_val_v1_20260818/run.json`,
-`experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`.
+`experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`,
+`benchmark_outputs/tracking_visdrone_mot_botsort/{run.json,hota.json}`,
+`benchmark_outputs/tracking_visdrone_mot_botsort_reid/{run.json,hota.json}`.
 
 **Caveat.** This is a provenance-controlled integration baseline, not an
 official VisDrone benchmark (no ignore-region handling) or Vietnam-domain
-evidence. Low recall and 462 ID switches remain a material limitation for
-downstream counting. A candidate with aligned 0.4 track/new thresholds was
-tested and rejected (worse IDF1, MOTA, and +257 ID switches). Full numbers:
+evidence. HOTA's DetA/AssA decomposition (now integrated via TrackEval,
+see [benchmark protocol](docs/benchmark_protocol.md)) shows DetA is nearly
+identical across all three trackers (0.197-0.207) while AssA moves with the
+tracker choice -- i.e. detection recall, not association, is this pipeline's
+dominant limitation, which the BoT-SORT/ReID ablation cannot fix by itself.
+Switching ByteTrack to BoT-SORT nearly halved ID switches and raised IDF1
+and AssA, but ReID (`model:auto`, reusing the detector's own pre-Detect-head
+features, no separate ReID model) added essentially nothing on top of that
+(IDF1 0.355->0.358, ID switches 207->209 -- within noise), and MOTA/
+fragmentations got slightly worse under BoT-SORT. `bytetrack_custom.yaml`
+remains the pipeline default pending a decision on this trade-off. A
+ByteTrack candidate with aligned 0.4 track/new thresholds was also tested
+and rejected (worse IDF1, MOTA, and +257 ID switches). Full numbers:
 [benchmark protocol](docs/benchmark_protocol.md).
 
 ### Counting
@@ -340,6 +371,9 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Fix the VLM/LLM prompt-copying bug (v1 to v3): eliminated copyable example sentences from both the VLM and LLM prompts, verified with grounded, distinct, analytics-consistent output on two real clips.
 - [x] Add a Streamlit dashboard over pipeline run output (headless boot verified; live browser auto-refresh not yet human-confirmed).
 - [x] Run a bounded end-to-end UAV benchmark on the RTX host.
+- [x] Integrate TrackEval for HOTA/DetA/AssA and decompose the tracking bottleneck (detection-limited, not association-limited).
+- [x] Test a BoT-SORT/ReID tracking ablation against the ByteTrack baseline (algorithm switch helped, ReID itself did not).
+- [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
 - [ ] Deferred beyond current goal: validate an appropriate physical edge/NPU target.

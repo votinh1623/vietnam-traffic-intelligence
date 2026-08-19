@@ -81,6 +81,42 @@ pedestrian test AP50-95 is only 0.0009 while car is the strongest class at
 not retune v5; v5 is a functional prototype on this locked test, not a
 production-general detector.
 
+### NWD bbox-loss ablation (rejected)
+
+To test whether the scale-driven generalization gap above could be reduced
+by a loss that stays smooth for tiny boxes, `scripts/train/nwd_loss.py`
+blends CIoU with Normalized Wasserstein Distance similarity
+(`alpha=0.5`, `constant=16.0` -- the constant set from the locked test's own
+median box size at imgsz=1280, not the NWD paper's AI-TOD default of 12.8).
+Identical dataset, initialization checkpoint, and hyperparameters as
+`yolov8s_v5_seed0` (verified hash-for-hash in
+`experiments/yolov8s_v5_seed0_nwd_20260819T094236/run.json`); only the bbox
+loss differs. The patch itself is unit-tested against the untouched original
+CIoU loss and was smoke-trained cleanly before this full run.
+
+| Split | Precision | Recall | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|
+| Locked test, baseline (CIoU) | 0.215 | 0.287 | 0.148 | 0.062 |
+| Locked test, NWD (alpha=0.5, C=16) | 0.194 | 0.251 | 0.128 | 0.054 |
+
+**This is a negative result: NWD at these settings is worse than the
+baseline on every metric and every class** (per-class mAP50-95:
+bus 0.036->0.019, car 0.193->0.176, motorcycle 0.068->0.057,
+pedestrian 0.0009->0.0008, truck 0.014->0.015). Full record:
+`benchmark_outputs/detector_v5_nwd_locked_test/run.json` (config
+`configs/evaluation/detector_v5_nwd_locked_test.yaml`).
+
+A plausible cause, not yet isolated by a further ablation: `constant=16` was
+chosen from the *test* distribution, but the loss is computed on *train*
+batches, where the median box is ~48px -- three times the constant. At that
+ratio the NWD similarity term saturates close to zero for most training
+boxes, likely supplying a weak, uninformative gradient for the majority of
+training data rather than the intended smoother small-object signal. Testing
+a train-distribution-scaled constant, a smaller `alpha`, or an
+epoch-scheduled `alpha` (small early, larger late) would be needed before
+concluding NWD cannot help here at all; none of those variants have been
+run. `yolov8s_v5_seed0` (CIoU) remains the selected v5 checkpoint.
+
 ## Tracking evaluation status
 
 The local motmetrics evaluator is valid for CLEAR MOT and identity metrics
