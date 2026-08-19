@@ -1,0 +1,71 @@
+experiment:
+  id: yolov8s_v5_seed0_p2
+  purpose: >-
+    Same as yolov8s_v5_seed0 (leakage-controlled full fine-tuning on
+    deduplicated Vietnamese traffic) but with a 4th detection head added at
+    stride 4 (P2), architecture
+    configs/experiments/architectures/yolov8s-p2-vietnam.yaml. The plain
+    3-head model's smallest stride is 8, i.e. no output is sized for objects
+    a few pixels wide; most of the locked-test box-size distribution
+    (median sqrt(w*h) 16px at imgsz=1280) falls below that. Follows the
+    rejected NWD loss ablation, which targeted the same generalization gap
+    from the loss side instead of the architecture side.
+  status: proposed
+
+model:
+  architecture: yolov8s-p2
+  architecture_yaml: configs/experiments/architectures/yolov8s-p2-vietnam.yaml
+  weights: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+  initialization: >-
+    Partial: backbone (layers 0-9) transfers from the VisDrone checkpoint
+    (same as yolov8s_v5_seed0); the P2 head and all 4 Detect scales are
+    architecturally different from that checkpoint and initialize fresh.
+    Verified 219/437 state-dict items transfer at model-build time.
+
+dataset:
+  data_yaml: datasets/vietnam_dataset_v5/data.yaml
+  materialization_manifest: datasets/vietnam_dataset_v5/manifest.csv
+  audit_report: manifests/datasets/vietnam_v5/audit.json
+  test_lock: manifests/datasets/vietnam_v5/test_lock.json
+  test_lock_sha256: 6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3
+  selection_split: validation
+  forbidden_selection_split: test
+
+train:
+  epochs: 30
+  patience: 15
+  imgsz: 1280
+  # batch=4 (the baseline/NWD value) measured 5.99/6.00 GiB reserved for a
+  # single forward+backward alone (no optimizer state, no real loss
+  # pipeline) -- would almost certainly OOM mid-run. batch=2 measured
+  # 3.17/6.00 GiB including AdamW optimizer state, with real headroom.
+  # This means batch size is NOT held constant against the baseline/NWD
+  # runs, unlike every other hyperparameter; Ultralytics' default nbs=64
+  # gradient-accumulation partially compensates the effective update
+  # dynamics, but this is a real, undocumented-elsewhere confound and must
+  # be disclosed alongside any result from this config.
+  batch: 2
+  device: 0
+  workers: 0
+  optimizer: AdamW
+  lr0: 0.0005
+  weight_decay: 0.0005
+  freeze: 0
+  seed: 0
+  deterministic: true
+  amp: true
+  cache: false
+  mosaic: 1.0
+  mixup: 0.3
+  close_mosaic: 10
+  plots: true
+  save: true
+  val: true
+  project: runs/detect/research
+  name: yolov8s_v5_seed0_p2
+  exist_ok: false
+
+provenance:
+  require_git_commit: true
+  require_clean_worktree: true
+  output_root: experiments

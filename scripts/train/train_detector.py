@@ -119,6 +119,10 @@ def preflight(config_path: Path, smoke: bool = False) -> tuple[dict[str, Any], l
     manifest = resolve_project_path(config["dataset"]["materialization_manifest"])
     lock_path = resolve_project_path(config["dataset"]["test_lock"])
     dataset_root = data_yaml.parent
+    architecture_yaml_value = config["model"].get("architecture_yaml")
+    architecture_yaml = (
+        resolve_project_path(architecture_yaml_value) if architecture_yaml_value else None
+    )
     blockers = []
     for label, path in (
         ("model weights", weights),
@@ -128,6 +132,8 @@ def preflight(config_path: Path, smoke: bool = False) -> tuple[dict[str, Any], l
     ):
         if not path.is_file():
             blockers.append(f"missing {label}: {path}")
+    if architecture_yaml is not None and not architecture_yaml.is_file():
+        blockers.append(f"missing architecture yaml: {architecture_yaml}")
 
     lock_verification: dict[str, Any] = {"valid": False, "errors": ["not checked"]}
     if lock_path.is_file() and dataset_root.is_dir():
@@ -151,6 +157,12 @@ def preflight(config_path: Path, smoke: bool = False) -> tuple[dict[str, Any], l
         "config_sha256": sha256_file(config_path),
         "weights_path": str(weights),
         "weights_sha256": sha256_file(weights) if weights.is_file() else None,
+        "architecture_yaml": str(architecture_yaml) if architecture_yaml else None,
+        "architecture_yaml_sha256": (
+            sha256_file(architecture_yaml)
+            if architecture_yaml is not None and architecture_yaml.is_file()
+            else None
+        ),
         "data_yaml": str(data_yaml),
         "data_yaml_sha256": sha256_file(data_yaml) if data_yaml.is_file() else None,
         "manifest_path": str(manifest),
@@ -211,7 +223,19 @@ def run_training(config_path: Path, smoke: bool) -> int:
     try:
         from ultralytics import YOLO
 
-        model = YOLO(str(resolve_project_path(config["model"]["weights"])))
+        architecture_yaml_value = config["model"].get("architecture_yaml")
+        weights_path = str(resolve_project_path(config["model"]["weights"]))
+        if architecture_yaml_value:
+            # Different architecture (e.g. an added P2 head) than the
+            # checkpoint was trained with: build the new graph from YAML,
+            # then partial-load whatever layers still match by name/shape
+            # from the pretrained checkpoint (Ultralytics reports the
+            # transferred/total item count -- expect well under 100% for an
+            # architecture change, unlike a same-architecture reload).
+            model = YOLO(str(resolve_project_path(architecture_yaml_value)))
+            model.load(weights_path)
+        else:
+            model = YOLO(weights_path)
         result = model.train(**record["training_arguments"])
         save_dir = Path(result.save_dir).resolve()
         best = save_dir / "weights" / "best.pt"
