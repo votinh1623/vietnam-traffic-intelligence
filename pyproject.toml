@@ -23,7 +23,9 @@ vn-traffic = "vn_traffic.cli:main"
 llm = []
 vlm = []
 deployment = []
-tracking-eval = []
+tracking-eval = [
+    "trackeval==1.3.0",
+]
 small-object = [
     "sahi==0.12.2",
     "pycocotools==2.0.11",
