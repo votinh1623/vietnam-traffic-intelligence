@@ -1,0 +1,63 @@
+{
+  "run_id": "yolov8s_v5_seed0_p2_continued_20260819T152917",
+  "status": "completed",
+  "run_type": "two_stage_restarted_fine_tune",
+  "note": "Not a resume of yolov8s_v5_seed0_p2_20260819T114628 (see that run's manifest for why resume=True was abandoned). This is a fresh YOLO(...).train(...) call starting from that run's verified-good best.pt (epoch 15, mAP50-95=0.28423) used as an ordinary pretrained checkpoint: optimizer state, LR schedule, and warmup all reinitialize from scratch. Must be reported as a two-stage/restarted fine-tune, not as epochs 18-30 of one continuous training curriculum.",
+  "provenance_caveat": "Launched by an ad-hoc inline Python call during interactive debugging, not through scripts/train/train_detector.py's preflight harness -- no automatic git/environment snapshot was taken at launch time. This manifest was written after the fact from the run's own args.yaml and results.csv. Also affected by an unrelated Ultralytics relative-path quirk: passing project='runs/detect/research' resolved to a duplicated runs/detect/runs/detect/research/... save_dir instead of the expected path; root cause not fully diagnosed.",
+  "started_from": {
+    "checkpoint": "runs/detect/research/yolov8s_v5_seed0_p2/weights/best.pt",
+    "checkpoint_epoch": 15,
+    "checkpoint_val_map50_95": 0.28423
+  },
+  "training_arguments": {
+    "epochs": 15,
+    "patience": 100,
+    "imgsz": 1280,
+    "batch": 2,
+    "device": "0",
+    "workers": 0,
+    "optimizer": "AdamW",
+    "lr0": 0.0005,
+    "weight_decay": 0.0005,
+    "freeze": 0,
+    "seed": 0,
+    "deterministic": true,
+    "amp": true,
+    "cache": false,
+    "mosaic": 1.0,
+    "mixup": 0.3,
+    "close_mosaic": 10,
+    "resume": false,
+    "save_dir": "runs/detect/runs/detect/research/yolov8s_v5_seed0_p2_continued"
+  },
+  "results_csv": "runs/detect/runs/detect/research/yolov8s_v5_seed0_p2_continued/results.csv",
+  "best_epoch": {
+    "epoch": 13,
+    "precision": 0.65206,
+    "recall": 0.50049,
+    "map50": 0.55215,
+    "map50_95": 0.321
+  },
+  "final_epoch": {
+    "epoch": 15,
+    "precision": 0.62104,
+    "recall": 0.49904,
+    "map50": 0.53755,
+    "map50_95": 0.31367
+  },
+  "epoch_trend_note": "mAP50-95 plateaus in the 0.310-0.321 range from epoch 9 onward (0.321, 0.316, 0.317, 0.310, 0.321, 0.316, 0.314); no clear further upward trend by epoch 15.",
+  "checkpoints": {
+    "best_pt_sha256": "aac1d2bf703698e7fcf8e5af8f942028f70e7f0e3fc996c59dd480206ee889d2",
+    "last_pt_sha256": "4bc3e58d403b80c937a5544d70c234f17ebe260e8589d23d4a7079678df9f43a"
+  },
+  "git_commit_at_manifest_time": "3a497774278fa7bdaf8b6d73e5b971e429e242df",
+  "comparison_on_validation_split": {
+    "baseline_yolov8s_v5_seed0": 0.344,
+    "nwd_ablation": 0.337,
+    "p2_continued_best": 0.321
+  },
+  "known_confounds": [
+    "batch=2 instead of the baseline/NWD's batch=4, forced by VRAM (P2's extra stride-4 head increases activation memory); Ultralytics' nbs=64 gradient accumulation partially compensates but this is not held constant against baseline/NWD",
+    "P2's architectural rationale (adding a stride-4 head) was written with knowledge of the locked test's box-size distribution (median 16px), so any locked-test evaluation of this checkpoint is exploratory, not a blind confirmatory test -- same caveat as the NWD ablation"
+  ]
+}

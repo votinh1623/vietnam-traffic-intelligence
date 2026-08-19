@@ -1,0 +1,78 @@
+{
+  "run_id": "yolov8s_v5_seed0_p2_20260819T114628",
+  "status": "aborted_invalid_provenance",
+  "aborted_reason": "Process was killed externally partway through epoch 18 of a resumed segment (not by an exception train_detector.py could catch), so this manifest was never updated past 'running' by the run itself. Between epochs 1-17 the run trained cleanly (best.pt at epoch 15, mAP50-95=0.28423, independently re-verified via a standalone model.val() call). Three subsequent resume=True attempts to continue it (batch=1, then batch=2) each failed for different reasons -- CUDA OOM from allocator fragmentation, BatchNorm corruption at batch=1, and an Ultralytics resume=True bug that silently re-transferred only 219/437 state-dict items from the original external VisDrone checkpoint instead of continuing from this run's own last.pt -- polluting this run's results.csv (permanently, past epoch 17) and last.pt (unusable) with those failed attempts' output. best.pt itself was never touched by any of the failed attempts.",
+  "superseded_by": "yolov8s_v5_seed0_p2_continued_20260819T152917 (a fresh, non-resume fine-tune from this run's verified-good best.pt, in a new output directory; see that run's own manifest for why it is a two-stage/restarted fine-tune and not a true continuation)",
+  "evidence": {
+    "checked_at": "2026-08-19T04:46:25.711715+00:00",
+    "config_path": "C:\\Workspace - Copy\\cv\\configs\\experiments\\yolov8s_v5_seed0_p2.yaml",
+    "config_sha256": "392c90f906ede1c1decf547d302f3379b8cbb37f7d87bbcfe06ea06d6a565d9f",
+    "weights_path": "C:\\Workspace - Copy\\cv\\runs\\detect\\baseline\\yolov8s_visdrone\\weights\\best.pt",
+    "weights_sha256": "0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08",
+    "architecture_yaml": "C:\\Workspace - Copy\\cv\\configs\\experiments\\architectures\\yolov8s-p2-vietnam.yaml",
+    "architecture_yaml_sha256": "c984cf84438440d74dfde0e269a4c2db9339213a4b21594a452ec6943a2b9d1d",
+    "data_yaml": "C:\\Workspace - Copy\\cv\\datasets\\vietnam_dataset_v5\\data.yaml",
+    "data_yaml_sha256": "8a5168fa450f3aab436d408b788c7cfa96206c05bab762f1d93a4e402f42c945",
+    "manifest_path": "C:\\Workspace - Copy\\cv\\datasets\\vietnam_dataset_v5\\manifest.csv",
+    "manifest_sha256": "e9ebf4cc2af6bedb34520fd425a2296d456a2cdeade1d6254e1685c10baf6519",
+    "test_lock_verification": {
+      "valid": true,
+      "expected_lock_sha256": "6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3",
+      "computed_lock_sha256": "6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3",
+      "verified_image_count": 176,
+      "errors": []
+    },
+    "git": {
+      "commit": "0725afbc92f955e85ea31729605af9514694be81",
+      "dirty": false,
+      "status": []
+    },
+    "environment": {
+      "python": "3.10.20 | packaged by conda-forge | (main, Jun 11 2026, 03:28:51) [MSC v.1944 64 bit (AMD64)]",
+      "executable": "C:\\Users\\ADMIN\\anaconda3\\envs\\traffic\\python.exe",
+      "packages": {
+        "torch": "2.6.0+cu124",
+        "torchvision": "0.21.0+cu124",
+        "ultralytics": "8.4.115",
+        "opencv-python": "5.0.0.93",
+        "numpy": "2.2.6",
+        "pandas": "2.3.3",
+        "PyYAML": "6.0.3"
+      },
+      "gpu": {
+        "cuda_available": true,
+        "cuda_version": "12.4",
+        "device_count": 1,
+        "device_name": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+        "vram_bytes": 6441926656
+      }
+    },
+    "smoke": false
+  },
+  "training_arguments": {
+    "epochs": 30,
+    "patience": 15,
+    "imgsz": 1280,
+    "batch": 2,
+    "device": 0,
+    "workers": 0,
+    "optimizer": "AdamW",
+    "lr0": 0.0005,
+    "weight_decay": 0.0005,
+    "freeze": 0,
+    "seed": 0,
+    "deterministic": true,
+    "amp": true,
+    "cache": false,
+    "mosaic": 1.0,
+    "mixup": 0.3,
+    "close_mosaic": 10,
+    "plots": true,
+    "save": true,
+    "val": true,
+    "project": "C:\\Workspace - Copy\\cv\\runs\\detect\\research",
+    "name": "yolov8s_v5_seed0_p2",
+    "exist_ok": false,
+    "data": "C:\\Workspace - Copy\\cv\\datasets\\vietnam_dataset_v5\\data.yaml"
+  }
+}
