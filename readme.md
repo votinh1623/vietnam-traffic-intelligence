@@ -127,6 +127,20 @@ does not prove.
 
 ### Detection
 
+**Why YOLOv8.** Chosen over newer Ultralytics releases (e.g. YOLO26, which
+ships in the same pinned `ultralytics==8.4.115` install used here) for three
+reasons, not because it was benchmarked as more accurate: it is a widely
+validated baseline with a large body of independent small-object/aerial
+literature to contextualize results against (including the NWD paper this
+project's own loss ablation is based on); it has years of mature ONNX/
+TensorRT/edge export tooling, relevant to this project's deferred edge/NPU
+goal; and its internals are stable and well documented enough to safely
+monkey-patch (this project's NWD loss) and extend (the P2 head ablation)
+directly, which is a real risk to redo correctly on a newer, less-verified
+architecture. Evaluating a newer architecture generation as a new baseline
+is a legitimate, identified future direction -- not yet executed, and not
+assumed to be worse or better than YOLOv8 until it is.
+
 **Setup.** YOLOv8s initialized from COCO, fine-tuned on VisDrone2019-DET
 (`mAP50=0.389` at epoch 74) as a checkpoint, then fine-tuned again on the
 source-disjoint Vietnam v5 dataset: full weights (`freeze=0`), 30 epochs,
@@ -374,6 +388,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Integrate TrackEval for HOTA/DetA/AssA and decompose the tracking bottleneck (detection-limited, not association-limited).
 - [x] Test a BoT-SORT/ReID tracking ablation against the ByteTrack baseline (algorithm switch helped, ReID itself did not).
 - [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
+- [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
 - [ ] Deferred beyond current goal: validate an appropriate physical edge/NPU target.
