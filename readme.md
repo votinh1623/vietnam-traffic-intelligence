@@ -99,6 +99,21 @@ does not prove ownership or redistribution rights. Raw videos and generated
 datasets are intentionally excluded from Git; full audit detail is in
 [the dataset protocol](docs/dataset_protocol.md).
 
+**Source composition is the likely root cause of the object-scale gap
+documented under [Detection](#detection).** All 1,214 images come from only
+11 source videos (5 train / 2 calibration / 2 validation / 3 test): 10 are
+repurposed YouTube uploads and exactly 1 (`DJI_20250516071323_0341_D`, in
+validation) is a native drone capture. The two sources explicitly titled as
+aerial drone footage both landed in the locked test by the source-disjoint
+split -- with only 11 sources total, this is close to unavoidable, not a
+labeling defect. Measured directly from the label files (sqrt(w*h) in
+pixels at imgsz=1280): only 4.7% of train boxes are under 16px versus 48.8%
+of test boxes. A model trained on this data sees real small-object examples
+rarely, then is evaluated on a split where they dominate. This is a data
+scarcity problem, not something a loss function or architecture change can
+fully correct (see the NWD ablation and P2 head ablation under
+[Detection](#detection), both of which train on this same imbalance).
+
 ## Evaluation policy
 
 - Select checkpoints and thresholds on validation; use calibration only for
@@ -331,6 +346,17 @@ verified on one real clip, not a benchmark across multiple UAV sources.
 - The dataset remains small and class-imbalanced, especially for trucks, buses,
   and test pedestrians; broader geographic, weather, night, altitude, and
   camera-motion coverage is still required.
+- All results are reported on a single fixed source-disjoint split (11 total
+  source videos). With this few sources, which sources happen to land in
+  test measurably changes results (see the Dataset section's source
+  composition note). Cross-source validation (e.g. leave-one-source-out)
+  would quantify that variance but was deliberately not run: at ~2-3h per
+  training run, evaluating it across even one architecture is many GPU-hours
+  on a single RTX 3050, and the specific cause of this split's variance
+  (test happens to hold both aerial-drone sources) is already known and
+  disclosed rather than averaged over. Treat every locked-test number in
+  this readme as one sample from an unmeasured distribution, not a precise
+  population estimate.
 - The provenance-controlled tracking result is an integration baseline on
   VisDrone, not a Vietnam-domain or official VisDrone benchmark.
 - Traffic speed requires camera calibration or a documented approximation.
@@ -388,6 +414,8 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Integrate TrackEval for HOTA/DetA/AssA and decompose the tracking bottleneck (detection-limited, not association-limited).
 - [x] Test a BoT-SORT/ReID tracking ablation against the ByteTrack baseline (algorithm switch helped, ReID itself did not).
 - [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
+- [ ] In progress: test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap.
+- [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture.
 - [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.
