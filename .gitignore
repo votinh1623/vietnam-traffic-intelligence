@@ -10,6 +10,9 @@ venv/
 .ultralytics/
 Ultralytics/
 
+# Ad-hoc run logs (findings are recorded in commits/run.json, not these)
+/*.log
+
 # IDE / OS
 .vscode/
 .idea/
