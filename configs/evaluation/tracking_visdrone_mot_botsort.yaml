@@ -1,0 +1,39 @@
+schema_version: 1
+benchmark_id: tracking_visdrone_mot_botsort_v1
+
+dataset:
+  root: datasets/VisDrone/VisDrone2019-MOT-val
+  sequences_dir: sequences
+  annotations_dir: annotations
+  # VisDrone category IDs mapped only to classes produced by the v5 detector.
+  # Other categories are outside this class-aware integration benchmark.
+  class_map:
+    1: pedestrian
+    4: car
+    6: truck
+    9: bus
+    10: motorcycle
+
+model:
+  weights: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+  expected_sha256: 729c66e676345e9cdcd504e21f6a94fe1d682582eca3ded39a2aec2a99e7f1db
+  expected_classes: [bus, car, motorcycle, pedestrian, truck]
+
+perception:
+  imgsz: 1280
+  confidence: 0.4
+  iou: 0.7
+  device: "0"
+  tracker: botsort_custom.yaml
+
+evaluation:
+  metric_iou_threshold: 0.5
+  sequences: all
+  output_root: benchmark_outputs/tracking_visdrone_mot_botsort
+  claim_boundary: >-
+    Class-aware CV integration benchmark on VisDrone2019-MOT-val, identical to
+    tracking_visdrone_mot_val_v1 except the tracker is BoT-SORT with ReID
+    disabled. Isolates the ByteTrack-to-BoT-SORT algorithm change; compare
+    against tracking_visdrone_mot_botsort_reid_v1 to isolate ReID's
+    contribution. It is not a Vietnam-domain tracking benchmark and does not
+    implement official VisDrone ignore-region handling or HOTA.
