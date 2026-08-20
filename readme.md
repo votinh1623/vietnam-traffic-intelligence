@@ -395,6 +395,18 @@ verified on one real clip, not a benchmark across multiple UAV sources.
 - Global motion compensation (`analytics.gmc_enabled`) is 2D image-plane
   alignment only, not BEV or GPS/IMU-based, and can lose lock on hard cuts,
   fast pans, or low-texture frames.
+- Congestion detection depends entirely on the detector resolving individual
+  boxes (`bbox_union_occupancy`, ROI track count). Under severe occlusion --
+  a tightly packed, stalled crowd -- detector recall collapses exactly when
+  congestion is worst, a false-negative blind spot at the extreme end
+  (observed directly: a real rush-hour clip with a gridlocked motorcycle
+  mass the detector drew zero boxes over stayed at `DENSE` instead of
+  reaching `CONGESTED`). A detection-independent optical-flow + texture
+  "stalled and dense" signal (`src/vn_traffic/analytics/stillness.py`) is
+  prototyped, unit-tested, and qualitatively confirmed to flag that exact
+  region on the real frame, but is **not** yet wired into the congestion
+  state machine or threshold-calibrated -- see
+  [benchmark protocol](docs/benchmark_protocol.md#detection-independent-stillness-signal-prototype).
 - The dashboard's live-frame write (`latest_frame.jpg`) can fail on Windows
   due to transient file locks (observed `PermissionError: [WinError 5]` from
   Defender/OneDrive scanning during a real run); this is handled as
@@ -439,6 +451,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
 - [x] Test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap (rejected: worse than baseline and worse than NWD on every locked-test metric; training required recovering from a CUDA OOM, a BatchNorm corruption at batch=1, and an Ultralytics `resume=True` bug -- see [benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)).
 - [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture. Now the leading candidate: both the loss-side (NWD) and architecture-side (P2) fixes have failed.
+- [ ] In progress: prototype a detection-independent "stalled and dense" congestion signal (optical flow + texture, `src/vn_traffic/analytics/stillness.py`) so severe-occlusion jams don't depend on detector recall the way `bbox_union_occupancy` does. Stage 1 (build, unit-test, qualitatively validate against a real failure case) is done; Stage 2 (wire into the state machine with sustained-duration hysteresis and multi-scene calibrated thresholds) and Stage 3 (per-lane/multi-region decomposition, GMC ego-motion compensation so it also works in `uav_motion` mode) are not started.
 - [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.

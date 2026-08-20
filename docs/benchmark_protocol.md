@@ -344,3 +344,77 @@ georeferencing, and can lose lock under a hard scene cut, fast motion, or
 low-texture frames -- check `gmc_consecutive_failures_at_end` in
 `summary.json` before trusting a given run's geometry. These runs are local
 ad-hoc reruns, not a new hashed experiment record.
+
+## Detection-independent stillness signal (prototype)
+
+**Motivation.** A local pipeline run (fixed-camera profile, 900 frames of a
+real Ho Chi Minh City rush-hour clip) reached `DENSE` but never `CONGESTED`,
+even though the source clearly contains a gridlocked motorcycle mass. Two
+compounding causes were confirmed by inspecting the run's own
+`latest_frame.jpg`: the hand-drawn ROI (calibrated for a different clip, not
+this one) does not cover most of that mass, and -- separately, visible in
+the same frame -- the detector draws **zero boxes** over the packed cluster
+itself, while individually-spaced vehicles elsewhere in the same frame are
+detected normally. `bbox_union_occupancy` and ROI track count are both
+detection-dependent, so detector recall collapsing under severe occlusion
+produces a structural blind spot exactly when congestion is worst: the more
+severely jammed a scene gets, the fewer boxes the detector returns, so the
+measured occupancy goes *down*, not up, in the extreme regime.
+
+**What was built (Stage 1).** `src/vn_traffic/analytics/stillness.py`
+computes a coarse, per-grid-cell signal directly from pixel motion (dense
+Farneback optical flow magnitude) and local texture (absolute Laplacian
+response), with no dependency on any detected box. A cell is flagged
+"stalled-dense" only when it is both visually dense (something is there)
+and nearly motionless (it is not moving) -- neither signal alone
+distinguishes a stalled crowd from an empty road (no texture, no motion) or
+ordinary flowing traffic (texture, but with motion). Covered by 6 unit
+tests (`tests/test_stillness.py`) with synthetic frames: a static textured
+frame is flagged, a static flat (textureless) frame is not, a moving
+textured frame is not, and grid reduction/ROI-restriction behave as
+specified.
+
+**Qualitative validation against the real failure case.**
+`scripts/diagnose_stillness.py` reproduces this on the actual frame pair
+(frame 839->840 of the rush-hour clip above) that motivated the module:
+
+```
+python scripts/diagnose_stillness.py \
+  --source datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4 \
+  --frame-index 840 \
+  --roi-polygon 0.48,0.05 0.62,0.05 0.84,0.95 0.30,0.95
+```
+
+With the texture threshold set to that frame's own 90th percentile (a fixed
+magic number would not transfer across videos with different compression or
+detail levels) and `motion_threshold=1.0`, 10.0% of the frame's grid cells
+are flagged (198/1980), and the overlay shows them concentrated almost
+exactly over the packed motorcycle/pedestrian mass -- not over empty road or
+the individually-tracked moving vehicles. Mean optical-flow magnitude inside
+the run's ROI (the flowing lane) is 2.218 versus 0.479 outside it (where
+most of the jam sits), consistent with the jam being genuinely stalled, not
+merely undetected.
+
+**Caveats (why this is Stage 1 only, not a shipped feature).** Not wired
+into `state.py`/`engine.py`: thresholds here are illustrative and
+frame-relative (a percentile of that one frame's own texture distribution),
+not calibrated against multiple scenes the way the existing congestion
+thresholds are (themselves only two-video demo calibration, per Known
+limitations). High-contrast static surfaces unrelated to traffic (building
+signage, in the same overlay) also flag as false positives, since texture
+alone cannot distinguish "packed vehicles" from "any static detailed
+surface" -- a real, disclosed limitation, not hidden by this validation.
+The module assumes a static camera: under `analytics.mode: uav_motion`, raw
+optical flow reflects both camera and object motion and would need
+GMC-based ego-motion compensation first, which it does not yet do. This is
+one real frame pair, qualitatively checked by eye against a visual overlay,
+not a multi-scene, hash-pinned benchmark.
+
+**Next steps, explicitly staged, none started yet.** Stage 2: wire the
+signal into the congestion state machine as a corroborating trigger for
+`CONGESTED` (sustained-duration hysteresis, calibrated thresholds across
+multiple real scenes, not one frame's own percentile). Stage 3: decompose a
+single ROI into multiple named sub-regions (lanes) so "one lane jammed, one
+lane flowing" produces two distinct states instead of one diluted aggregate
+occupancy number, and combine this signal with GMC so it also works under
+camera pan/zoom.
