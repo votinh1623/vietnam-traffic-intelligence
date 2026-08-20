@@ -1,0 +1,44 @@
+schema_version: 1
+
+# False-positive check for the confidence=0.1 + analytics.mode: uav_motion
+# combination (see offline_video_stillness_lowconf_test.yaml): does it
+# still correctly report NORMAL on a genuinely light-traffic reference
+# clip, or does removing the occupancy co-requirement make count alone
+# too trigger-happy regardless of scene content?
+source: datasets/raw_videos/traffic_normal.mp4
+model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+
+perception:
+  imgsz: 1280
+  confidence: 0.1
+  iou: 0.7
+  max_det: 1000
+  show_labels: true
+  show_confidence: true
+  line_width: 2
+  device: "0"
+  tracker: bytetrack_custom.yaml
+
+video:
+  codec: mp4v
+  fallback_fps: 30.0
+  max_frames: 300
+
+output:
+  root: output/pipeline
+
+evidence:
+  enabled: false
+
+analytics:
+  enabled: true
+  mode: uav_motion
+  included_classes: [bus, car, motorcycle, truck]
+  roi_polygon:
+    - [0.0, 0.0]
+    - [1.0, 0.0]
+    - [1.0, 1.0]
+    - [0.0, 1.0]
+  counting_line:
+    - [0.0, 0.5]
+    - [1.0, 0.5]

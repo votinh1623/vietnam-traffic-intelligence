@@ -1,0 +1,52 @@
+schema_version: 1
+
+# Test 2: lowering perception.confidence (0.4 -> 0.1) alone raised
+# roi_track_count to 50-92 across the ENTIRE clip (already >=50 at frame 0),
+# with mean_speed_px_s consistently 63-110 (well under 150) -- but
+# fixed_camera mode still requires bbox_union_occupancy to corroborate a
+# high count, and occupancy stays diluted (a full-frame ROI, boxes are
+# still sparse over the severely occluded crowd itself), so DENSE only
+# started at frame 657 and CONGESTED never triggered (see run42).
+# analytics.mode: uav_motion drops that occupancy co-requirement (its
+# original purpose: a small ground-anchored ROI's count is noisy without
+# occupancy corroboration -- doesn't apply here, this ROI is full-frame).
+# Testing whether count alone, now consistently high from frame 0, gets
+# CONGESTED to reflect the jam from near the start instead of only near
+# the end.
+source: datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4
+model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+
+perception:
+  imgsz: 1280
+  confidence: 0.1
+  iou: 0.7
+  max_det: 1000
+  show_labels: true
+  show_confidence: true
+  line_width: 2
+  device: "0"
+  tracker: bytetrack_custom.yaml
+
+video:
+  codec: mp4v
+  fallback_fps: 30.0
+  max_frames: 900
+
+output:
+  root: output/pipeline
+
+evidence:
+  enabled: false
+
+analytics:
+  enabled: true
+  mode: uav_motion
+  included_classes: [bus, car, motorcycle, truck]
+  roi_polygon:
+    - [0.0, 0.0]
+    - [1.0, 0.0]
+    - [1.0, 1.0]
+    - [0.0, 1.0]
+  counting_line:
+    - [0.0, 0.5]
+    - [1.0, 0.5]

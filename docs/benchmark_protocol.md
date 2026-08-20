@@ -519,3 +519,67 @@ detector dependence, but tolerant of occlusion since it does not need
 resolved instances), or a texture filter band-passed to the vehicle/head
 size at this camera's resolution instead of raw Laplacian's scale-agnostic
 response.
+
+### A partial, real fix found: lower detector confidence, keep occupancy corroboration
+
+Before building a separate low-confidence inference pass, two cheap,
+config-only tests (no code changes) were tried directly on the real
+pipeline, in decreasing order of how promising they first looked and how
+much they actually held up:
+
+**Test 1 -- lower `perception.confidence` alone (0.4 -> 0.1).** Detector
+recall under severe occlusion is gated partly by the confidence threshold;
+lowering it lets more partial/low-confidence detections through. On the
+motivating rush-hour clip (`fixed_camera` mode, full-frame ROI, 900
+frames): `DENSE` frames rose from 54 to 243 (6% to 27%), `roi_track_count`
+now sits at 50-92 across nearly the whole clip (was much lower before), but
+`bbox_union_occupancy` still only reaches 0.28-0.33 (below the 0.50
+`CONGESTED` entry threshold) because the severely occluded core of the
+crowd still contributes far fewer boxes than its true density. **A real,
+disclosed, partial improvement** -- `CONGESTED` is still never reached, and
+73% of the clip stays `NORMAL` despite the crowd being visibly packed from
+frame 0 (confirmed persistent, not building up -- see the activity-mask
+result above).
+
+**Test 2 -- also drop the occupancy co-requirement (`analytics.mode:
+uav_motion`, which lets a high `roi_track_count` trigger `CONGESTED`
+without corroborating occupancy).** With confidence still at 0.1, this
+looked dramatic at first: `CONGESTED` for 839/900 frames (93%), a single
+clean transition, matching human perception of the clip far better than
+Test 1. **Rejected after a false-positive check on `traffic_normal.mp4`,
+a genuinely light-traffic reference clip**: the same config gave
+`CONGESTED` for 238/300 frames (79%) there too.
+`roi_track_count` reached 100-122 on the *normal* clip -- comparable to or
+higher than the jam clip's 64-94 -- while `bbox_union_occupancy` correctly
+stayed low (0.06-0.11 vs the jam clip's 0.15-0.32). **Root cause:** the
+`uav_motion` mode's occupancy co-requirement was assumed (based on its
+existing code comment) to exist only to denoise a small, easily-saturated
+ROI, and therefore safe to drop for a full-frame ROI. That assumption was
+wrong: occupancy corroboration is what separates "many vehicles because the
+view is wide" from "many vehicles because they are packed and stalled" --
+count alone does not make that distinction on real data, regardless of ROI
+size. Bypassing it reintroduces exactly the false-positive risk it exists
+to prevent.
+
+**Verified safe across 5 real clips**, `fixed_camera` mode with
+confidence=0.1 (Test 1's config), no false positives: `traffic_normal.mp4`
+(NORMAL 300/300), `vid3.MP4` (NORMAL 300/300, light traffic), a Hanoi
+rush-hour clip (NORMAL 300/300, busy but flowing -- max occupancy 0.25,
+just under the 0.30 `DENSE` entry threshold), and `DJI_20250516071323_0341_D.MP4`
+(NORMAL 300/300, light aerial traffic, the project's one native drone
+source). Runs: `output/pipeline/run42` (jam clip), `run44`/`run45`
+(`traffic_normal.mp4`, uav_motion-bypass vs fixed_camera), `run46`
+(vid3), `run47` (Hanoi), `run48` (DJI). Configs:
+`configs/pipeline/offline_video_stillness_lowconf_test.yaml` (the rejected
+uav_motion-bypass variant, kept for the record) and the sibling
+`*_falsepos_check*.yaml`/`*_lowconf_check_*.yaml` files.
+
+**Recommendation:** lowering detector confidence (fixed_camera mode,
+occupancy corroboration intact) is a safe, real, but partial improvement --
+worth adopting where a scene's known failure mode is under-triggering, not
+worth treating as solved. The `uav_motion` count-bypass is rejected with
+concrete evidence, not merely untried. The 73%-of-clip gap that confidence
+alone does not close still points at the same two candidates above (a
+dedicated low-confidence density pass, or a better texture feature) as the
+remaining real next step, now with a clearer picture of what does and does
+not move the needle.

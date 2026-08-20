@@ -88,7 +88,8 @@ class PipelineConfigTests(unittest.TestCase):
                 "  cell_px: 4\n"
                 "  motion_threshold: 0.8\n"
                 "  texture_percentile: 85\n"
-                "  alpha_max: 0.3\n",
+                "  alpha_max: 0.3\n"
+                "  smoothing_decay: 0.6\n",
                 encoding="utf-8",
             )
             config = load_pipeline_config(path)
@@ -98,6 +99,7 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.stillness_heatmap.motion_threshold, 0.8)
             self.assertEqual(config.stillness_heatmap.texture_percentile, 85)
             self.assertEqual(config.stillness_heatmap.alpha_max, 0.3)
+            self.assertEqual(config.stillness_heatmap.smoothing_decay, 0.6)
 
     def test_stillness_heatmap_disabled_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

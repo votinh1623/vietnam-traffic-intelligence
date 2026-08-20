@@ -82,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
             motion_threshold=config.stillness_heatmap.motion_threshold,
             texture_percentile=config.stillness_heatmap.texture_percentile,
             alpha_max=config.stillness_heatmap.alpha_max,
+            smoothing_decay=config.stillness_heatmap.smoothing_decay,
         )
     run_dir = PipelineRunner(
         config,

@@ -414,10 +414,15 @@ verified on one real clip, not a benchmark across multiple UAV sources.
   (`stillness_heatmap.enabled`, decoupled from the state machine, using a
   frame-relative threshold instead of a fixed one) that consistently tints
   the packed cluster across the clip for a human operator to see, even
-  where the detector draws zero boxes. Automatic alerting for this failure
-  mode remains unsolved -- see
+  where the detector draws zero boxes. For the automatic trigger itself,
+  lowering detector confidence (0.4 -> 0.1) closes part of the gap safely
+  (validated with zero false positives across 5 real clips) but not all of
+  it (still 73% `NORMAL` on the motivating clip); dropping the occupancy
+  co-requirement to let count alone trigger `CONGESTED` was tried and
+  **rejected** -- it also false-triggered `CONGESTED` 79% of the time on a
+  genuinely light-traffic reference clip. See
   [benchmark protocol](docs/benchmark_protocol.md#detection-independent-stillness-signal-prototype)
-  for the full negative-result trail and untried next candidates.
+  for the full trail, including what was tried and rejected.
 - The dashboard's live-frame write (`latest_frame.jpg`) can fail on Windows
   due to transient file locks (observed `PermissionError: [WinError 5]` from
   Defender/OneDrive scanning during a real run); this is handled as
@@ -463,7 +468,8 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap (rejected: worse than baseline and worse than NWD on every locked-test metric; training required recovering from a CUDA OOM, a BatchNorm corruption at batch=1, and an Ultralytics `resume=True` bug -- see [benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)).
 - [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture. Now the leading candidate: both the loss-side (NWD) and architecture-side (P2) fixes have failed.
 - [x] Detection-independent "stalled and dense" signal for severe-occlusion jams (`src/vn_traffic/analytics/stillness.py`): built, unit-tested, and real-pipeline-validated. The automatic `CONGESTED`-trigger path (wired into the state machine, not gated by detected speed) is a **negative result, root-caused**: Laplacian texture cannot distinguish packed vehicles from any other static detailed surface, so no threshold/ROI fix works (two further hypotheses tested and rejected on real data -- see benchmark protocol). The **visual heatmap** path (`stillness_heatmap.enabled`, decoupled from the state machine) **works**: real-pipeline-validated to consistently tint the packed cluster the detector misses, across the whole clip.
-- [ ] Open: an automatic trigger for this failure mode needs a different feature, not a retuned threshold -- candidates (neither implemented): low-confidence pre-NMS detector proposals as a coarse density prior, or a texture filter band-passed to vehicle/head size. Also open: per-lane/multi-region ROI decomposition (Stage 3) and GMC ego-motion compensation so the heatmap also works in `uav_motion` mode.
+- [x] Tested two cheap, config-only fixes for the same gap. Lowering `perception.confidence` (0.4 -> 0.1, `fixed_camera` mode, occupancy corroboration intact) is a real, partial improvement (`DENSE` frames 6% -> 27% on the motivating clip) with **zero false positives across 5 real clips** (the jam clip plus four others, including the project's one native drone source). Dropping the occupancy co-requirement too (`analytics.mode: uav_motion`, letting a high count trigger `CONGESTED` alone) looked dramatic on the jam clip (93% `CONGESTED`) but is **rejected**: it also gave 79% `CONGESTED` on `traffic_normal.mp4`, a genuinely light-traffic reference clip -- count alone does not distinguish "wide view, many vehicles, flowing" from "packed and stalled" any better than the flawed stillness scalar did.
+- [ ] Open: still 73% of the motivating clip stays `NORMAL` even with the safe confidence fix, despite the crowd being visibly packed from frame 0. An automatic trigger that closes that gap needs a different feature, not a retuned threshold -- candidates (neither implemented): low-confidence pre-NMS detector proposals as a coarse density prior, or a texture filter band-passed to vehicle/head size. Also open: per-lane/multi-region ROI decomposition (Stage 3) and GMC ego-motion compensation so the heatmap also works in `uav_motion` mode.
 - [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.

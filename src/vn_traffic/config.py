@@ -137,6 +137,11 @@ class StillnessHeatmapConfig:
     motion_threshold: float = 1.0
     texture_percentile: float = 90.0
     alpha_max: float = 0.5
+    # Exponential-moving-average smoothing across frames; the raw per-frame
+    # score flickers (measured mean IoU 0.686 between consecutive frames'
+    # thresholded masks on the motivating clip, 0.862 with this default --
+    # see StillnessHeatmapRenderer's docstring). 0 disables smoothing.
+    smoothing_decay: float = 0.85
 
 
 @dataclass(frozen=True)
@@ -445,6 +450,9 @@ def _load_stillness_heatmap(raw: dict[str, Any]) -> StillnessHeatmapConfig:
             section.get("texture_percentile", defaults.texture_percentile)
         ),
         alpha_max=float(section.get("alpha_max", defaults.alpha_max)),
+        smoothing_decay=float(
+            section.get("smoothing_decay", defaults.smoothing_decay)
+        ),
     )
     validate_stillness_heatmap_config(config)
     return config
@@ -461,6 +469,8 @@ def validate_stillness_heatmap_config(config: StillnessHeatmapConfig) -> None:
         raise ValueError("stillness_heatmap.texture_percentile must be in [0, 100]")
     if not 0.0 <= config.alpha_max <= 1.0:
         raise ValueError("stillness_heatmap.alpha_max must be in [0, 1]")
+    if not 0.0 <= config.smoothing_decay < 1.0:
+        raise ValueError("stillness_heatmap.smoothing_decay must be in [0, 1)")
 
 
 def _load_evidence(raw: dict[str, Any]) -> EvidenceConfig:

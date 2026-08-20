@@ -25,7 +25,7 @@ perception:
 video:
   codec: mp4v
   fallback_fps: 30.0
-  max_frames: 300
+  max_frames: 900
 
 output:
   root: output/pipeline
@@ -50,5 +50,6 @@ stillness_heatmap:
   downscale: 4
   cell_px: 8
   motion_threshold: 1.0
-  texture_percentile: 90.0
+  texture_percentile: 85.0
   alpha_max: 0.5
+  smoothing_decay: 0.95

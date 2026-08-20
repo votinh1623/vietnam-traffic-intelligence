@@ -149,6 +149,49 @@ class StillnessHeatmapRendererTests(unittest.TestCase):
         result = renderer.render(raw, display)
         self.assertFalse(np.array_equal(result, display))
 
+    def test_smoothing_reduces_frame_to_frame_flicker(self) -> None:
+        # The raw per-frame score flickers even on an otherwise-static
+        # scene once realistic sensor noise is added (measured on a real
+        # clip: mean IoU 0.686 between consecutive frames' thresholded
+        # masks -- see StillnessHeatmapRenderer's docstring). Smoothing
+        # should measurably reduce that flicker relative to no smoothing,
+        # on the same noisy synthetic sequence.
+        base = _half_textured_frame(width=160, height=120, seed=5)
+        rng = np.random.default_rng(42)
+        frames = []
+        for _ in range(8):
+            noisy = base.astype(np.int16) + rng.integers(-15, 16, size=base.shape)
+            frames.append(
+                cv2.cvtColor(np.clip(noisy, 0, 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+            )
+
+        def masks_for(decay: float) -> list[np.ndarray]:
+            renderer = StillnessHeatmapRenderer(
+                downscale=1,
+                cell_px=8,
+                motion_threshold=50.0,  # tolerate the injected pixel noise as "still"
+                texture_percentile=90.0,
+                smoothing_decay=decay,
+            )
+            collected = []
+            for frame in frames:
+                renderer.render(frame, frame)
+                if renderer._persistent_score is not None:
+                    collected.append(renderer._persistent_score > 0.3)
+            return collected
+
+        def mean_iou(masks: list[np.ndarray]) -> float:
+            ious = []
+            for prev, curr in zip(masks, masks[1:]):
+                union = np.logical_or(prev, curr).sum()
+                inter = np.logical_and(prev, curr).sum()
+                ious.append(inter / union if union else 1.0)
+            return float(np.mean(ious))
+
+        raw_iou = mean_iou(masks_for(decay=0.0))
+        smoothed_iou = mean_iou(masks_for(decay=0.85))
+        self.assertGreater(smoothed_iou, raw_iou)
+
 
 if __name__ == "__main__":
     unittest.main()
