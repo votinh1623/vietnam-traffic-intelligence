@@ -48,8 +48,10 @@ event has this shape:
 
 A congestion transition replaces the track/class/direction fields with
 `previous_state` and `current_state`; its measurements contain
-`bbox_union_occupancy`, ROI-track count, and mean pixel speed. All events retain
-`schema_version`, `event_id`, `event_type`, `timestamp_s`, and `frame_index`.
+`bbox_union_occupancy`, ROI-track count, mean pixel speed, and (schema 3)
+`stalled_dense_fraction` when `analytics.stillness_enabled` -- otherwise
+`null`. All events retain `schema_version`, `event_id`, `event_type`,
+`timestamp_s`, and `frame_index`.
 
 A `prolonged_stop` event is emitted once when an eligible vehicle track remains
 inside the ROI below the configured entry speed for the configured duration.
@@ -71,6 +73,7 @@ One row per processed frame, intended for timeline inspection and calibration.
 | `roi_track_count` | Unique assigned track IDs currently inside the ROI |
 | `bbox_union_occupancy` | Unique raster cells covered by one or more bboxes inside the ROI, divided by ROI cells |
 | `mean_speed_px_s` | Mean centroid displacement rate for current ROI tracks |
+| `stalled_dense_fraction` | (schema 3) ROI-restricted fraction of grid cells flagged both visually dense and near-motionless by `src/vn_traffic/analytics/stillness.py`; `null` unless `analytics.stillness_enabled` |
 | `current_counts_json` | Per-class objects currently inside the ROI |
 | `cumulative_crossings_json` | Per-direction, per-class line crossings |
 
@@ -80,7 +83,12 @@ overlap twice, but remains image-plane box coverage rather than physical road
 occupancy: boxes include background and no segmentation, BEV transform, or
 camera calibration is applied. Speed also remains pixel-based.
 Legacy `*_occupancy` threshold keys are rejected at config load time; schema 2
-requires the explicit `*_bbox_union_occupancy` names.
+requires the explicit `*_bbox_union_occupancy` names. Schema 3 adds
+`stalled_dense_fraction`; when `analytics.stillness_enabled` it can also
+corroborate `CONGESTED` independent of `bbox_union_occupancy`/count, not
+gated by `mean_speed_px_s` (see
+[benchmark protocol](benchmark_protocol.md#detection-independent-stillness-signal-prototype)
+for why, and why its threshold does not yet transfer across scenes).
 
 ## `summary.json`
 

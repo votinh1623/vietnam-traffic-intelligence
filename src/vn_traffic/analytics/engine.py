@@ -24,6 +24,7 @@ from .geometry import (
 from .motion import GlobalMotionCompensator
 from .occupancy import BBoxUnionOccupancy
 from .state import CongestionStateMachine
+from .stillness import StillnessTracker
 
 
 @dataclass
@@ -63,6 +64,16 @@ class TrafficAnalytics:
             if config.gmc_enabled
             else None
         )
+        self._stillness = (
+            StillnessTracker(
+                downscale=config.stillness_downscale,
+                cell_px=config.stillness_cell_px,
+                motion_threshold=config.stillness_motion_threshold,
+                texture_threshold=config.stillness_texture_threshold,
+            )
+            if config.stillness_enabled
+            else None
+        )
 
     def _event(self, event_type: str, **payload: Any) -> dict[str, Any]:
         self._event_number += 1
@@ -100,6 +111,11 @@ class TrafficAnalytics:
             self._motion.update(frame)
             roi = tuple(self._motion.warp_points(roi))
             line_start, line_end = self._motion.warp_points([line_start, line_end])
+        if self._stillness is not None and frame is None:
+            raise ValueError(
+                "analytics.stillness_enabled requires the raw frame to be passed "
+                "to TrafficAnalytics.process(frame=...)"
+            )
         boxes: list[tuple[float, float, float, float]] = []
         current_counts: Counter[str] = Counter()
         current_speeds: list[float] = []
@@ -235,11 +251,17 @@ class TrafficAnalytics:
         mean_speed = (
             sum(current_speeds) / len(current_speeds) if current_speeds else None
         )
+        stalled_dense_fraction = (
+            self._stillness.update(frame, roi_polygon_px=roi)
+            if self._stillness is not None
+            else None
+        )
         transition = self.state_machine.update(
             timestamp_s=timestamp_s,
             bbox_union_occupancy=bbox_union_occupancy,
             count=len(roi_track_ids),
             mean_speed_px_s=mean_speed,
+            stalled_dense_fraction=stalled_dense_fraction,
         )
         if transition is not None:
             self._transition_count += 1
@@ -254,6 +276,7 @@ class TrafficAnalytics:
                         "bbox_union_occupancy": bbox_union_occupancy,
                         "roi_track_count": len(roi_track_ids),
                         "mean_speed_px_s": mean_speed,
+                        "stalled_dense_fraction": stalled_dense_fraction,
                     },
                 )
             )
@@ -281,6 +304,7 @@ class TrafficAnalytics:
             },
             roi_polygon_px=tuple(roi),
             counting_line_px=(line_start, line_end),
+            stalled_dense_fraction=stalled_dense_fraction,
         )
         return AnalyticsBatch(snapshot=snapshot, events=tuple(events))
 
@@ -319,6 +343,7 @@ class TrafficAnalytics:
             "gmc_consecutive_failures_at_end": (
                 self._motion.consecutive_failures if self._motion is not None else None
             ),
+            "stillness_enabled": self.config.stillness_enabled,
             "state_frames": dict(self._frames_by_state),
             "congestion_transitions": self._transition_count,
             "prolonged_stop_events": self._prolonged_stop_count,
@@ -341,5 +366,17 @@ class TrafficAnalytics:
                 "applied. Prolonged-stop alerts use image-plane centroid speed and "
                 "can be invalid under camera motion or identity errors. "
                 + mode_note
+                + (
+                    " stillness_enabled=true: CONGESTED can also be reached/held "
+                    "via a detection-independent optical-flow+texture signal "
+                    "(src/vn_traffic/analytics/stillness.py), not gated by "
+                    "detected mean speed, specifically to corroborate severe, "
+                    "heavily-occluded jams the detector's own boxes may miss. "
+                    "Its thresholds are demo-calibrated on one real frame, not "
+                    "validated across multiple scenes -- see benchmark "
+                    "protocol."
+                    if self.config.stillness_enabled
+                    else ""
+                )
             ),
         }

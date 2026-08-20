@@ -410,11 +410,50 @@ GMC-based ego-motion compensation first, which it does not yet do. This is
 one real frame pair, qualitatively checked by eye against a visual overlay,
 not a multi-scene, hash-pinned benchmark.
 
-**Next steps, explicitly staged, none started yet.** Stage 2: wire the
-signal into the congestion state machine as a corroborating trigger for
-`CONGESTED` (sustained-duration hysteresis, calibrated thresholds across
-multiple real scenes, not one frame's own percentile). Stage 3: decompose a
+**Stage 2 (wired, first real-pipeline result -- threshold does not yet
+transfer).** `analytics.stillness_enabled` adds `StillnessTracker` to
+`TrafficAnalytics` (`engine.py`) and a `stalled_dense_fraction` term to
+`CongestionStateMachine._target()` (`state.py`), corroborating `CONGESTED`
+independent of `bbox_union_occupancy`/count -- and deliberately **not**
+gated by the detected mean speed, since that speed is exactly the signal a
+severely occluded jam starves. Covered by 5 new unit/integration tests
+(`tests/test_traffic_analytics.py`): the state machine reaches `CONGESTED`
+from a low-occupancy, low-count, high-stillness input; a `CONGESTED` state
+held by stillness ignores a high *detected* speed on release; the signal is
+a no-op when `stillness_enabled=False`; and a full `TrafficAnalytics` run
+with **zero detected tracks** reaches `CONGESTED` from static, textured
+synthetic frames alone. `analytics.csv`/`AnalyticsSnapshot` gained a
+`stalled_dense_fraction` column (`ANALYTICS_SCHEMA_VERSION` 2 -> 3).
+
+Per the project's rule to verify any pipeline-runtime change with a real
+run, not just unit tests, `configs/pipeline/offline_video_stillness_demo.yaml`
+re-runs the exact motivating clip (900 frames,
+`YTDown.com_..._Rush-Hour-Traffic-with-motorcycle-in-Ho-...`) with
+`stillness_enabled=true` and a full-frame ROI (unlike
+`offline_video.yaml`'s hand-drawn trapezoid, which does not cover most of
+this clip's jam). Result: `stalled_dense_fraction` peaked at **0.214**
+across all 900 frames -- below the Stage 1 demo threshold
+(`stillness_congested_enter_fraction=0.30`) -- so the run stayed at `DENSE`
+(846 `NORMAL` / 54 `DENSE` frames), never reaching `CONGESTED` via
+stillness. This is not a bug: the wiring computed and compared real numbers
+correctly end to end (`output/pipeline/run38`); the *specific threshold*,
+calibrated from one frame's 90th-percentile texture value, undershoots on
+this full clip once averaged over 900 frames and diluted by a full-frame
+ROI (buildings/sky/road count equally alongside the jam). This is the same
+lesson as the NWD ablation's mis-scaled constant: a threshold picked from a
+single data point does not transfer, and is exactly why Stage 2 was
+disclosed as "not calibrated across multiple scenes" rather than shipped as
+final. The threshold was deliberately left as measured here, not tuned
+downward after the fact to force a passing demo.
+
+**Next steps, explicitly staged.** Stage 2 remainder: calibrate
+`stillness_motion_threshold`/`stillness_texture_threshold`/
+`stillness_congested_enter_fraction` against multiple real scenes (not one
+frame's percentile), and reconsider whether stillness should be restricted
+to the same `roi_polygon` as occupancy at all -- coupling the two means a
+too-broad ROI dilutes the stillness signal exactly as it dilutes occupancy,
+which is what happened in this run. Stage 3 (not started): decompose a
 single ROI into multiple named sub-regions (lanes) so "one lane jammed, one
 lane flowing" produces two distinct states instead of one diluted aggregate
-occupancy number, and combine this signal with GMC so it also works under
-camera pan/zoom.
+number, and combine this signal with GMC so it also works under camera
+pan/zoom.

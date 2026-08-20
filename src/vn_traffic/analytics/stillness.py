@@ -30,6 +30,8 @@ this module does not yet do.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 import cv2
 import numpy as np
 
@@ -119,3 +121,82 @@ def stalled_dense_fraction(
     if roi.shape != mask.shape or not np.any(roi):
         return 0.0
     return float(np.mean(mask[roi]))
+
+
+def rasterize_roi_to_grid(
+    roi_polygon_px: Sequence[tuple[float, float]],
+    frame_width: int,
+    frame_height: int,
+    grid_height: int,
+    grid_width: int,
+) -> np.ndarray:
+    """Rasterize a full-resolution-pixel ROI polygon at grid resolution."""
+    scale_x = grid_width / frame_width
+    scale_y = grid_height / frame_height
+    mask = np.zeros((grid_height, grid_width), dtype=np.uint8)
+    points = np.array(
+        [[(round(x * scale_x), round(y * scale_y)) for x, y in roi_polygon_px]],
+        dtype=np.int32,
+    )
+    cv2.fillPoly(mask, points, 1)
+    return mask.astype(bool)
+
+
+class StillnessTracker:
+    """Stateful per-frame wrapper: tracks the previous downscaled grayscale
+    frame and reports the stalled-dense fraction each call, restricted to a
+    caller-supplied ROI when given. Stage 2 integration point for
+    `CongestionStateMachine` -- see its `stalled_dense_fraction` parameter.
+
+    Thresholds are absolute and demo-calibrated on one real frame pair (see
+    docs/benchmark_protocol.md#detection-independent-stillness-signal-prototype),
+    the same honesty bar the existing congestion thresholds are held to, not
+    tuned across multiple scenes.
+    """
+
+    def __init__(
+        self,
+        *,
+        downscale: int = 4,
+        cell_px: int = 8,
+        motion_threshold: float = 1.0,
+        texture_threshold: float = 250.0,
+    ):
+        self.downscale = downscale
+        self.cell_px = cell_px
+        self.motion_threshold = motion_threshold
+        self.texture_threshold = texture_threshold
+        self._previous_small_gray: np.ndarray | None = None
+
+    def update(
+        self,
+        frame_bgr: np.ndarray,
+        *,
+        roi_polygon_px: Sequence[tuple[float, float]] | None = None,
+    ) -> float:
+        """Feed the next frame in sequence; returns 0.0 on the first call
+        (no previous frame to compare motion against) and thereafter the
+        stalled-dense fraction, restricted to `roi_polygon_px` if given.
+        """
+        height, width = frame_bgr.shape[:2]
+        small = to_small_gray(frame_bgr, self.downscale)
+        if self._previous_small_gray is None:
+            self._previous_small_gray = small
+            return 0.0
+
+        mask = stalled_dense_mask(
+            self._previous_small_gray,
+            small,
+            cell_px=self.cell_px,
+            motion_threshold=self.motion_threshold,
+            texture_threshold=self.texture_threshold,
+        )
+        self._previous_small_gray = small
+
+        if roi_polygon_px is None:
+            return stalled_dense_fraction(mask)
+        grid_height, grid_width = mask.shape
+        roi_mask = rasterize_roi_to_grid(
+            roi_polygon_px, width, height, grid_height, grid_width
+        )
+        return stalled_dense_fraction(mask, roi_mask=roi_mask)

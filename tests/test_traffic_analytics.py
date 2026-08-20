@@ -231,6 +231,87 @@ class TrafficAnalyticsTests(unittest.TestCase):
         self.assertIsNone(fixed.update(timestamp_s=1.0, **high_count_low_coverage))
         self.assertEqual(fixed.state, "NORMAL")
 
+    def test_stillness_signal_corroborates_congested_despite_low_occupancy_and_count(
+        self,
+    ) -> None:
+        # The real failure case this exists for: a severely occluded jam
+        # gives the detector almost nothing to report (low occupancy, low
+        # count), but the pixel-level stillness signal is high.
+        config = replace(
+            self.config,
+            transition_confirm_s=1.0,
+            release_confirm_s=2.0,
+            stillness_enabled=True,
+            stillness_congested_enter_fraction=0.30,
+            stillness_congested_exit_fraction=0.20,
+        )
+        machine = CongestionStateMachine(config)
+        occluded_jam = dict(
+            bbox_union_occupancy=0.05,
+            count=2,
+            mean_speed_px_s=120.0,
+            stalled_dense_fraction=0.40,
+        )
+        self.assertIsNone(machine.update(timestamp_s=0.0, **occluded_jam))
+        transition = machine.update(timestamp_s=1.0, **occluded_jam)
+        self.assertEqual(
+            (transition.previous, transition.current), ("NORMAL", "CONGESTED")
+        )
+
+    def test_stillness_signal_ignored_when_disabled(self) -> None:
+        config = replace(
+            self.config,
+            transition_confirm_s=1.0,
+            release_confirm_s=2.0,
+            stillness_enabled=False,
+        )
+        machine = CongestionStateMachine(config)
+        occluded_jam = dict(
+            bbox_union_occupancy=0.05,
+            count=2,
+            mean_speed_px_s=120.0,
+            stalled_dense_fraction=0.99,
+        )
+        self.assertIsNone(machine.update(timestamp_s=0.0, **occluded_jam))
+        self.assertIsNone(machine.update(timestamp_s=1.0, **occluded_jam))
+        self.assertEqual(machine.state, "NORMAL")
+
+    def test_stillness_remains_congested_ignores_detected_speed(self) -> None:
+        # Deliberate design choice: once CONGESTED via stillness, a high
+        # *detected* mean speed (from the few flowing tracks the detector
+        # can see) must not release the state while the stillness fraction
+        # itself is still above its own exit threshold -- that detected
+        # speed is exactly the signal a severely occluded jam starves.
+        config = replace(
+            self.config,
+            transition_confirm_s=1.0,
+            release_confirm_s=1.0,
+            stillness_enabled=True,
+            stillness_congested_enter_fraction=0.30,
+            stillness_congested_exit_fraction=0.20,
+        )
+        machine = CongestionStateMachine(config)
+        occluded_jam = dict(
+            bbox_union_occupancy=0.05,
+            count=2,
+            mean_speed_px_s=120.0,
+            stalled_dense_fraction=0.40,
+        )
+        machine.update(timestamp_s=0.0, **occluded_jam)
+        machine.update(timestamp_s=1.0, **occluded_jam)
+        self.assertEqual(machine.state, "CONGESTED")
+
+        still_dense_but_fast_detected_speed = dict(
+            bbox_union_occupancy=0.05,
+            count=2,
+            mean_speed_px_s=300.0,
+            stalled_dense_fraction=0.25,
+        )
+        self.assertIsNone(
+            machine.update(timestamp_s=2.0, **still_dense_but_fast_detected_speed)
+        )
+        self.assertEqual(machine.state, "CONGESTED")
+
     def test_prolonged_stop_alert_has_duration_release_and_no_repeat(self) -> None:
         config = replace(
             self.config,
@@ -370,6 +451,73 @@ class GmcAnalyticsIntegrationTests(unittest.TestCase):
         config = AnalyticsConfig(analytics_mode="uav_motion", gmc_enabled=True)
         engine = TrafficAnalytics(config)
         with self.assertRaisesRegex(ValueError, "gmc_enabled"):
+            engine.process(
+                frame_index=0,
+                timestamp_s=0.0,
+                tracks=(),
+                frame_width=160,
+                frame_height=120,
+            )
+
+
+class StillnessAnalyticsIntegrationTests(unittest.TestCase):
+    def test_static_textured_scene_reaches_congested_with_zero_tracks(self) -> None:
+        # The end-to-end version of the real failure case: no detected
+        # tracks at all (occupancy=0, count=0), but a static, visually dense
+        # scene (a stand-in for a severely occluded, stalled crowd the
+        # detector cannot resolve) still reaches CONGESTED via stillness
+        # alone.
+        config = AnalyticsConfig(
+            roi_polygon=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
+            counting_line=((0.0, 0.5), (1.0, 0.5)),
+            transition_confirm_s=1.0,
+            release_confirm_s=2.0,
+            stillness_enabled=True,
+            stillness_downscale=1,
+            stillness_cell_px=8,
+            stillness_motion_threshold=2.0,
+            stillness_texture_threshold=0.5,
+            stillness_congested_enter_fraction=0.5,
+            stillness_congested_exit_fraction=0.3,
+        )
+        engine = TrafficAnalytics(config)
+        frame = _gmc_textured_frame(width=160, height=120, seed=7)
+
+        first = engine.process(
+            frame_index=0,
+            timestamp_s=0.0,
+            tracks=(),
+            frame_width=160,
+            frame_height=120,
+            frame=frame,
+        )
+        self.assertEqual(first.snapshot.congestion_state, "NORMAL")
+        self.assertEqual(first.snapshot.roi_track_count, 0)
+        self.assertEqual(first.snapshot.bbox_union_occupancy, 0.0)
+
+        engine.process(
+            frame_index=1,
+            timestamp_s=1.0,
+            tracks=(),
+            frame_width=160,
+            frame_height=120,
+            frame=frame,
+        )
+        third = engine.process(
+            frame_index=2,
+            timestamp_s=2.0,
+            tracks=(),
+            frame_width=160,
+            frame_height=120,
+            frame=frame,
+        )
+        self.assertEqual(third.snapshot.congestion_state, "CONGESTED")
+        self.assertEqual(third.snapshot.roi_track_count, 0)
+
+    def test_stillness_enabled_without_a_frame_raises(self) -> None:
+        config = AnalyticsConfig(stillness_enabled=True)
+        engine = TrafficAnalytics(config)
+        with self.assertRaisesRegex(ValueError, "stillness_enabled"):
             engine.process(
                 frame_index=0,
                 timestamp_s=0.0,

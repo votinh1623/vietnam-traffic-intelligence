@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 
-ANALYTICS_SCHEMA_VERSION = 2
+ANALYTICS_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,7 @@ class AnalyticsSnapshot:
     cumulative_crossings: dict[str, dict[str, int]]
     roi_polygon_px: tuple[tuple[float, float], ...]
     counting_line_px: tuple[tuple[float, float], tuple[float, float]]
+    stalled_dense_fraction: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -57,6 +58,7 @@ class AnalyticsSnapshot:
             "roi_track_count": self.roi_track_count,
             "bbox_union_occupancy": self.bbox_union_occupancy,
             "mean_speed_px_s": self.mean_speed_px_s,
+            "stalled_dense_fraction": self.stalled_dense_fraction,
             "current_counts_json": json.dumps(
                 self.current_counts, sort_keys=True, separators=(",", ":")
             ),
@@ -80,6 +82,7 @@ ANALYTICS_CSV_FIELDS = (
     "roi_track_count",
     "bbox_union_occupancy",
     "mean_speed_px_s",
+    "stalled_dense_fraction",
     "current_counts_json",
     "cumulative_crossings_json",
 )

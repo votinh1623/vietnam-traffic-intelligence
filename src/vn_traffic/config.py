@@ -73,6 +73,24 @@ class AnalyticsConfig:
     # fast motion, or low-texture frames.
     gmc_enabled: bool = False
     gmc_downscale: int = 4
+    # Detection-independent "stalled and dense" corroborating signal (see
+    # src/vn_traffic/analytics/stillness.py). bbox_union_occupancy and ROI
+    # track count both depend on the detector resolving individual boxes, so
+    # detector recall collapsing under severe occlusion (a tightly packed,
+    # stalled crowd) produces a false-negative blind spot exactly when
+    # congestion is worst. When enabled, a cell flagged both visually dense
+    # (texture) and near-motionless (optical flow) corroborates CONGESTED
+    # without requiring the (possibly-diluted) detected mean speed to also be
+    # low. Thresholds below are demo-calibrated on one real frame, the same
+    # honesty bar the occupancy/count thresholds are held to -- not
+    # calibrated across multiple scenes.
+    stillness_enabled: bool = False
+    stillness_downscale: int = 4
+    stillness_cell_px: int = 8
+    stillness_motion_threshold: float = 1.0
+    stillness_texture_threshold: float = 250.0
+    stillness_congested_enter_fraction: float = 0.30
+    stillness_congested_exit_fraction: float = 0.20
     dense_enter_bbox_union_occupancy: float = 0.30
     dense_exit_bbox_union_occupancy: float = 0.25
     congested_enter_bbox_union_occupancy: float = 0.50
@@ -256,6 +274,37 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
         gmc_enabled=bool(analytics.get("gmc_enabled", defaults.gmc_enabled)),
         gmc_downscale=int(
             analytics.get("gmc_downscale", defaults.gmc_downscale)
+        ),
+        stillness_enabled=bool(
+            analytics.get("stillness_enabled", defaults.stillness_enabled)
+        ),
+        stillness_downscale=int(
+            analytics.get("stillness_downscale", defaults.stillness_downscale)
+        ),
+        stillness_cell_px=int(
+            analytics.get("stillness_cell_px", defaults.stillness_cell_px)
+        ),
+        stillness_motion_threshold=float(
+            analytics.get(
+                "stillness_motion_threshold", defaults.stillness_motion_threshold
+            )
+        ),
+        stillness_texture_threshold=float(
+            analytics.get(
+                "stillness_texture_threshold", defaults.stillness_texture_threshold
+            )
+        ),
+        stillness_congested_enter_fraction=float(
+            congestion.get(
+                "stillness_congested_enter_fraction",
+                defaults.stillness_congested_enter_fraction,
+            )
+        ),
+        stillness_congested_exit_fraction=float(
+            congestion.get(
+                "stillness_congested_exit_fraction",
+                defaults.stillness_congested_exit_fraction,
+            )
         ),
         dense_enter_bbox_union_occupancy=float(
             congestion.get(
@@ -478,6 +527,26 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         raise ValueError("analytics.gmc_downscale must be at least one")
     if config.gmc_enabled and config.analytics_mode != "uav_motion":
         raise ValueError("analytics.gmc_enabled requires analytics.mode: uav_motion")
+    if config.stillness_downscale < 1:
+        raise ValueError("analytics.stillness_downscale must be at least one")
+    if config.stillness_cell_px < 1:
+        raise ValueError("analytics.stillness_cell_px must be at least one")
+    if config.stillness_motion_threshold < 0:
+        raise ValueError("analytics.stillness_motion_threshold cannot be negative")
+    if config.stillness_texture_threshold < 0:
+        raise ValueError("analytics.stillness_texture_threshold cannot be negative")
+    if not 0.0 <= config.stillness_congested_exit_fraction <= 1.0 or not (
+        0.0 <= config.stillness_congested_enter_fraction <= 1.0
+    ):
+        raise ValueError("stillness congestion fractions must be in [0, 1]")
+    if (
+        config.stillness_congested_exit_fraction
+        >= config.stillness_congested_enter_fraction
+    ):
+        raise ValueError(
+            "stillness_congested_exit_fraction must be below "
+            "stillness_congested_enter_fraction"
+        )
     occupancy_values = (
         config.dense_exit_bbox_union_occupancy,
         config.dense_enter_bbox_union_occupancy,

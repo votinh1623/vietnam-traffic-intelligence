@@ -29,6 +29,7 @@ class CongestionStateMachine:
         bbox_union_occupancy: float,
         count: int,
         mean_speed: float | None,
+        stalled_dense_fraction: float | None = None,
     ) -> str:
         speed = float("inf") if mean_speed is None else mean_speed
         # fixed_camera keeps the original design: a high count alone must be
@@ -41,6 +42,26 @@ class CongestionStateMachine:
         # experiments/uav_pipeline_e2e_v1_20260818 and its Option A rerun).
         # Whole-frame track count is the more trustworthy signal there.
         uav_motion = self.config.analytics_mode == "uav_motion"
+        # Detection-independent corroborating signal (see
+        # src/vn_traffic/analytics/stillness.py): bbox_union_occupancy/count
+        # both depend on the detector resolving individual boxes, which
+        # collapses under severe occlusion exactly when congestion is worst.
+        # Deliberately NOT gated by `speed <=` below: that speed is the mean
+        # of DETECTED roi tracks, which is exactly the signal a severely
+        # occluded jam starves -- the stillness fraction already encodes
+        # "not moving" directly from pixels, so requiring the detector's own
+        # (likely-diluted-by-the-flowing-lane) speed on top would reintroduce
+        # the same blind spot this signal exists to avoid.
+        stillness_congested = self.config.stillness_enabled and (
+            stalled_dense_fraction is not None
+            and stalled_dense_fraction
+            >= self.config.stillness_congested_enter_fraction
+        )
+        stillness_remains_congested = self.config.stillness_enabled and (
+            stalled_dense_fraction is not None
+            and stalled_dense_fraction
+            >= self.config.stillness_congested_exit_fraction
+        )
         if self.state == "CONGESTED":
             remains_congested = (
                 bbox_union_occupancy
@@ -55,7 +76,7 @@ class CongestionStateMachine:
                     and speed <= self.config.congested_release_speed_px_s
                 )
             ) and speed <= self.config.congested_release_speed_px_s
-            if remains_congested:
+            if remains_congested or stillness_remains_congested:
                 return "CONGESTED"
         congested = (
             bbox_union_occupancy
@@ -70,7 +91,7 @@ class CongestionStateMachine:
                 and speed <= self.config.congested_max_speed_px_s
             )
         ) and speed <= self.config.congested_max_speed_px_s
-        if congested:
+        if congested or stillness_congested:
             return "CONGESTED"
 
         if self.state in ("DENSE", "CONGESTED"):
@@ -108,8 +129,11 @@ class CongestionStateMachine:
         bbox_union_occupancy: float,
         count: int,
         mean_speed_px_s: float | None,
+        stalled_dense_fraction: float | None = None,
     ) -> StateTransition | None:
-        target = self._target(bbox_union_occupancy, count, mean_speed_px_s)
+        target = self._target(
+            bbox_union_occupancy, count, mean_speed_px_s, stalled_dense_fraction
+        )
         if target == self.state:
             self._candidate = self.state
             self._candidate_since = timestamp_s

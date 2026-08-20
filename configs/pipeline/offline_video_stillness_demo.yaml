@@ -1,0 +1,71 @@
+schema_version: 1
+
+# Verification config for analytics.stillness_enabled (Stage 2 wiring, see
+# src/vn_traffic/analytics/stillness.py and docs/benchmark_protocol.md
+# "Detection-independent stillness signal"). Points at the same rush-hour
+# clip that motivated the feature: a gridlocked motorcycle mass the
+# detector drew zero boxes over kept the pipeline at DENSE, never
+# CONGESTED. ROI is deliberately full-frame here (unlike offline_video.yaml's
+# hand-drawn trapezoid, which was calibrated for a different clip and does
+# not cover most of the jam in this one) so this run isolates whether the
+# stillness wiring itself works, not whether the ROI happens to be
+# calibrated for this camera.
+source: datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4
+model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+
+perception:
+  imgsz: 1280
+  confidence: 0.4
+  iou: 0.7
+  max_det: 300
+  show_labels: true
+  show_confidence: true
+  line_width: 2
+  device: "0"
+  tracker: bytetrack_custom.yaml
+
+video:
+  codec: mp4v
+  fallback_fps: 30.0
+  max_frames: 900
+
+output:
+  root: output/pipeline
+
+evidence:
+  enabled: false
+
+analytics:
+  enabled: true
+  included_classes: [bus, car, motorcycle, truck]
+  roi_polygon:
+    - [0.0, 0.0]
+    - [1.0, 0.0]
+    - [1.0, 1.0]
+    - [0.0, 1.0]
+  counting_line:
+    - [0.0, 0.5]
+    - [1.0, 0.5]
+  line_tolerance_px: 8
+  trajectory_history: 30
+  occupancy_grid_size_px: 1
+  stillness_enabled: true
+  stillness_downscale: 4
+  stillness_cell_px: 8
+  stillness_motion_threshold: 1.0
+  stillness_texture_threshold: 250.0
+  congestion:
+    dense_enter_bbox_union_occupancy: 0.30
+    dense_exit_bbox_union_occupancy: 0.25
+    congested_enter_bbox_union_occupancy: 0.50
+    congested_exit_bbox_union_occupancy: 0.40
+    dense_enter_count: 45
+    dense_exit_count: 40
+    congested_enter_count: 50
+    congested_exit_count: 45
+    congested_max_speed_px_s: 150
+    congested_release_speed_px_s: 170
+    transition_confirm_s: 2
+    release_confirm_s: 4
+    stillness_congested_enter_fraction: 0.30
+    stillness_congested_exit_fraction: 0.20

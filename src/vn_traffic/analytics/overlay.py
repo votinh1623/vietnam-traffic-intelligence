@@ -43,13 +43,15 @@ class AnalyticsOverlay:
         )
         up_total = sum(snapshot.cumulative_crossings.get("up", {}).values())
         down_total = sum(snapshot.cumulative_crossings.get("down", {}).values())
-        lines = (
+        lines = [
             f"State: {snapshot.congestion_state}",
             f"ROI tracks: {snapshot.roi_track_count}",
             f"BBox union occupancy: {snapshot.bbox_union_occupancy:.3f}",
             f"Mean speed: {speed}",
             f"Crossings up/down: {up_total}/{down_total}",
-        )
+        ]
+        if snapshot.stalled_dense_fraction is not None:
+            lines.append(f"Stalled-dense fraction: {snapshot.stalled_dense_fraction:.3f}")
         for index, text in enumerate(lines):
             y = 30 + index * 25
             cv2.putText(
