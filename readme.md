@@ -401,17 +401,23 @@ verified on one real clip, not a benchmark across multiple UAV sources.
   congestion is worst, a false-negative blind spot at the extreme end
   (observed directly: a real rush-hour clip with a gridlocked motorcycle
   mass the detector drew zero boxes over stayed at `DENSE` instead of
-  reaching `CONGESTED`). A detection-independent optical-flow + texture
-  "stalled and dense" signal (`analytics.stillness_enabled`,
-  `src/vn_traffic/analytics/stillness.py`) is now wired into the congestion
-  state machine as a corroborating `CONGESTED` trigger, unit-tested
-  end-to-end (including a zero-detected-tracks case). Re-running the exact
-  motivating clip with it enabled shows the wiring works correctly but its
-  Stage-1, single-frame-calibrated threshold does **not** yet transfer:
-  `stalled_dense_fraction` peaked at 0.214 across 900 real frames, below the
-  0.30 entry threshold, so that run stayed at `DENSE`. Multi-scene threshold
-  calibration is not done -- see
-  [benchmark protocol](docs/benchmark_protocol.md#detection-independent-stillness-signal-prototype).
+  reaching `CONGESTED`). Two automatic-trigger attempts using a
+  detection-independent optical-flow + texture signal
+  (`src/vn_traffic/analytics/stillness.py`) were built, wired into
+  `CongestionStateMachine`, and tested on the real motivating clip, and
+  both were root-caused as not working: the underlying feature (Laplacian
+  texture) cannot distinguish "packed vehicles" from "any other
+  static, detailed surface" (buildings, signage), so no threshold or ROI
+  choice fixes it -- confirmed by testing and rejecting two further
+  hypotheses (an activity mask, a road-only ROI) on real data. What does
+  work, real-pipeline-validated: a **visual heatmap**
+  (`stillness_heatmap.enabled`, decoupled from the state machine, using a
+  frame-relative threshold instead of a fixed one) that consistently tints
+  the packed cluster across the clip for a human operator to see, even
+  where the detector draws zero boxes. Automatic alerting for this failure
+  mode remains unsolved -- see
+  [benchmark protocol](docs/benchmark_protocol.md#detection-independent-stillness-signal-prototype)
+  for the full negative-result trail and untried next candidates.
 - The dashboard's live-frame write (`latest_frame.jpg`) can fail on Windows
   due to transient file locks (observed `PermissionError: [WinError 5]` from
   Defender/OneDrive scanning during a real run); this is handled as
@@ -456,7 +462,8 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
 - [x] Test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap (rejected: worse than baseline and worse than NWD on every locked-test metric; training required recovering from a CUDA OOM, a BatchNorm corruption at batch=1, and an Ultralytics `resume=True` bug -- see [benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)).
 - [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture. Now the leading candidate: both the loss-side (NWD) and architecture-side (P2) fixes have failed.
-- [ ] In progress: detection-independent "stalled and dense" congestion signal (optical flow + texture, `src/vn_traffic/analytics/stillness.py`) so severe-occlusion jams don't depend on detector recall the way `bbox_union_occupancy` does. Stage 1 (build, unit-test, validate against a real failure case) and Stage 2 (wire into the state machine as a `CONGESTED` corroborator, not gated by detected speed) are done and unit-tested; a real-pipeline re-run of the motivating clip shows the wiring works but Stage 1's threshold does not transfer (peaked 0.214 vs a 0.30 entry threshold over 900 real frames) -- multi-scene calibration remains open. Stage 3 (per-lane/multi-region decomposition, GMC ego-motion compensation so it also works in `uav_motion` mode) is not started.
+- [x] Detection-independent "stalled and dense" signal for severe-occlusion jams (`src/vn_traffic/analytics/stillness.py`): built, unit-tested, and real-pipeline-validated. The automatic `CONGESTED`-trigger path (wired into the state machine, not gated by detected speed) is a **negative result, root-caused**: Laplacian texture cannot distinguish packed vehicles from any other static detailed surface, so no threshold/ROI fix works (two further hypotheses tested and rejected on real data -- see benchmark protocol). The **visual heatmap** path (`stillness_heatmap.enabled`, decoupled from the state machine) **works**: real-pipeline-validated to consistently tint the packed cluster the detector misses, across the whole clip.
+- [ ] Open: an automatic trigger for this failure mode needs a different feature, not a retuned threshold -- candidates (neither implemented): low-confidence pre-NMS detector proposals as a coarse density prior, or a texture filter band-passed to vehicle/head size. Also open: per-lane/multi-region ROI decomposition (Stage 3) and GMC ego-motion compensation so the heatmap also works in `uav_motion` mode.
 - [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.

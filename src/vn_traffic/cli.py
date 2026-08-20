@@ -72,12 +72,24 @@ def main(argv: list[str] | None = None) -> int:
         from .evidence import EventEvidenceExporter
 
         evidence_exporter = EventEvidenceExporter(config.evidence)
+    heatmap_renderer = None
+    if config.stillness_heatmap.enabled:
+        from .analytics.stillness import StillnessHeatmapRenderer
+
+        heatmap_renderer = StillnessHeatmapRenderer(
+            downscale=config.stillness_heatmap.downscale,
+            cell_px=config.stillness_heatmap.cell_px,
+            motion_threshold=config.stillness_heatmap.motion_threshold,
+            texture_percentile=config.stillness_heatmap.texture_percentile,
+            alpha_max=config.stillness_heatmap.alpha_max,
+        )
     run_dir = PipelineRunner(
         config,
         perception,
         event_processor=analytics,
         overlay_renderer=overlay,
         evidence_exporter=evidence_exporter,
+        heatmap_renderer=heatmap_renderer,
     ).run()
     print(f"Pipeline completed: {run_dir}")
     return 0

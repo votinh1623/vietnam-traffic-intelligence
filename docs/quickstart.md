@@ -58,6 +58,9 @@ python run_pipeline.py --max-frames 30 --imgsz 640
 
 # UAV moving-camera mode with global motion compensation
 python run_pipeline.py --config configs/pipeline/offline_video_uav_gmc.yaml
+
+# Visual heatmap for severely occluded jams the detector draws no boxes over
+python run_pipeline.py --config configs/pipeline/offline_video_stillness_heatmap_demo.yaml
 ```
 
 The default config references the validation-selected v5 checkpoint. Override
@@ -65,6 +68,15 @@ The default config references the validation-selected v5 checkpoint. Override
 `configs/pipeline/offline_video_uav_gmc.yaml` for moving/panning UAV footage
 (`analytics.mode: uav_motion`, `gmc_enabled: true`) instead of the
 fixed-camera default.
+
+`stillness_heatmap.enabled: true` (top-level, independent of `analytics.*`)
+tints `annotated.mp4` wherever a region is both visually dense and
+near-motionless -- a real, validated visual aid for severe-occlusion jams
+the detector cannot resolve into boxes. It is a human-facing visualization
+only, not an automatic alert: see
+[benchmark protocol](benchmark_protocol.md#detection-independent-stillness-signal-prototype)
+for why a fixed-threshold automatic trigger for this same failure mode was
+tried and rejected.
 
 ## Dashboard
 

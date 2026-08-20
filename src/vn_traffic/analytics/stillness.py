@@ -200,3 +200,104 @@ class StillnessTracker:
             roi_polygon_px, width, height, grid_height, grid_width
         )
         return stalled_dense_fraction(mask, roi_mask=roi_mask)
+
+
+def stalled_dense_score(
+    prev_gray_small: np.ndarray,
+    curr_gray_small: np.ndarray,
+    *,
+    cell_px: int,
+    motion_threshold: float,
+    texture_percentile: float = 90.0,
+) -> np.ndarray:
+    """Per-cell continuous "stalled and dense" concern score in [0, 1].
+
+    Unlike `stalled_dense_mask` (a fixed absolute texture threshold, meant
+    to be comparable across frames for a state-machine trigger -- see
+    `StillnessTracker`), this uses a frame-RELATIVE texture threshold (this
+    frame's own `texture_percentile`). A relative threshold cannot produce a
+    scalar that is comparable across frames or scenes (by construction it
+    always flags roughly the same top fraction of any frame, regardless of
+    how severe the scene actually is -- confirmed empirically: a fixed
+    absolute threshold's fraction stayed flat at ~0.15-0.20 across an entire
+    real 900-frame clip whether the visible scene was light or gridlocked,
+    see docs/benchmark_protocol.md). It IS however validated to spatially
+    localize a real packed/stalled cluster well, frame by frame, across a
+    real clip -- see scripts/diagnose_stillness.py's heatmap mode. Intended
+    for a visual heatmap a human operator reads, not as a state-machine
+    trigger.
+    """
+    motion = grid_mean(optical_flow_magnitude(prev_gray_small, curr_gray_small), cell_px)
+    texture = grid_mean(texture_density(curr_gray_small), cell_px)
+    texture_threshold = float(np.percentile(texture, texture_percentile))
+    still = motion < motion_threshold
+    denom = max(float(texture.max() - texture_threshold), 1e-6)
+    normalized_texture = np.clip((texture - texture_threshold) / denom, 0.0, 1.0)
+    return np.where(still, normalized_texture, 0.0).astype(np.float32)
+
+
+def render_heatmap_overlay(
+    frame_bgr: np.ndarray, score_grid: np.ndarray, *, alpha_max: float = 0.5
+) -> np.ndarray:
+    """Blend `score_grid` onto `frame_bgr` as a JET-colormap heatmap.
+
+    Cells with score 0 are left untouched (alpha 0) so the original frame
+    shows through everywhere the signal did not fire, not just faded.
+    """
+    height, width = frame_bgr.shape[:2]
+    heat_u8 = np.clip(score_grid * 255.0, 0, 255).astype(np.uint8)
+    heat_full = cv2.resize(heat_u8, (width, height), interpolation=cv2.INTER_NEAREST)
+    heat_color = cv2.applyColorMap(heat_full, cv2.COLORMAP_JET)
+    alpha = (heat_full.astype(np.float32) / 255.0 * alpha_max)[..., None]
+    blended = frame_bgr.astype(np.float32) * (1 - alpha) + heat_color.astype(
+        np.float32
+    ) * alpha
+    return blended.astype(np.uint8)
+
+
+class StillnessHeatmapRenderer:
+    """Stateful per-frame wrapper: computes `stalled_dense_score` from
+    consecutive raw frames and blends it onto a (possibly already
+    detection/analytics-annotated) display frame. Purely a visualization
+    aid -- independent of `TrafficAnalytics`/`CongestionStateMachine`, does
+    not affect any deterministic analytics output or state decision. See
+    `stalled_dense_score` for why this uses a frame-relative threshold
+    instead of `StillnessTracker`'s fixed one.
+    """
+
+    def __init__(
+        self,
+        *,
+        downscale: int = 4,
+        cell_px: int = 8,
+        motion_threshold: float = 1.0,
+        texture_percentile: float = 90.0,
+        alpha_max: float = 0.5,
+    ):
+        self.downscale = downscale
+        self.cell_px = cell_px
+        self.motion_threshold = motion_threshold
+        self.texture_percentile = texture_percentile
+        self.alpha_max = alpha_max
+        self._previous_small_gray: np.ndarray | None = None
+
+    def render(self, raw_frame_bgr: np.ndarray, display_frame_bgr: np.ndarray) -> np.ndarray:
+        """`raw_frame_bgr` drives the motion/texture computation (must be the
+        unannotated source frame); the resulting heatmap is blended onto
+        `display_frame_bgr` (which may already carry detection boxes/other
+        overlays) and returned. Returns `display_frame_bgr` unchanged on the
+        first call (no previous frame yet).
+        """
+        small = to_small_gray(raw_frame_bgr, self.downscale)
+        if self._previous_small_gray is None:
+            self._previous_small_gray = small
+            return display_frame_bgr
+        score = stalled_dense_score(
+            self._previous_small_gray,
+            small,
+            cell_px=self.cell_px,
+            motion_threshold=self.motion_threshold,
+            texture_percentile=self.texture_percentile,
+        )
+        self._previous_small_gray = small
+        return render_heatmap_overlay(display_frame_bgr, score, alpha_max=self.alpha_max)

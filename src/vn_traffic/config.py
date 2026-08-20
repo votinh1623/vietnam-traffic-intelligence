@@ -117,6 +117,29 @@ class AnalyticsConfig:
 
 
 @dataclass(frozen=True)
+class StillnessHeatmapConfig:
+    """Visual-only heatmap of src/vn_traffic/analytics/stillness.py's
+    "stalled and dense" signal, independent of TrafficAnalytics/
+    CongestionStateMachine. Uses a frame-RELATIVE texture threshold
+    (texture_percentile of that frame's own distribution), unlike
+    AnalyticsConfig.stillness_* (a fixed absolute threshold meant to be
+    comparable across frames for a state-machine trigger). A relative
+    threshold cannot drive a cross-frame-comparable scalar decision (see
+    stillness.stalled_dense_score's docstring), but is validated to
+    spatially localize a real packed/stalled cluster well frame by frame --
+    this exists to show that to a human operator, not to automate a
+    decision.
+    """
+
+    enabled: bool = False
+    downscale: int = 4
+    cell_px: int = 8
+    motion_threshold: float = 1.0
+    texture_percentile: float = 90.0
+    alpha_max: float = 0.5
+
+
+@dataclass(frozen=True)
 class EvidenceConfig:
     enabled: bool = False
     keyframe_event_types: tuple[str, ...] = (
@@ -151,6 +174,7 @@ class PipelineConfig:
     config_path: Path | None = None
     analytics: AnalyticsConfig = AnalyticsConfig()
     evidence: EvidenceConfig = EvidenceConfig()
+    stillness_heatmap: StillnessHeatmapConfig = StillnessHeatmapConfig()
 
     def with_overrides(
         self,
@@ -407,6 +431,38 @@ def _event_types(value: Any, name: str, defaults: tuple[str, ...]) -> tuple[str,
     return tuple(dict.fromkeys(value))
 
 
+def _load_stillness_heatmap(raw: dict[str, Any]) -> StillnessHeatmapConfig:
+    defaults = StillnessHeatmapConfig()
+    section = _mapping(raw.get("stillness_heatmap"), "stillness_heatmap")
+    config = StillnessHeatmapConfig(
+        enabled=bool(section.get("enabled", defaults.enabled)),
+        downscale=int(section.get("downscale", defaults.downscale)),
+        cell_px=int(section.get("cell_px", defaults.cell_px)),
+        motion_threshold=float(
+            section.get("motion_threshold", defaults.motion_threshold)
+        ),
+        texture_percentile=float(
+            section.get("texture_percentile", defaults.texture_percentile)
+        ),
+        alpha_max=float(section.get("alpha_max", defaults.alpha_max)),
+    )
+    validate_stillness_heatmap_config(config)
+    return config
+
+
+def validate_stillness_heatmap_config(config: StillnessHeatmapConfig) -> None:
+    if config.downscale < 1:
+        raise ValueError("stillness_heatmap.downscale must be at least one")
+    if config.cell_px < 1:
+        raise ValueError("stillness_heatmap.cell_px must be at least one")
+    if config.motion_threshold < 0:
+        raise ValueError("stillness_heatmap.motion_threshold cannot be negative")
+    if not 0.0 <= config.texture_percentile <= 100.0:
+        raise ValueError("stillness_heatmap.texture_percentile must be in [0, 100]")
+    if not 0.0 <= config.alpha_max <= 1.0:
+        raise ValueError("stillness_heatmap.alpha_max must be in [0, 1]")
+
+
 def _load_evidence(raw: dict[str, Any]) -> EvidenceConfig:
     defaults = EvidenceConfig()
     evidence = _mapping(raw.get("evidence"), "evidence")
@@ -469,6 +525,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         config_path=config_path,
         analytics=_load_analytics(raw),
         evidence=_load_evidence(raw),
+        stillness_heatmap=_load_stillness_heatmap(raw),
     )
     validate_pipeline_config(config)
     return config
@@ -499,6 +556,7 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
         raise ValueError("video.max_frames must be positive when provided")
     validate_analytics_config(config.analytics)
     validate_evidence_config(config.evidence)
+    validate_stillness_heatmap_config(config.stillness_heatmap)
 
 
 def validate_analytics_config(config: AnalyticsConfig) -> None:

@@ -446,14 +446,76 @@ disclosed as "not calibrated across multiple scenes" rather than shipped as
 final. The threshold was deliberately left as measured here, not tuned
 downward after the fact to force a passing demo.
 
-**Next steps, explicitly staged.** Stage 2 remainder: calibrate
-`stillness_motion_threshold`/`stillness_texture_threshold`/
-`stillness_congested_enter_fraction` against multiple real scenes (not one
-frame's percentile), and reconsider whether stillness should be restricted
-to the same `roi_polygon` as occupancy at all -- coupling the two means a
-too-broad ROI dilutes the stillness signal exactly as it dilutes occupancy,
-which is what happened in this run. Stage 3 (not started): decompose a
-single ROI into multiple named sub-regions (lanes) so "one lane jammed, one
-lane flowing" produces two distinct states instead of one diluted aggregate
-number, and combine this signal with GMC so it also works under camera
-pan/zoom.
+**Two follow-up hypotheses tested and rejected, before finding what
+actually works.** After the flat-fraction finding above, two explanations
+were tested directly on real data before concluding the fixed-threshold
+scalar approach itself was the wrong tool:
+
+1. *Background contamination (buildings always static+textured, diluting
+   the fraction)* -- tested by building a per-cell "ever showed motion in
+   this 900-frame clip" activity mask. Rejected: the packed motorcycle mass
+   itself never moved during this whole clip (a persistent gridlock, not
+   one that forms partway through), so it looks identical to a building
+   under an activity-history test -- this mask would exclude the jam
+   itself, not just buildings.
+2. *ROI too broad (full-frame dilutes both occupancy and stillness alike)*
+   -- tested by restricting the fixed-threshold fraction to a road-only ROI
+   (excluding the top ~25% building strip). Rejected: `mean=0.142,
+   std=0.010` versus full-frame's `mean=0.170, std=0.016` -- removing
+   buildings did not reveal a hidden discriminative signal; the fraction
+   stayed just as flat.
+
+**Root cause, confirmed.** The fixed absolute `texture_threshold` cannot
+discriminate severity because Laplacian-based "texture" has no notion of
+*vehicle-ness* -- a packed motorcycle mass and a building facade both
+register as "high spatial-frequency content," so neither a better ROI nor a
+motion-history filter can separate them; the feature choice itself was the
+limitation, not the threshold value or the region it was applied to.
+
+**What actually works: a per-frame-relative heatmap, not a cross-frame
+scalar.** The single-frame Stage 1 diagnostic (a `texture_percentile` of
+*that frame's own* distribution, not a fixed absolute number) had already
+spatially localized the jam correctly -- the flat-fraction problem only
+appeared when that was converted into a fixed absolute threshold for a
+comparable-over-time scalar. `stalled_dense_score()` restores the
+frame-relative approach and returns a continuous per-cell score instead of
+a hard mask, rendered as a heatmap
+(`render_heatmap_overlay`/`StillnessHeatmapRenderer`) -- a visualization
+for a human operator, deliberately not fed back into
+`CongestionStateMachine`. Checked on four real frames spread across the
+900-frame clip (100, 400, 700, 840): the tinted region consistently
+concentrates on the packed motorcycle/pedestrian mass in every frame, not
+on buildings or individually-moving vehicles.
+
+Wired as a fully independent pipeline layer (`stillness_heatmap.*` in
+`configs/pipeline/*.yaml`, `StillnessHeatmapConfig`, `PipelineRunner`'s new
+optional `heatmap_renderer`) so it does not require
+`analytics.stillness_enabled`/`enabled` at all. Verified with a real
+pipeline run per project convention:
+`configs/pipeline/offline_video_stillness_heatmap_demo.yaml`, 300 frames of
+the same motivating clip (`output/pipeline/run39`) -- the tint visibly
+covers the same gridlocked motorcycle mass the detector draws zero boxes
+over, while individually-detected vehicles on open road stay untinted.
+9 unit tests (`tests/test_stillness.py`, `tests/test_pipeline_config.py`)
+cover the score function, the blend/no-op behavior, and config
+load/validation.
+
+**Next steps, explicitly staged.** The scalar `CongestionStateMachine`
+trigger (Stage 2) is now root-caused, not just "needs more calibration
+data": a fixed-threshold Laplacian scalar structurally cannot discriminate
+severity, so recalibrating its threshold across more scenes would not fix
+it -- it would need a different feature entirely (see "next candidate
+features" below), which is a bigger, not-yet-scoped investment, not a
+tuning pass. The heatmap (Stage 2b) is done and real-pipeline-validated as
+a visualization aid, decoupled from that scalar. Stage 3 (not started):
+decompose a single ROI into multiple named sub-regions (lanes) so "one lane
+jammed, one lane flowing" produces two distinct states instead of one
+diluted aggregate number -- worth revisiting once a working per-cell
+severity feature exists, since region decomposition alone does not fix the
+underlying feature-choice problem either. Next candidate features for a
+real automatic trigger, neither implemented nor validated yet: low-confidence
+pre-NMS detector proposals as a coarse density prior (reintroduces partial
+detector dependence, but tolerant of occlusion since it does not need
+resolved instances), or a texture filter band-passed to the vehicle/head
+size at this camera's resolution instead of raw Laplacian's scale-agnostic
+response.

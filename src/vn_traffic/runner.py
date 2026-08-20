@@ -50,6 +50,10 @@ class OverlayRenderer(Protocol):
     def draw(self, frame: Any, snapshot: AnalyticsSnapshot) -> Any: ...
 
 
+class HeatmapRenderer(Protocol):
+    def render(self, raw_frame: Any, display_frame: Any) -> Any: ...
+
+
 class EvidenceExporter(Protocol):
     def export(
         self,
@@ -140,12 +144,14 @@ class PipelineRunner:
         event_processor: AnalyticsProcessor | None = None,
         overlay_renderer: OverlayRenderer | None = None,
         evidence_exporter: EvidenceExporter | None = None,
+        heatmap_renderer: HeatmapRenderer | None = None,
     ):
         self.config = config
         self.perception = perception
         self.event_processor = event_processor or NoEvents()
         self.overlay_renderer = overlay_renderer
         self.evidence_exporter = evidence_exporter or NoEvidence()
+        self.heatmap_renderer = heatmap_renderer
 
     def run(self) -> Path:
         if not self.config.source.is_file():
@@ -221,6 +227,7 @@ class PipelineRunner:
             "analytics": asdict(self.config.analytics),
             "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
             "evidence_policy": asdict(self.config.evidence),
+            "stillness_heatmap": asdict(self.config.stillness_heatmap),
             "outputs": {
                 "annotated_video": "annotated.mp4",
                 "tracks": "tracks.csv",
@@ -265,6 +272,12 @@ class PipelineRunner:
                     annotated = result.annotated_frame
                     if annotated.shape[1] != width or annotated.shape[0] != height:
                         annotated = cv2.resize(annotated, (width, height))
+                    if self.heatmap_renderer is not None:
+                        # Drawn from the raw frame (motion/texture need the
+                        # unannotated source) but blended under the
+                        # detection boxes/analytics text drawn below, so
+                        # those stay legible on top of the heatmap tint.
+                        annotated = self.heatmap_renderer.render(frame, annotated)
                     for track in result.tracks:
                         track_writer.writerow(track.to_dict())
                         track_count += 1

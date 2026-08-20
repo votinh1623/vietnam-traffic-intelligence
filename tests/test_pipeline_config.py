@@ -77,6 +77,46 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertEqual(config.evidence.pre_event_s, 1.5)
             self.assertEqual(config.evidence.post_event_s, 2.5)
 
+    def test_loads_stillness_heatmap_settings(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "stillness_heatmap:\n"
+                "  enabled: true\n"
+                "  downscale: 2\n"
+                "  cell_px: 4\n"
+                "  motion_threshold: 0.8\n"
+                "  texture_percentile: 85\n"
+                "  alpha_max: 0.3\n",
+                encoding="utf-8",
+            )
+            config = load_pipeline_config(path)
+            self.assertTrue(config.stillness_heatmap.enabled)
+            self.assertEqual(config.stillness_heatmap.downscale, 2)
+            self.assertEqual(config.stillness_heatmap.cell_px, 4)
+            self.assertEqual(config.stillness_heatmap.motion_threshold, 0.8)
+            self.assertEqual(config.stillness_heatmap.texture_percentile, 85)
+            self.assertEqual(config.stillness_heatmap.alpha_max, 0.3)
+
+    def test_stillness_heatmap_disabled_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text("source: input.mp4\nmodel: model.pt\n", encoding="utf-8")
+            config = load_pipeline_config(path)
+            self.assertFalse(config.stillness_heatmap.enabled)
+
+    def test_rejects_invalid_stillness_heatmap_percentile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "stillness_heatmap:\n  texture_percentile: 150\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "texture_percentile"):
+                load_pipeline_config(path)
+
     def test_loads_prolonged_stop_policy(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "pipeline.yaml"
