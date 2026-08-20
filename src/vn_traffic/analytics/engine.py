@@ -318,7 +318,9 @@ class TrafficAnalytics:
                 "the full frame. This is 2D image-plane motion compensation "
                 "only (no GPS/BEV georeferencing) and can lose lock under a "
                 "hard scene cut, fast motion, or low-texture frames -- see "
-                "gmc_consecutive_failures_at_end below."
+                "gmc_total_failures (run-wide) and gmc_consecutive_failures_at_end "
+                "(streak still active at the last frame only, not proof the run "
+                "never lost lock) below."
             )
         elif self.config.analytics_mode == "uav_motion":
             mode_note = (
@@ -342,6 +344,9 @@ class TrafficAnalytics:
             "gmc_enabled": self.config.gmc_enabled,
             "gmc_consecutive_failures_at_end": (
                 self._motion.consecutive_failures if self._motion is not None else None
+            ),
+            "gmc_total_failures": (
+                self._motion.total_failures if self._motion is not None else None
             ),
             "stillness_enabled": self.config.stillness_enabled,
             "state_frames": dict(self._frames_by_state),

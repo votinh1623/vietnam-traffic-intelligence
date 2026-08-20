@@ -323,33 +323,65 @@ accuracy.
 
 ## UAV moving-camera analytics (GMC)
 
-Two fixes address the failure above, both re-run on the same real aerial clip
-(`configs/pipeline/offline_video_uav_gmc.yaml`, 300 frames, VisDrone baseline
-checkpoint). First, `analytics.mode: uav_motion` drops the fixed
+**This section previously overclaimed GMC's effect and is corrected here
+with a real A/B test.** `analytics.mode: uav_motion` drops the fixed
 ground-anchored ROI in favor of a full-frame region by default, and the
 congestion state machine stops requiring ROI occupancy to corroborate a high
 track count in this mode (`fixed_camera` keeps its original, tested
-co-requirement unchanged). This alone still under-triggered: full-frame
-occupancy tops out at 0.132 even in a visibly jammed scene, because a wide
-aerial frame is mostly background.
+co-requirement unchanged -- and per the confidence/count experiment above,
+that co-requirement's absence is exactly what made `uav_motion`'s
+count-alone trigger unsafe on `traffic_normal.mp4`). `analytics.gmc_enabled`
+additionally adds `src/vn_traffic/analytics/motion.py`: an ECC-based
+(`cv2.findTransformECC`) global motion compensator that re-projects a
+hand-drawn ROI/counting-line from frame 0 into every later frame instead of
+collapsing to the full frame. The transform direction is easy to get
+backwards without symptom; it is verified in `tests/test_motion.py` against
+a known synthetic pixel shift (the first implementation was wrong and
+failed that test before being corrected).
 
-Second, `analytics.gmc_enabled` adds `src/vn_traffic/analytics/motion.py`: an
-ECC-based (`cv2.findTransformECC`) global motion compensator that re-projects
-a hand-drawn ROI/counting-line from frame 0 into every later frame instead of
-collapsing to the full frame, restoring location-specific occupancy under
-pan/zoom. The transform direction is easy to get backwards without symptom;
-it is verified in `tests/test_motion.py` against a known synthetic pixel
-shift (the first implementation was wrong and failed that test before being
-corrected). On the real clip, `gmc_consecutive_failures_at_end` was 0 across
-all 300 frames (no lost lock), and the run correctly transitioned
-`NORMAL`->`CONGESTED` at frame 51 with a location-specific ROI, instead of
-staying `NORMAL` for all 300 frames as the original run did.
+The readme previously claimed GMC (not just `uav_motion` mode) "fixed"
+congestion detection on this clip. That claim was never isolated from
+`uav_motion` mode's own count-alone trigger, and a direct A/B check shows
+it does not hold: re-running the same clip, model, ROI, and thresholds with
+only `gmc_enabled` toggled --
+
+| | GMC off (`run50`) | GMC on (`run51`) |
+|---|---:|---:|
+| Transition frame | 64 (t=2.14s) | 65 (t=2.17s) |
+| State | NORMAL 64 / CONGESTED 236 | NORMAL 65 / CONGESTED 235 |
+| Max occupancy | 0.174 | 0.126 |
+| Max ROI count | 171 | 130 |
+
+-- both reach `CONGESTED` at effectively the same frame (1 frame / 33ms
+apart, within noise). **`uav_motion` mode's count-alone trigger causes the
+transition regardless of GMC**; GMC changes the occupancy/count magnitudes
+(a more accurate, location-specific ROI under pan/zoom, not diluted the
+same way a static full-frame region is) but is not what flips the state
+here. GMC's real, still-untested value proposition is ROI/counting-line
+*positional accuracy* under pan/zoom, not congestion-state triggering --
+that would need a positional-accuracy check (e.g. does the re-projected ROI
+actually track a fixed real-world region), not a state-transition
+comparison, and has not been done.
+
+The original "0 GMC lock failures across all 300 frames" claim was also an
+artifact of only reporting `gmc_consecutive_failures_at_end` (the failure
+streak still active at the very last frame). `GlobalMotionCompensator` now
+also tracks `total_failures` (never resets, unlike `consecutive_failures`),
+exposed as `gmc_total_failures` in `summary.json`
+(`tests/test_motion.py::test_total_failures_does_not_reset_on_recovery`
+covers the resets vs. accumulates distinction). Re-running with this field
+available: `run51` (GMC on) shows `gmc_total_failures=1` despite
+`gmc_consecutive_failures_at_end=0` -- the run did lose lock once and
+recover, which the old single-field reporting would have hidden entirely.
 
 GMC is still only 2D image-plane motion compensation, not GPS/BEV
 georeferencing, and can lose lock under a hard scene cut, fast motion, or
-low-texture frames -- check `gmc_consecutive_failures_at_end` in
-`summary.json` before trusting a given run's geometry. These runs are local
-ad-hoc reruns, not a new hashed experiment record.
+low-texture frames -- check `gmc_total_failures` (run-wide) and
+`gmc_consecutive_failures_at_end` (end-of-run streak only) in
+`summary.json` before trusting a given run's geometry. `run50` and `run51`
+are local ad-hoc reruns (`configs/pipeline/offline_video_uav_gmc.yaml` and
+its `offline_video_uav_gmc_off_ab.yaml` sibling), not a new hashed
+experiment record.
 
 ## Detection-independent stillness signal (prototype)
 

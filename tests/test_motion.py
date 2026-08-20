@@ -112,6 +112,29 @@ class GlobalMotionCompensatorTests(unittest.TestCase):
             gmc.cumulative_transform, transform_after_good_estimate
         )
 
+    def test_total_failures_does_not_reset_on_recovery(self) -> None:
+        # consecutive_failures alone can read 0 at the end of a run that
+        # genuinely lost lock earlier and recovered -- total_failures is
+        # the run-wide count a caller needs to know that happened at all.
+        frame0 = _synthetic_textured_frame(seed=4)
+        shift_x, shift_y = 5.0, 2.0
+        frame1 = _shift_frame(frame0, shift_x, shift_y)
+        blank = np.zeros_like(frame0)
+
+        gmc = GlobalMotionCompensator(downscale=1)
+        gmc.update(frame0)
+        gmc.update(frame1)  # good pair: establishes real motion history
+        gmc.update(blank)  # fails (frame1 -> blank)
+        gmc.update(blank)  # fails (blank -> blank)
+        failures_after_blanks = gmc.total_failures
+        self.assertGreaterEqual(failures_after_blanks, 2)
+
+        gmc.update(frame0)  # still fails (blank -> frame0)
+        gmc.update(frame1)  # recovers: (frame0 -> frame1) is a real pair again
+
+        self.assertEqual(gmc.consecutive_failures, 0)
+        self.assertGreaterEqual(gmc.total_failures, failures_after_blanks + 1)
+
 
 if __name__ == "__main__":
     unittest.main()

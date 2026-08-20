@@ -30,6 +30,33 @@ from benchmark_tracking import (
 from hota_metrics import compute_hota, compute_many_hota
 
 
+def evaluate_sequence(
+    sequence: str,
+    ground_truth: pd.DataFrame,
+    predictions: pd.DataFrame,
+    class_names: list[str],
+) -> dict[str, dict]:
+    """Per-(sequence, class) HOTA results for one sequence.
+
+    Deliberately does NOT pre-filter `ground_truth` to `predictions["frame"]`:
+    `compute_hota` -> `build_hota_data()` already unions GT and prediction
+    frames itself (matching tracking_metrics.py's MOTA/IDF1 accumulator), so
+    a GT frame with zero predictions correctly becomes a false-negative
+    frame. Pre-filtering here would discard those frames before the union
+    ever ran, silently inflating HOTA/DetA by hiding undetected GT -- this
+    is the exact bug tests/test_evaluate_hota.py's
+    test_gt_only_frame_is_not_dropped_from_a_sequence regression-tests by
+    calling this function directly, not just hota_metrics.compute_hota
+    (which was already correct before that bug existed in this file).
+    """
+    results: dict[str, dict] = {}
+    for class_name in class_names:
+        gt_class = ground_truth[ground_truth["class_name"] == class_name]
+        pred_class = predictions[predictions["class_name"] == class_name]
+        results[f"{sequence}:{class_name}"] = compute_hota(gt_class, pred_class)
+    return results
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -74,18 +101,9 @@ def main() -> int:
         annotation_hashes[sequence] = file_sha256(annotation_path)
         ground_truth = load_visdrone_ground_truth(annotation_path, class_map)
         predictions = pd.read_csv(prediction_path)
-        # Do NOT pre-filter ground_truth to predictions["frame"] here:
-        # build_hota_data() already unions GT and prediction frames itself
-        # (matching tracking_metrics.py's MOTA/IDF1 accumulator), so a GT
-        # frame with zero predictions correctly becomes a false-negative
-        # frame. Pre-filtering here discarded those frames before the union
-        # ever ran, silently inflating HOTA/DetA by hiding undetected GT.
-        for class_name in class_names:
-            gt_class = ground_truth[ground_truth["class_name"] == class_name]
-            pred_class = predictions[predictions["class_name"] == class_name]
-            results_by_name[f"{sequence}:{class_name}"] = compute_hota(
-                gt_class, pred_class
-            )
+        results_by_name.update(
+            evaluate_sequence(sequence, ground_truth, predictions, class_names)
+        )
 
     summary = compute_many_hota(results_by_name)
     elapsed_s = time.perf_counter() - started

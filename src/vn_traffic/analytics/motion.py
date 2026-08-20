@@ -62,6 +62,11 @@ class GlobalMotionCompensator:
         self._previous_small_gray: np.ndarray | None = None
         self.cumulative_transform = IDENTITY_TRANSFORM.copy()
         self.consecutive_failures = 0
+        # Unlike consecutive_failures (reset to 0 on the next success),
+        # total_failures never resets -- consecutive_failures==0 at the end
+        # of a run only proves the LAST frame locked, not that the run
+        # never lost lock; this is the run-wide count callers need for that.
+        self.total_failures = 0
         self.frames_seen = 0
 
     def _to_small_gray(self, frame_bgr: Any) -> np.ndarray:
@@ -119,6 +124,7 @@ class GlobalMotionCompensator:
             )
         else:
             self.consecutive_failures += 1
+            self.total_failures += 1
         return success
 
     def warp_points(

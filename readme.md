@@ -256,17 +256,23 @@ ByteTrack):
 **Evidence.** `experiments/tracking_visdrone_mot_val_v1_20260818/run.json`,
 `experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`,
 `benchmark_outputs/tracking_visdrone_mot_botsort/{run.json,hota.json}`,
-`benchmark_outputs/tracking_visdrone_mot_botsort_reid/{run.json,hota.json}`.
+`benchmark_outputs/tracking_visdrone_mot_botsort_reid/{run.json,hota.json}`
+(these `benchmark_outputs/` paths are local and gitignored; the committed,
+hash-backed record of the corrected HOTA numbers below is
+`experiments/tracking_hota_corrected_20260820/run.json`).
 
 **Caveat.** This is a provenance-controlled integration baseline, not an
 official VisDrone benchmark (no ignore-region handling) or Vietnam-domain
 evidence. `scripts/evaluate_hota.py` originally pre-filtered ground truth
 to only prediction frames before computing HOTA, silently dropping any
 frame where the tracker predicted zero boxes instead of scoring it as a
-false negative -- a real bug (32-33 frames affected per tracker out of
-2,846), now fixed and re-run; the table above is the corrected result.
-The fix moved every number by no more than 0.002, too small to change any
-conclusion here, but the original numbers should not be cited. HOTA's
+false negative -- a real bug (32 frames for ByteTrack, 33 for BoT-SORT and
+BoT-SORT+ReID, out of 2,846), now fixed and re-run; the table above is the
+corrected result, with the buggy-vs-corrected comparison and the exact
+affected-frame count per tracker committed in
+`experiments/tracking_hota_corrected_20260820/run.json`. The fix moved
+every number by no more than 0.002, too small to change any conclusion
+here, but the original numbers should not be cited. HOTA's
 DetA/AssA decomposition (via TrackEval, see
 [benchmark protocol](docs/benchmark_protocol.md)) shows DetA is nearly
 identical across all three trackers (0.196-0.206) while AssA moves with the
@@ -358,18 +364,32 @@ evidence export) run end to end on 300 real 1080p UAV frames.
 |---|---:|
 | End-to-end throughput | 3.70 FPS (RTX 3050) |
 | Congestion detection, fixed camera ROI | **Failed** — stayed `NORMAL` for all 300 frames despite a visibly congested scene (static occupancy peaked at 0.296) |
-| Congestion detection, `uav_motion` + GMC | **Fixed** — correctly transitioned `NORMAL`→`CONGESTED` at frame 51, with 0 GMC lock failures across all 300 frames |
+| Congestion detection, `uav_motion` mode | **Fixed** — transitioned `NORMAL`→`CONGESTED` at frame ~64-65, **with or without GMC** (A/B tested, see caveat) |
 
 **Evidence.** `experiments/uav_pipeline_e2e_v1_20260818/run.json`; GMC
 transform direction verified against a synthetic shift in
-`tests/test_motion.py`; full writeup:
+`tests/test_motion.py`; A/B: `output/pipeline/run50` (GMC off) vs `run51`
+(GMC on); full writeup:
 [benchmark protocol](docs/benchmark_protocol.md#uav-moving-camera-analytics-gmc).
 
-**Caveat.** GMC (`cv2.findTransformECC`) is 2D image-plane motion
-compensation only — not GPS/BEV georeferencing — and can lose lock on hard
-scene cuts, fast motion, or low-texture frames; `gmc_consecutive_failures_at_end`
-in `summary.json` must be checked per run, not assumed zero. This fix is
-verified on one real clip, not a benchmark across multiple UAV sources.
+**Caveat.** This fix is `analytics.mode: uav_motion`'s count-alone
+congestion trigger, not GMC: a direct A/B (same clip/model/ROI/thresholds,
+only `gmc_enabled` toggled) transitions to `CONGESTED` at frame 64 without
+GMC and frame 65 with it — indistinguishable within noise. An earlier
+version of this table credited GMC specifically for the fix without
+isolating it from `uav_motion` mode; that was not supported by evidence
+and is corrected here. GMC's value is ROI/counting-line *positional*
+accuracy under pan/zoom, not congestion triggering, and that positional
+claim itself has not been independently benchmarked. GMC
+(`cv2.findTransformECC`) is 2D image-plane motion compensation only — not
+GPS/BEV georeferencing — and can lose lock on hard scene cuts, fast
+motion, or low-texture frames; the previous "0 GMC lock failures" claim
+only checked `gmc_consecutive_failures_at_end` (the streak active at the
+last frame), which reads 0 even on a run that lost and regained lock
+mid-run — confirmed directly: `run51` shows `gmc_total_failures=1` despite
+`gmc_consecutive_failures_at_end=0`. Check both fields in `summary.json`,
+not consecutive alone. This remains verified on one real clip, not a
+benchmark across multiple UAV sources.
 
 ## Known limitations
 
@@ -403,7 +423,14 @@ verified on one real clip, not a benchmark across multiple UAV sources.
   the VLM despite the policy name implying it would.
 - Global motion compensation (`analytics.gmc_enabled`) is 2D image-plane
   alignment only, not BEV or GPS/IMU-based, and can lose lock on hard cuts,
-  fast pans, or low-texture frames.
+  fast pans, or low-texture frames -- check `gmc_total_failures` (run-wide),
+  not just `gmc_consecutive_failures_at_end` (end-of-run streak only, reads
+  0 even after a mid-run lock loss that recovered). Its congestion-detection
+  fix on the UAV clip was A/B-confirmed to come from `analytics.mode:
+  uav_motion`'s count-alone trigger, not GMC itself (same transition frame
+  with GMC on or off); GMC's own positional-accuracy value (does the
+  re-projected ROI track a fixed real-world region under pan/zoom) has not
+  been independently benchmarked.
 - Congestion detection depends entirely on the detector resolving individual
   boxes (`bbox_union_occupancy`, ROI track count). Under severe occlusion --
   a tightly packed, stalled crowd -- detector recall collapses exactly when
@@ -470,7 +497,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Freeze a separate run16 development set and record initial RTX model candidates.
 - [x] Pin, hash, and smoke-test the Qwen3-VL-2B FP16 development adapter.
 - [x] Demo existing pretrained VLM and LLM without tuning (functional smoke; quality not established).
-- [x] Diagnose the UAV camera-motion ROI failure and implement global motion compensation (`analytics.mode: uav_motion`, `gmc_enabled`), verified on 300 real frames with zero GMC failures and a correct NORMAL→CONGESTED transition.
+- [x] Diagnose the UAV camera-motion ROI failure and implement global motion compensation (`analytics.mode: uav_motion`, `gmc_enabled`). The NORMAL→CONGESTED fix is `uav_motion` mode's count-alone trigger, not GMC -- an A/B test (`run50` vs `run51`) shows the same transition with or without GMC; GMC's own positional-accuracy value is unverified, and the original "zero GMC failures" claim only checked the end-of-run streak (`gmc_total_failures` now tracks the run-wide count, confirmed nonzero on the same clip that was claimed failure-free).
 - [x] Fix the VLM/LLM prompt-copying bug (v1 to v3): eliminated copyable example sentences from both the VLM and LLM prompts, verified with grounded, distinct, analytics-consistent output on two real clips.
 - [x] Add a Streamlit dashboard over pipeline run output (headless boot verified; live browser auto-refresh not yet human-confirmed).
 - [x] Run a bounded end-to-end UAV benchmark on the RTX host.
