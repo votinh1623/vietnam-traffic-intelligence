@@ -187,10 +187,23 @@ for how the two runs were verified hash-identical apart from that):
 | Locked test, baseline (CIoU) | 0.215 | 0.287 | 0.148 | 0.062 | Selected |
 | Locked test, NWD (alpha=0.5, C=16) | 0.194 | 0.251 | 0.128 | 0.054 | **Rejected -- worse on every metric and every class** |
 
+P2 detection-head ablation (adds a 4th Detect scale at stride 4, so the
+network has an output receptive field sized for the smallest objects; see
+[benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)
+for the training-crash-and-recovery history and why this checkpoint is a
+two-stage/restarted fine-tune, not a single clean run like baseline/NWD):
+
+| Split | Precision | Recall | mAP50 | mAP50-95 | Result |
+|---|---:|---:|---:|---:|---|
+| Locked test, baseline (CIoU) | 0.215 | 0.287 | 0.148 | 0.062 | Selected |
+| Locked test, P2 (stride-4 head) | 0.146 | 0.206 | 0.095 | 0.037 | **Rejected -- worse than baseline and worse than NWD on every metric** |
+
 **Evidence.** `experiments/yolov8s_v5_locked_test_20260818/run.json`,
 `experiments/visdrone_det_small_object_v1_20260818/run.json`,
 `experiments/yolov8s_v5_seed0_nwd_20260819T094236/run.json`,
-`benchmark_outputs/detector_v5_nwd_locked_test/run.json`.
+`benchmark_outputs/detector_v5_nwd_locked_test/run.json`,
+`experiments/yolov8s_v5_seed0_p2_continued_20260819T152917/run.json`,
+`benchmark_outputs/detector_v5_p2_locked_test/run.json`.
 
 **Caveat.** The validation-to-test gap is real and driven by an
 object-scale/source shift (82.9%-100% of locked-test boxes cover under 0.1%
@@ -202,8 +215,18 @@ attempt at closing that gap failed at these settings, plausibly because its
 constant was tuned to the *test* box-size distribution while the loss trains
 on *train* boxes roughly 3x larger, saturating the similarity term near zero
 for most training data -- untested variants (train-scaled constant, lower
-alpha, epoch-scheduled alpha) might still work; none have been run. Full
-per-class diagnosis: [benchmark protocol](docs/benchmark_protocol.md).
+alpha, epoch-scheduled alpha) might still work; none have been run. The P2
+architecture change performed even worse: its validation-to-test drop
+(0.321->0.037, ~8.8x) is proportionally larger than both baseline (~5.5x)
+and NWD (~6.2x), despite directly targeting this exact gap. Both the P2
+architecture's design rationale and NWD's constant were chosen with
+knowledge of the locked test's box-size distribution, so neither result is a
+blind confirmatory test -- both are exploratory. Both a loss-side fix (NWD)
+and an architecture-side fix (P2) have now failed on this same gap, which is
+consistent with the gap being primarily a training-data scarcity problem
+(see the Dataset section) rather than something either change alone can
+correct. Full per-class diagnosis and the P2 training incident history:
+[benchmark protocol](docs/benchmark_protocol.md).
 
 ### Tracking
 
@@ -414,8 +437,8 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Integrate TrackEval for HOTA/DetA/AssA and decompose the tracking bottleneck (detection-limited, not association-limited).
 - [x] Test a BoT-SORT/ReID tracking ablation against the ByteTrack baseline (algorithm switch helped, ReID itself did not).
 - [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
-- [ ] In progress: test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap.
-- [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture.
+- [x] Test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap (rejected: worse than baseline and worse than NWD on every locked-test metric; training required recovering from a CUDA OOM, a BatchNorm corruption at batch=1, and an Ultralytics `resume=True` bug -- see [benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)).
+- [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture. Now the leading candidate: both the loss-side (NWD) and architecture-side (P2) fixes have failed.
 - [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
 - [ ] Deferred: quantize and benchmark the selected VLM and LLM.

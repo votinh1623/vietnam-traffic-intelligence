@@ -117,6 +117,88 @@ epoch-scheduled `alpha` (small early, larger late) would be needed before
 concluding NWD cannot help here at all; none of those variants have been
 run. `yolov8s_v5_seed0` (CIoU) remains the selected v5 checkpoint.
 
+### P2 detection-head ablation (rejected)
+
+To test whether the same scale-driven generalization gap could be reduced
+from the architecture side instead of the loss side, `configs/experiments/
+architectures/yolov8s-p2-vietnam.yaml` adds a 4th Detect scale at stride 4
+(P2) to the plain 3-head model (stride 8/16/32), whose smallest stride gives
+no output a receptive field sized for objects a few pixels wide -- most of
+the locked-test box-size distribution. Backbone weights transfer from the
+same VisDrone checkpoint as baseline/NWD (`YOLO(architecture_yaml).load(pt)`,
+219/437 state-dict items transfer -- the rest is the architecturally new
+head, which initializes fresh).
+
+**Training incident history (must be disclosed alongside any P2 result).**
+The first training attempt (`yolov8s_v5_seed0_p2`, batch=2 -- batch=4
+measured 5.99/6.00 GiB reserved for a single forward+backward alone on this
+GPU, so batch was halved) trained cleanly through epoch 17 (best.pt at
+epoch 15, mAP50-95=0.28423, independently re-verified via a standalone
+`model.val()` call). It then crashed silently (process killed externally,
+no catchable exception) partway through a `resume=True` continuation.
+Recovery took three attempts: a real `RuntimeError: CUDA error: out of
+memory` (allocator fragmentation, not a sizing error); a batch=1 retry that
+avoided the OOM but corrupted BatchNorm statistics (precision 0.810, recall
+0.020, mAP50-95 0.001 -- BatchNorm needs batch ≥ 2 for meaningful running
+statistics); and a batch=2 `resume=True` retry that silently re-transferred
+only 219/437 items from the *original external VisDrone checkpoint* instead
+of continuing from this run's own state (`mAP50-95` collapsed to 0.002) --
+an Ultralytics `resume=True` bug interacting with this project's
+`architecture_yaml` + `.load()` checkpoint-construction pattern. All three
+failed attempts polluted `yolov8s_v5_seed0_p2`'s `results.csv` (permanently,
+Ultralytics only appends) and `last.pt` (unusable); `best.pt` (epoch 15) was
+never touched by any of them. The original run's manifest is marked
+`aborted_invalid_provenance`:
+`experiments/yolov8s_v5_seed0_p2_20260819T114628/run.json`.
+
+Recovery abandoned `resume=True` entirely: `yolov8s_v5_seed0_p2_continued`
+is a plain, non-resume `YOLO(best.pt).train(...)` call for 15 more epochs in
+a new output directory, using the verified-good epoch-15 `best.pt` as an
+ordinary pretrained checkpoint. This means optimizer state, LR schedule, and
+warmup all reinitialize from scratch -- it is a **two-stage/restarted
+fine-tune**, not epochs 18-30 of one continuous training curriculum, and
+must be reported as such. It also inherits the batch=2 confound (not held
+constant against baseline/NWD's batch=4; Ultralytics' `nbs=64` gradient
+accumulation partially compensates but this is undocumented elsewhere).
+Manifest: `experiments/yolov8s_v5_seed0_p2_continued_20260819T152917/run.json`.
+
+**Results.** Best checkpoint by validation `mAP50-95` was epoch 13 of the
+continuation (precision 0.652, recall 0.500, mAP50 0.552, mAP50-95 0.321);
+epochs 9-15 plateau in the 0.310-0.321 range with no further upward trend.
+
+| Split | Precision | Recall | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|
+| Validation, baseline (CIoU) | 0.762 | 0.504 | 0.600 | 0.344 |
+| Validation, NWD | 0.711 | 0.529 | 0.600 | 0.337 |
+| Validation, P2 (epoch 13) | 0.652 | 0.500 | 0.552 | 0.321 |
+| Locked test, baseline (CIoU) | 0.215 | 0.287 | 0.148 | 0.062 |
+| Locked test, NWD | 0.194 | 0.251 | 0.128 | 0.054 |
+| Locked test, P2 | 0.146 | 0.206 | 0.095 | 0.037 |
+
+**This is a negative result: P2 is worse than both baseline and NWD on
+every metric, on both splits** (per-class locked-test mAP50-95: bus
+0.036->0.003, car 0.193->0.130, motorcycle 0.068->0.041, pedestrian
+0.0009->0.0008 -- only 170 pedestrian boxes in locked test, treat with
+caution -- truck 0.014->0.008). Its validation-to-test drop (0.321->0.037,
+~8.8x) is also proportionally larger than baseline's (~5.5x) and NWD's
+(~6.2x), despite directly targeting that gap. Full record:
+`benchmark_outputs/detector_v5_p2_locked_test/run.json` (config
+`configs/evaluation/detector_v5_p2_locked_test.yaml`).
+
+Two confounds prevent a clean causal read of "P2 architecture is worse":
+the batch=2 vs batch=4 gap, and the two-stage/restarted fine-tune (a fresh
+optimizer/LR-warmup restart partway through what would ideally be one
+continuous curriculum). Both plausibly cost some accuracy independent of
+the architecture change itself. Additionally, like NWD's constant, P2's
+design (adding a scale specifically sized for the locked test's median
+16px box) was chosen with knowledge of the locked-test box-size
+distribution -- this result is exploratory, not a blind confirmatory test.
+`yolov8s_v5_seed0` (CIoU, 3-head) remains the selected v5 checkpoint. With
+both a loss-side fix (NWD) and an architecture-side fix (P2) now rejected,
+the next candidate for this gap is copy-paste augmentation of small
+objects, which addresses the underlying training-data scarcity directly
+instead of asking the loss or architecture to compensate for it.
+
 ## Tracking evaluation status
 
 The local motmetrics evaluator is valid for CLEAR MOT and identity metrics
