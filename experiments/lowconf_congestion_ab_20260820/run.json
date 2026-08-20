@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "experiment_id": "lowconf_congestion_ab_20260820",
+  "status": "completed",
+  "purpose": "Retroactive provenance manifest for pipeline runs run42/run43/run44/run45/run46/run47/run48, whose backing pipeline configs were edited in place after each run (fixed_camera confidence=0.1 -> uav_motion count-bypass -> traffic_normal.mp4 checks), so the current content of configs/pipeline/offline_video_stillness_lowconf_test.yaml no longer reproduces run42. This manifest is the authoritative record of what each run actually used; the config files under configs/pipeline/ are working copies, not frozen experiment definitions like configs/experiments/*.yaml.",
+  "provenance_gap_disclosed": "run.json for each of these runs already embeds the exact parameters used at that time (perception.confidence, analytics.mode, roi_polygon, etc. -- see each run's own run.json), so no run's OWN result is in doubt. What was missing, and what this file fixes, is a single external, hash-backed, non-overwritten record that does not depend on the mutable config file still matching. output/pipeline/ is gitignored, so run.json/summary.json/analytics.csv themselves are not committed; this manifest carries the load-bearing numbers instead.",
+  "model": {
+    "path": "runs/detect/research/yolov8s_v5_seed0/weights/best.pt",
+    "sha256": "729c66e676345e9cdcd504e21f6a94fe1d682582eca3ded39a2aec2a99e7f1db"
+  },
+  "tracker": "bytetrack_custom.yaml",
+  "perception_common": {
+    "imgsz": 1280,
+    "iou": 0.7,
+    "device": "0"
+  },
+  "runs": [
+    {
+      "run_id": "run42",
+      "label": "Test 1: lower confidence alone, occupancy corroboration intact",
+      "source": {
+        "path": "datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4",
+        "sha256": "a68727e7795dd40c8ef82e1cee947145680b17d47ca5349d808b765739e3ac65"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "fixed_camera",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 900,
+      "state_frames": {"NORMAL": 657, "DENSE": 243},
+      "max_bbox_union_occupancy": 0.32501543209876543,
+      "max_roi_track_count": 94,
+      "first_dense_frame": 657,
+      "congestion_transitions": 1,
+      "note": "DENSE reached (up from 54/900 at confidence=0.4), CONGESTED never reached. Compare against the original run38 (confidence=0.4, same source/ROI): DENSE only 54/900."
+    },
+    {
+      "run_id": "run43",
+      "label": "Test 2: lower confidence + drop occupancy co-requirement (analytics.mode: uav_motion) -- REJECTED, kept for the record",
+      "source": {
+        "path": "datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4",
+        "sha256": "a68727e7795dd40c8ef82e1cee947145680b17d47ca5349d808b765739e3ac65"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "uav_motion",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 900,
+      "state_frames": {"NORMAL": 61, "CONGESTED": 839},
+      "max_bbox_union_occupancy": 0.32501543209876543,
+      "max_roi_track_count": 94,
+      "congestion_transitions": 1,
+      "note": "Looked like a strong fix on this clip (93% CONGESTED, single clean transition), but see run44 -- rejected after a false-positive check."
+    },
+    {
+      "run_id": "run44",
+      "label": "False-positive check of run43's config on a genuinely light-traffic clip -- FAILED, this is why run43 is rejected",
+      "source": {
+        "path": "datasets/raw_videos/traffic_normal.mp4",
+        "sha256": "fa1122cc4fe93625d128ec23986ea0833fe308d882dfa4a7d2e1cbad73b185eb"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "uav_motion",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 300,
+      "state_frames": {"NORMAL": 62, "CONGESTED": 238},
+      "max_bbox_union_occupancy": 0.11376736111111112,
+      "max_roi_track_count": 122,
+      "congestion_transitions": 1,
+      "note": "79% false-positive CONGESTED on a reference clip explicitly named/curated as normal traffic. roi_track_count (100-122) was comparable to or higher than the jam clip's (64-94) despite genuinely light traffic; bbox_union_occupancy correctly stayed low (0.06-0.11 vs the jam clip's 0.15-0.32) -- occupancy, not count, is the signal that actually separates these two real scenes."
+    },
+    {
+      "run_id": "run45",
+      "label": "Same false-positive check with run42's (safe) config instead -- PASSED",
+      "source": {
+        "path": "datasets/raw_videos/traffic_normal.mp4",
+        "sha256": "fa1122cc4fe93625d128ec23986ea0833fe308d882dfa4a7d2e1cbad73b185eb"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "fixed_camera",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 300,
+      "state_frames": {"NORMAL": 300},
+      "max_bbox_union_occupancy": 0.11376736111111112,
+      "max_roi_track_count": 122,
+      "congestion_transitions": 0,
+      "note": "Correctly NORMAL for all 300 frames with occupancy corroboration intact, same confidence and ROI as run44 -- isolates that occupancy corroboration, not confidence, was what run43 unsafely dropped."
+    },
+    {
+      "run_id": "run46",
+      "label": "Additional false-positive check: light, sparse traffic clip",
+      "source": {
+        "path": "datasets/raw_videos/vid3.MP4",
+        "sha256": "1ad9357f57c1d6c38a92ef19d25431e7100d8952519e68249b2c94ba95977c6c"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "fixed_camera",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 300,
+      "state_frames": {"NORMAL": 300},
+      "max_bbox_union_occupancy": 0.009570433063271605,
+      "max_roi_track_count": 38,
+      "congestion_transitions": 0,
+      "note": "vid3 is a dataset test-split source (datasets/vietnam_dataset_v5/manifest.csv: source_id=vid3, split=test). confidence=0.1 was already fixed from run42 (a train-split clip) before this run; this is a one-time confirmatory check on a test-split video, not used to further tune the threshold -- consistent with docs/dataset_protocol.md's rule against selecting on the locked test."
+    },
+    {
+      "run_id": "run47",
+      "label": "Additional false-positive check: busy but flowing traffic",
+      "source": {
+        "path": "datasets/raw_videos/YTDown.com_YouTube_Traffic-in-Hanoi-during-rush-hour_Media_oetF3UTIwbc_001_480p.mp4",
+        "sha256": "70501c853f1059dbdfffe1fd9f4a2181be5737a9121b170c8606f8d2143184ed"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "fixed_camera",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 300,
+      "state_frames": {"NORMAL": 300},
+      "max_bbox_union_occupancy": 0.24937174479166666,
+      "max_roi_track_count": 29,
+      "congestion_transitions": 0,
+      "note": "Occupancy (0.25) sits just under the 0.30 DENSE entry threshold on a visibly busy-but-moving street; visually consistent with NORMAL, not an obvious miss."
+    },
+    {
+      "run_id": "run48",
+      "label": "Additional false-positive check: native drone source, light traffic",
+      "source": {
+        "path": "datasets/raw_videos/DJI_20250516071323_0341_D.MP4",
+        "sha256": "11046b6a548e714de1d5eb1444c08e47758d9493d4b05d0c43f9fd67cbbde48d"
+      },
+      "confidence": 0.1,
+      "max_det": 1000,
+      "analytics_mode": "fixed_camera",
+      "roi_polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
+      "frames_processed": 300,
+      "state_frames": {"NORMAL": 300},
+      "max_bbox_union_occupancy": 0.006506920331790123,
+      "max_roi_track_count": 15,
+      "congestion_transitions": 0,
+      "note": "The project's one native UAV drone source (see readme.md Dataset section); light traffic, correctly NORMAL."
+    }
+  ],
+  "conclusion": {
+    "adopted": "fixed_camera mode, perception.confidence=0.1, occupancy co-requirement intact -- a real, partial improvement (run42), zero false positives across 5 real clips (run42 jam clip + run45/46/47/48).",
+    "rejected": "analytics.mode: uav_motion as a way to let roi_track_count alone trigger CONGESTED without occupancy corroboration (run43) -- gave 79% false-positive CONGESTED on traffic_normal.mp4 (run44). Root cause: count does not distinguish a wide view with many flowing vehicles from a genuinely packed, stalled scene; occupancy corroboration exists for exactly that reason.",
+    "still_open": "73% of the motivating clip (run42) still reports NORMAL despite the crowd being visibly packed from frame 0 (confirmed persistent, not building up -- see the activity-mask result in docs/benchmark_protocol.md). Closing that gap needs a different signal (a dedicated low-confidence density pass, or a better texture feature), not further threshold tuning on this same signal set."
+  },
+  "caveat": "This is 7 pipeline runs across 5 clips at one confidence/ROI setting each, not a frame-level annotated congestion benchmark. 'Zero false positives' means no false CONGESTED/DENSE state transition was observed on 4 clips chosen as known-non-congested by content/title, not a measured false-positive RATE against ground truth -- there is no frame-level congestion ground truth for any of these clips."
+}

@@ -193,6 +193,18 @@ class PipelineConfigTests(unittest.TestCase):
             self.assertTrue(config.analytics.gmc_enabled)
             self.assertEqual(config.analytics.gmc_downscale, 2)
 
+    def test_rejects_stillness_enabled_under_uav_motion_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "pipeline.yaml"
+            path.write_text(
+                "source: input.mp4\nmodel: model.pt\n"
+                "analytics:\n  mode: uav_motion\n"
+                "  stillness_enabled: true\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "stillness_enabled"):
+                load_pipeline_config(path)
+
     def test_rejects_gmc_enabled_without_uav_motion_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "pipeline.yaml"

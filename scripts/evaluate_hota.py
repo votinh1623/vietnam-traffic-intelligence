@@ -74,8 +74,12 @@ def main() -> int:
         annotation_hashes[sequence] = file_sha256(annotation_path)
         ground_truth = load_visdrone_ground_truth(annotation_path, class_map)
         predictions = pd.read_csv(prediction_path)
-        evaluated_frames = set(predictions["frame"].astype(int))
-        ground_truth = ground_truth[ground_truth["frame"].isin(evaluated_frames)]
+        # Do NOT pre-filter ground_truth to predictions["frame"] here:
+        # build_hota_data() already unions GT and prediction frames itself
+        # (matching tracking_metrics.py's MOTA/IDF1 accumulator), so a GT
+        # frame with zero predictions correctly becomes a false-negative
+        # frame. Pre-filtering here discarded those frames before the union
+        # ever ran, silently inflating HOTA/DetA by hiding undetected GT.
         for class_name in class_names:
             gt_class = ground_truth[ground_truth["class_name"] == class_name]
             pred_class = predictions[predictions["class_name"] == class_name]

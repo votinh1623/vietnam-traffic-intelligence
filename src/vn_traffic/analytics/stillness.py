@@ -236,13 +236,26 @@ def stalled_dense_score(
     return np.where(still, normalized_texture, 0.0).astype(np.float32)
 
 
+WATERMARK_TEXT = "RELATIVE STILLNESS-TEXTURE (not a congestion decision)"
+
+
 def render_heatmap_overlay(
-    frame_bgr: np.ndarray, score_grid: np.ndarray, *, alpha_max: float = 0.5
+    frame_bgr: np.ndarray,
+    score_grid: np.ndarray,
+    *,
+    alpha_max: float = 0.5,
+    watermark: bool = True,
 ) -> np.ndarray:
     """Blend `score_grid` onto `frame_bgr` as a JET-colormap heatmap.
 
     Cells with score 0 are left untouched (alpha 0) so the original frame
-    shows through everywhere the signal did not fire, not just faded.
+    shows through everywhere the signal did not fire, not just faded. A
+    still building facade, signage, or standing crowd can score just as
+    high as a stalled vehicle cluster (texture alone has no notion of
+    "vehicle"; see stalled_dense_score's docstring) -- this is a relative
+    stillness/texture map, not a congestion probability, which is why a
+    literal watermark is burned into the frame by default rather than left
+    to documentation alone.
     """
     height, width = frame_bgr.shape[:2]
     heat_u8 = np.clip(score_grid * 255.0, 0, 255).astype(np.uint8)
@@ -252,7 +265,18 @@ def render_heatmap_overlay(
     blended = frame_bgr.astype(np.float32) * (1 - alpha) + heat_color.astype(
         np.float32
     ) * alpha
-    return blended.astype(np.uint8)
+    result = blended.astype(np.uint8)
+    if watermark:
+        y = height - 12
+        cv2.putText(
+            result, WATERMARK_TEXT, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+            (0, 0, 0), 3, cv2.LINE_AA,
+        )
+        cv2.putText(
+            result, WATERMARK_TEXT, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+            (255, 255, 255), 1, cv2.LINE_AA,
+        )
+    return result
 
 
 class StillnessHeatmapRenderer:

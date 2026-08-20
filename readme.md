@@ -101,12 +101,14 @@ datasets are intentionally excluded from Git; full audit detail is in
 
 **Source composition is the likely root cause of the object-scale gap
 documented under [Detection](#detection).** All 1,214 images come from only
-11 source videos (5 train / 2 calibration / 2 validation / 3 test): 10 are
-repurposed YouTube uploads and exactly 1 (`DJI_20250516071323_0341_D`, in
-validation) is a native drone capture. The two sources explicitly titled as
-aerial drone footage both landed in the locked test by the source-disjoint
-split -- with only 11 sources total, this is close to unavoidable, not a
-labeling defect. Measured directly from the label files (sqrt(w*h) in
+12 source videos (5 train / 2 calibration / 2 validation / 3 test): 11 are
+repurposed YouTube uploads (7 auto-named on download, plus `traffic_jam`,
+`traffic_normal`, `vid3`, and `vid4`, renamed clips confirmed as YouTube
+sources by [the dataset protocol](docs/dataset_protocol.md)) and exactly 1
+(`DJI_20250516071323_0341_D`, in validation) is a native drone capture. The
+two sources explicitly titled as aerial drone footage both landed in the
+locked test by the source-disjoint split -- with only 12 sources total,
+this is close to unavoidable, not a labeling defect. Measured directly from the label files (sqrt(w*h) in
 pixels at imgsz=1280): only 4.7% of train boxes are under 16px versus 48.8%
 of test boxes. A model trained on this data sees real small-object examples
 rarely, then is evaluated on a split where they dominate. This is a data
@@ -239,9 +241,9 @@ across 7 VisDrone2019-MOT-val sequences, class-aware IoU matching at 0.5.
 | MOTA | 0.020 | 0.005 | 0.004 |
 | ID switches | 462 | **207** | 209 |
 | Fragmentations | 1,491 | 1,673 | 1,673 |
-| HOTA | 0.288 | 0.323 | 0.325 |
-| DetA | 0.197 | 0.207 | 0.207 |
-| AssA | 0.453 | 0.536 | 0.541 |
+| HOTA | 0.288 | 0.322 | 0.324 |
+| DetA | 0.196 | 0.206 | 0.206 |
+| AssA | 0.453 | 0.535 | 0.541 |
 
 Resolution comparison (640 vs. 1280, vehicle classes only, same sequences,
 ByteTrack):
@@ -258,9 +260,16 @@ ByteTrack):
 
 **Caveat.** This is a provenance-controlled integration baseline, not an
 official VisDrone benchmark (no ignore-region handling) or Vietnam-domain
-evidence. HOTA's DetA/AssA decomposition (now integrated via TrackEval,
-see [benchmark protocol](docs/benchmark_protocol.md)) shows DetA is nearly
-identical across all three trackers (0.197-0.207) while AssA moves with the
+evidence. `scripts/evaluate_hota.py` originally pre-filtered ground truth
+to only prediction frames before computing HOTA, silently dropping any
+frame where the tracker predicted zero boxes instead of scoring it as a
+false negative -- a real bug (32-33 frames affected per tracker out of
+2,846), now fixed and re-run; the table above is the corrected result.
+The fix moved every number by no more than 0.002, too small to change any
+conclusion here, but the original numbers should not be cited. HOTA's
+DetA/AssA decomposition (via TrackEval, see
+[benchmark protocol](docs/benchmark_protocol.md)) shows DetA is nearly
+identical across all three trackers (0.196-0.206) while AssA moves with the
 tracker choice -- i.e. detection recall, not association, is this pipeline's
 dominant limitation, which the BoT-SORT/ReID ablation cannot fix by itself.
 Switching ByteTrack to BoT-SORT nearly halved ID switches and raised IDF1
@@ -369,7 +378,7 @@ verified on one real clip, not a benchmark across multiple UAV sources.
 - The dataset remains small and class-imbalanced, especially for trucks, buses,
   and test pedestrians; broader geographic, weather, night, altitude, and
   camera-motion coverage is still required.
-- All results are reported on a single fixed source-disjoint split (11 total
+- All results are reported on a single fixed source-disjoint split (12 total
   source videos). With this few sources, which sources happen to land in
   test measurably changes results (see the Dataset section's source
   composition note). Cross-source validation (e.g. leave-one-source-out)
@@ -415,9 +424,12 @@ verified on one real clip, not a benchmark across multiple UAV sources.
   frame-relative threshold instead of a fixed one) that consistently tints
   the packed cluster across the clip for a human operator to see, even
   where the detector draws zero boxes. For the automatic trigger itself,
-  lowering detector confidence (0.4 -> 0.1) closes part of the gap safely
-  (validated with zero false positives across 5 real clips) but not all of
-  it (still 73% `NORMAL` on the motivating clip); dropping the occupancy
+  lowering detector confidence (0.4 -> 0.1) closes part of the gap: no
+  false `CONGESTED`/`DENSE` transition was observed on 4 additional real
+  clips chosen as known-non-congested (not a measured rate against
+  frame-level ground truth, which does not exist for these clips), but it
+  does not close the whole gap (still 73% `NORMAL` on the motivating
+  clip); dropping the occupancy
   co-requirement to let count alone trigger `CONGESTED` was tried and
   **rejected** -- it also false-triggered `CONGESTED` 79% of the time on a
   genuinely light-traffic reference clip. See
@@ -468,7 +480,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap (rejected: worse than baseline and worse than NWD on every locked-test metric; training required recovering from a CUDA OOM, a BatchNorm corruption at batch=1, and an Ultralytics `resume=True` bug -- see [benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)).
 - [ ] Planned: test copy-paste augmentation of small objects (oversampling the rare <16px train boxes) against the same gap -- addresses the underlying data imbalance directly (4.7% of train boxes are under 16px versus 48.8% of test boxes; see the Dataset section) rather than the loss or architecture. Now the leading candidate: both the loss-side (NWD) and architecture-side (P2) fixes have failed.
 - [x] Detection-independent "stalled and dense" signal for severe-occlusion jams (`src/vn_traffic/analytics/stillness.py`): built, unit-tested, and real-pipeline-validated. The automatic `CONGESTED`-trigger path (wired into the state machine, not gated by detected speed) is a **negative result, root-caused**: Laplacian texture cannot distinguish packed vehicles from any other static detailed surface, so no threshold/ROI fix works (two further hypotheses tested and rejected on real data -- see benchmark protocol). The **visual heatmap** path (`stillness_heatmap.enabled`, decoupled from the state machine) **works**: real-pipeline-validated to consistently tint the packed cluster the detector misses, across the whole clip.
-- [x] Tested two cheap, config-only fixes for the same gap. Lowering `perception.confidence` (0.4 -> 0.1, `fixed_camera` mode, occupancy corroboration intact) is a real, partial improvement (`DENSE` frames 6% -> 27% on the motivating clip) with **zero false positives across 5 real clips** (the jam clip plus four others, including the project's one native drone source). Dropping the occupancy co-requirement too (`analytics.mode: uav_motion`, letting a high count trigger `CONGESTED` alone) looked dramatic on the jam clip (93% `CONGESTED`) but is **rejected**: it also gave 79% `CONGESTED` on `traffic_normal.mp4`, a genuinely light-traffic reference clip -- count alone does not distinguish "wide view, many vehicles, flowing" from "packed and stalled" any better than the flawed stillness scalar did.
+- [x] Tested two cheap, config-only fixes for the same gap (manifest: `experiments/lowconf_congestion_ab_20260820/run.json`). Lowering `perception.confidence` (0.4 -> 0.1, `fixed_camera` mode, occupancy corroboration intact) is a real, partial improvement (`DENSE` frames 6% -> 27% on the motivating clip) with **no false `CONGESTED`/`DENSE` transition observed on 4 additional real clips** chosen as known-non-congested (the jam clip's own baseline plus four others, including the project's one native drone source) -- not a measured rate against frame-level ground truth, which does not exist for these clips. Dropping the occupancy co-requirement too (`analytics.mode: uav_motion`, letting a high count trigger `CONGESTED` alone) looked dramatic on the jam clip (93% `CONGESTED`) but is **rejected**: it also gave 79% `CONGESTED` on `traffic_normal.mp4`, a genuinely light-traffic reference clip -- count alone does not distinguish "wide view, many vehicles, flowing" from "packed and stalled" any better than the flawed stillness scalar did.
 - [ ] Open: still 73% of the motivating clip stays `NORMAL` even with the safe confidence fix, despite the crowd being visibly packed from frame 0. An automatic trigger that closes that gap needs a different feature, not a retuned threshold -- candidates (neither implemented): low-confidence pre-NMS detector proposals as a coarse density prior, or a texture filter band-passed to vehicle/head size. Also open: per-lane/multi-region ROI decomposition (Stage 3) and GMC ego-motion compensation so the heatmap also works in `uav_motion` mode.
 - [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline; not assumed better or worse than YOLOv8 until measured.
 - [ ] Deferred: export and benchmark detector FP16/INT8 candidates.

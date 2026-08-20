@@ -72,6 +72,29 @@ class HotaMetricTests(unittest.TestCase):
         self.assertLess(float(np.mean(result["AssA"])), 1.0)
         self.assertLess(float(np.mean(result["HOTA"])), 1.0)
 
+    def test_gt_only_frame_amid_matched_frames_is_not_silently_dropped(self) -> None:
+        # Regression test for scripts/evaluate_hota.py's fixed bug: it used
+        # to pre-filter ground_truth to predictions["frame"] before calling
+        # compute_hota, which silently discarded any frame where the
+        # tracker produced zero boxes (exactly the severe-occlusion failure
+        # mode this project cares about) instead of counting it as a false
+        # negative. Frame 2 here has real GT but no prediction at all.
+        ground_truth = records(
+            (1, 1, 0, 0, 10, 10),
+            (2, 1, 0, 0, 10, 10),
+            (3, 1, 0, 0, 10, 10),
+        )
+        prediction = records(
+            (1, 1, 0, 0, 10, 10),
+            (3, 1, 0, 0, 10, 10),
+        )
+        result = compute_hota(ground_truth, prediction)
+        # A perfect-match evaluator that (incorrectly) dropped frame 2 would
+        # score HOTA/DetA 1.0 here, identical to a truly perfect track. The
+        # correct evaluator must show a real, non-perfect detection penalty.
+        self.assertLess(float(np.mean(result["DetA"])), 1.0)
+        self.assertLess(float(np.mean(result["HOTA"])), 1.0)
+
     def test_combine_many_matches_single_sequence_result(self) -> None:
         ground_truth = records((1, 1, 0, 0, 10, 10), (2, 1, 1, 0, 10, 10))
         prediction = ground_truth.copy()

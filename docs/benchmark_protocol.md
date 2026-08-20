@@ -221,9 +221,15 @@ fell, precision decreased, ID switches rose by 257, and fragmentations rose by
 integration configuration
 (`experiments/tracking_visdrone_mot_val_cv_v1_20260818/run.json`).
 
-HOTA, DetA, and AssA are not provided by motmetrics. They remain `TBD` until
-TrackEval is integrated and verified on a synthetic fixture. Historical root
-tracking CSV files predate the repair and remain `invalid`.
+HOTA, DetA, and AssA are not provided by motmetrics; they are computed
+separately via `scripts/evaluate_hota.py` (TrackEval's own implementation,
+verified on synthetic fixtures in `tests/test_hota_metrics.py`) and
+reported in the readme's Tracking section. That script originally
+pre-filtered ground truth to prediction-only frames, silently dropping any
+frame with zero predicted boxes instead of scoring it as a false negative;
+fixed and re-run (moved every metric by at most 0.002 -- see the readme's
+Tracking caveat). Historical root tracking CSV files predate the motmetrics
+repair and remain `invalid`.
 
 The controlled resolution experiment is recorded in
 `experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`. On the
@@ -500,6 +506,32 @@ over, while individually-detected vehicles on open road stay untinted.
 cover the score function, the blend/no-op behavior, and config
 load/validation.
 
+**Checked on a confirmed non-congested clip with visible static
+background.** `configs/pipeline/offline_video_stillness_heatmap_nojam_check.yaml`
+re-runs the Hanoi rush-hour clip (confirmed `NORMAL` 300/300, see the
+confidence/count experiment below) with the heatmap enabled
+(`output/pipeline/run49`). No dramatic false-tint of plain building
+facades was observed; there is faint, intermittent tinting over a cluster
+of motorcycles parked at a roadside market -- consistent with, not
+contrary to, the disclosed limitation that this signal responds to
+"static and visually dense," not specifically "traffic jam" (parked
+motorcycles are genuinely static and detailed, just not a road
+congestion event). This is a qualitative check on one clip, not a
+false-positive rate.
+
+**Labeling.** This is a *relative stillness-texture overlay*, not a
+congestion heatmap: `render_heatmap_overlay` now burns a literal watermark
+("RELATIVE STILLNESS-TEXTURE (not a congestion decision)") into every
+frame it renders, on by default, so the visualization cannot be shipped or
+screenshotted without that label attached. It is not, and must not become,
+an input to `CongestionStateMachine` or a fact asserted to the VLM/LLM
+stage -- `analytics.stillness_enabled` (the state-machine trigger) and
+`stillness_heatmap.enabled` (this overlay) are separate config flags for
+exactly that reason, and `analytics.stillness_enabled` is now rejected at
+config-load time when `analytics.mode: uav_motion` (raw optical flow is
+invalid under camera pan/zoom; see `validate_analytics_config` in
+`src/vn_traffic/config.py`).
+
 **Next steps, explicitly staged.** The scalar `CongestionStateMachine`
 trigger (Stage 2) is now root-caused, not just "needs more calibration
 data": a fixed-threshold Laplacian scalar structurally cannot discriminate
@@ -561,18 +593,34 @@ count alone does not make that distinction on real data, regardless of ROI
 size. Bypassing it reintroduces exactly the false-positive risk it exists
 to prevent.
 
-**Verified safe across 5 real clips**, `fixed_camera` mode with
-confidence=0.1 (Test 1's config), no false positives: `traffic_normal.mp4`
-(NORMAL 300/300), `vid3.MP4` (NORMAL 300/300, light traffic), a Hanoi
-rush-hour clip (NORMAL 300/300, busy but flowing -- max occupancy 0.25,
-just under the 0.30 `DENSE` entry threshold), and `DJI_20250516071323_0341_D.MP4`
+**No false `CONGESTED`/`DENSE` transition was observed** on 4 additional
+real clips chosen as known-non-congested by content/title, `fixed_camera`
+mode with confidence=0.1 (Test 1's config): `traffic_normal.mp4` (NORMAL
+300/300), `vid3.MP4` (NORMAL 300/300, light traffic), a Hanoi rush-hour
+clip (NORMAL 300/300, busy but flowing -- max occupancy 0.25, just under
+the 0.30 `DENSE` entry threshold), and `DJI_20250516071323_0341_D.MP4`
 (NORMAL 300/300, light aerial traffic, the project's one native drone
-source). Runs: `output/pipeline/run42` (jam clip), `run44`/`run45`
-(`traffic_normal.mp4`, uav_motion-bypass vs fixed_camera), `run46`
-(vid3), `run47` (Hanoi), `run48` (DJI). Configs:
-`configs/pipeline/offline_video_stillness_lowconf_test.yaml` (the rejected
-uav_motion-bypass variant, kept for the record) and the sibling
-`*_falsepos_check*.yaml`/`*_lowconf_check_*.yaml` files.
+source). This is not a measured false-positive *rate* against ground
+truth -- there is no frame-level congestion annotation for any of these
+clips, only content/title-level judgment of "known non-congested." `vid3`
+is a locked-test source (`datasets/vietnam_dataset_v5/manifest.csv`:
+`source_id=vid3, split=test`); confidence=0.1 was already fixed from run42
+(a train-split clip) before this check, so this is reported as a one-time
+confirmatory result on that source, not used to further tune the
+threshold, consistent with [the dataset protocol](dataset_protocol.md)'s
+rule against selecting on the locked test.
+
+**Provenance note.** The pipeline config backing run42/run43 was edited in
+place between runs (`fixed_camera` -> `uav_motion`) to produce run43, so
+its current content no longer reproduces run42; `run44`'s config was
+likewise reused (not a fresh file) before `run45` used a separate file.
+Every run's own `run.json` still records its exact parameters, so no
+individual result is in doubt, but the shared config files are not a
+frozen, rerunnable record on their own. A single hash-backed manifest
+covering all 7 runs (model, source, and per-run parameters/results) is
+committed at `experiments/lowconf_congestion_ab_20260820/run.json` as the
+authoritative record; `output/pipeline/run42`-`run48` themselves are not
+committed (`output/` is gitignored).
 
 **Recommendation:** lowering detector confidence (fixed_camera mode,
 occupancy corroboration intact) is a safe, real, but partial improvement --

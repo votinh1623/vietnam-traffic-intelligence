@@ -116,19 +116,29 @@ class StalledDenseScoreTests(unittest.TestCase):
 
 
 class RenderHeatmapOverlayTests(unittest.TestCase):
-    def test_zero_score_leaves_frame_unchanged(self) -> None:
+    def test_zero_score_leaves_frame_unchanged_without_watermark(self) -> None:
         frame = np.full((64, 96, 3), 100, dtype=np.uint8)
         score = np.zeros((8, 12), dtype=np.float32)
-        blended = render_heatmap_overlay(frame, score, alpha_max=0.5)
+        blended = render_heatmap_overlay(frame, score, alpha_max=0.5, watermark=False)
         np.testing.assert_array_equal(blended, frame)
 
     def test_hot_region_visibly_changes_the_frame(self) -> None:
         frame = np.full((64, 96, 3), 100, dtype=np.uint8)
         score = np.zeros((8, 12), dtype=np.float32)
         score[2:4, 2:4] = 1.0
-        blended = render_heatmap_overlay(frame, score, alpha_max=0.5)
+        blended = render_heatmap_overlay(frame, score, alpha_max=0.5, watermark=False)
         self.assertFalse(np.array_equal(blended, frame))
         self.assertEqual(blended.shape, frame.shape)
+
+    def test_watermark_is_burned_in_by_default(self) -> None:
+        # This visualization can score a static building/signage/crowd just
+        # as high as a real stalled vehicle cluster (see
+        # stalled_dense_score's docstring) -- the watermark must not be
+        # opt-in, so a caller cannot accidentally ship an unlabeled frame.
+        frame = np.full((64, 96, 3), 100, dtype=np.uint8)
+        score = np.zeros((8, 12), dtype=np.float32)
+        watermarked = render_heatmap_overlay(frame, score, alpha_max=0.5)
+        self.assertFalse(np.array_equal(watermarked, frame))
 
 
 class StillnessHeatmapRendererTests(unittest.TestCase):

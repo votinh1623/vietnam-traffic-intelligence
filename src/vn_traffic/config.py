@@ -595,6 +595,21 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         raise ValueError("analytics.gmc_downscale must be at least one")
     if config.gmc_enabled and config.analytics_mode != "uav_motion":
         raise ValueError("analytics.gmc_enabled requires analytics.mode: uav_motion")
+    if config.stillness_enabled and config.analytics_mode == "uav_motion":
+        # stillness.py's optical flow is raw (no ego-motion compensation):
+        # under camera pan/zoom every pixel appears to move regardless of
+        # real object motion, so "near-motionless" stops meaning anything.
+        # Also, the automatic CongestionStateMachine trigger this drives is
+        # a confirmed negative result even on a static camera (see
+        # docs/benchmark_protocol.md); do not additionally enable it where
+        # its one input signal is invalid. Revisit once stillness has GMC-
+        # based ego-motion compensation.
+        raise ValueError(
+            "analytics.stillness_enabled is not valid with analytics.mode: "
+            "uav_motion (raw optical flow does not account for camera "
+            "motion); use analytics.mode: fixed_camera, or wait for "
+            "GMC-compensated stillness support"
+        )
     if config.stillness_downscale < 1:
         raise ValueError("analytics.stillness_downscale must be at least one")
     if config.stillness_cell_px < 1:
