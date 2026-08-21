@@ -1,0 +1,71 @@
+schema_version: 1
+
+experiment:
+  id: yolov8s_visdrone_copypaste_v1
+  purpose: >-
+    Copy-paste augmentation pilot: continue the pre-promotion 640-trained
+    VisDrone baseline checkpoint at 1280, on the original train set plus
+    3,000 scale-aware copy-paste augmented images (vehicle classes only,
+    8-28px target scale). Isolates augmentation's own effect by starting
+    from the same baseline as the highres pilot, not from the (unconfirmed)
+    highres-pilot checkpoint itself. See docs/benchmark_protocol.md#copy-paste-augmentation-pilot-pre-registration.
+  scope: validation_only_pilot
+
+model:
+  weights: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+  expected_sha256: 0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08
+  initialization: selected_visdrone_640_checkpoint
+
+dataset:
+  data_yaml: VisDrone_copypaste.yaml
+  selection_split: val
+  forbidden_split: test
+  expected_train_images: 9471
+  expected_val_images: 548
+
+train:
+  epochs: 5
+  patience: 5
+  imgsz: 1280
+  batch: 2
+  device: 0
+  workers: 0
+  optimizer: AdamW
+  lr0: 0.0002
+  lrf: 0.1
+  weight_decay: 0.0005
+  warmup_epochs: 1.0
+  cos_lr: true
+  freeze: 0
+  seed: 0
+  deterministic: true
+  amp: true
+  cache: false
+  mosaic: 0.0
+  mixup: 0.0
+  close_mosaic: 0
+  translate: 0.05
+  scale: 0.2
+  fliplr: 0.5
+  plots: true
+  save: true
+  val: true
+  project: runs/detect/research
+  name: yolov8s_visdrone_copypaste_v1
+  exist_ok: false
+
+gates:
+  baseline_testdev_ap_small_vehicle: 0.1469
+  ap_small_absolute_gain_min: 0.010
+  gate_metric: vehicle_class_ap_small_on_locked_testdev
+  note: >-
+    Evaluate once on VisDrone2019-DET-test-dev (locked), vehicle classes
+    only (bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor).
+    Promote only if vehicle AP-small >= 0.1469 + 0.010 = 0.1569. Do not
+    alter this gate after observing the pilot result. Highres-pilot
+    test-dev vehicle AP-small (0.1493) is reference only, not the primary
+    comparison.
+
+provenance:
+  require_clean_worktree: true
+  output_root: experiments
