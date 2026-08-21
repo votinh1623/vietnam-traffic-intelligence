@@ -7,8 +7,10 @@ deployment are explicitly deferred until the current research goal is
 complete.
 
 See [docs/quickstart.md](docs/quickstart.md) for installation and CLI usage,
-and [docs/literature_review.md](docs/literature_review.md) for the papers
-behind the algorithms and problems below.
+[docs/literature_review.md](docs/literature_review.md) for the papers
+behind the algorithms and problems below, and
+[docs/paper_outline.md](docs/paper_outline.md) for a draft IMRaD outline
+toward a future manuscript.
 
 ---
 
