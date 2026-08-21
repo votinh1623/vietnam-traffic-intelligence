@@ -2,8 +2,12 @@ schema_version: 1
 
 # Bounded end-to-end product benchmark on a real moving-camera UAV clip. The
 # first 300 frames are used so the exact processed span is reproducible.
+# Promoted 2026-08-21 to the highres_ft_v1 pilot checkpoint; see
+# experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json. The
+# original run25 numbers in the readme (3.70 FPS, etc.) were measured on the
+# 640-trained baseline and are now stale until this benchmark is re-run.
 source: datasets/raw_videos/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p.mp4
-model: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+model: runs/detect/research/yolov8s_visdrone_highres_ft_v1_20260821T105030/weights/best.pt
 
 perception:
   imgsz: 1280

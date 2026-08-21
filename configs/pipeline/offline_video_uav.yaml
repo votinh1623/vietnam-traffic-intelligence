@@ -8,13 +8,16 @@ schema_version: 1
 # This is not camera-motion compensation (no GMC/homography); it only avoids
 # anchoring to a stale patch of ground. Occupancy still shifts with zoom.
 #
-# Detector: the VisDrone 10-class baseline, not the Vietnam v5 checkpoint,
-# matching the model already selected for the VisDrone-MOT tracking/counting
-# benchmarks and the run25 end-to-end UAV benchmark -- v5 was fine-tuned on
-# low-altitude ground-camera scenes and is not assumed to generalize to
-# aerial framing.
+# Detector: the VisDrone 10-class lineage, not the Vietnam v5 checkpoint --
+# v5 was fine-tuned on low-altitude ground-camera scenes and is not assumed
+# to generalize to aerial framing. Promoted 2026-08-21 from the 640-trained
+# baseline to the highres_ft_v1 pilot checkpoint (5-epoch native-1280
+# continuation), which passed its locked gate on VisDrone-DET-val (AP-small
+# +0.0223, overall AP +0.0325) and propagated into a real tracking gain on
+# VisDrone-MOT (IDF1 +0.023, MOTA +0.089, ID switches -114); see
+# experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json.
 source: datasets/raw_videos/YTSave_YouTube_AERIAL-DRONE-4K-VIDEO-CITY-TRAFFIC-JAM-P_Media_Sk1ZAIQc7ZM_001_1080p.mp4
-model: runs/detect/baseline/yolov8s_visdrone/weights/best.pt
+model: runs/detect/research/yolov8s_visdrone_highres_ft_v1_20260821T105030/weights/best.pt
 
 perception:
   imgsz: 1280
