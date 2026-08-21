@@ -478,6 +478,32 @@ Vietnam v5 checkpoint (`yolov8s_v5_seed0`) used by the other pipeline
 configs is a separate lineage, untouched by this change. Full record:
 `experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`.
 
+**Locked test-dev first read (2026-08-21): the gate does not clearly
+replicate.** Once VisDrone2019-DET-test-dev (1,610 images, public GT) was
+sourced and placed, it became this project's first genuinely locked
+VisDrone test -- every decision above (checkpoint selection, mode
+selection, this pilot's own gate, the tracking/ReID comparisons) had
+repeatedly used the same 548-image val set instead. Reading both
+checkpoints once against test-dev:
+
+| Split | Baseline AP / AP-small | Pilot AP / AP-small | Delta |
+|---|---:|---:|---:|
+| val (selection-era) | 0.2635 / 0.1938 | 0.2961 / 0.2161 | AP +0.0325, AP-small +0.0223 |
+| test-dev (locked) | 0.2146 / 0.1383 | 0.2290 / 0.1410 | AP +0.0144, AP-small **+0.0027** |
+
+The test-dev AP-small delta (+0.0027) is well under the +0.010 gate that
+decided the promotion; overall AP delta also shrinks to 44% of its
+val-measured size. This is consistent with the selection-on-val risk
+disclosed above: this exact gain was the product of a decision made after
+looking at val, on a dataset (VisDrone-DET-val, 548 images) that had
+already been used for checkpoint selection and mode selection in earlier
+experiments. The promotion is not reversed by this single confirmatory
+read (using test-dev to flip the decision would just make it a second
+selection surface), but the checkpoint's practical small-object benefit
+should now be treated as unconfirmed pending a lever tested directly
+against test-dev. Full record:
+`experiments/visdrone_testdev_locked_first_read_20260821/run.json`.
+
 Since detection recall was already identified as the bottleneck, a parallel
 ablation tested whether a real pretrained ReID embedding
 (`yolo26n-reid.onnx`, auto-downloaded via Ultralytics 8.4.115's

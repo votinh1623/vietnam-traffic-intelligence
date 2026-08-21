@@ -14,6 +14,12 @@ it. Full method detail and rationale for any item below is in
   [Field validation](../readme.md#field-validation-vietnam-clips-historical)
   section. VisDrone superseded it as the primary dataset 2026-08-21 (see the
   readme's [Dataset](../readme.md#dataset) section).
+- [x] Source and lock VisDrone2019-DET-test-dev (1,610 images, public GT)
+  2026-08-21, closing the "repeated selection against val" gap. First read:
+  the promoted detector's AP-small gate does not clearly replicate
+  (val +0.0223 -> test-dev +0.0027) -- see
+  [benchmark protocol](benchmark_protocol.md#visdrone-highres-fine-tune-pilot-and-checkpoint-promotion).
+  No equivalent locked split exists yet for tracking/ReID (MOT-val only).
 
 ## Detector
 

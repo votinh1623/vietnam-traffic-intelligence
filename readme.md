@@ -80,25 +80,25 @@ small Vietnam v5 dataset as the active benchmark -- see
 [Field validation](#field-validation-vietnam-clips-historical) for what
 Vietnam v5 is retained for.
 
-**Locked-test gap, open.** Only `train`/`val` are available locally; no
-held-out VisDrone test exists yet. Every decision made so far (checkpoint
-selection, inference-mode selection, the 2026-08-21 highres-pilot gate,
-tracker/ReID comparisons) has repeatedly used the same 548-image val set --
-disclosed here directly because it is the same kind of "selection on the
-eval set" risk the Vietnam v5 rebuild was built to eliminate. Officially
-released **VisDrone2019-DET-test-dev** (1,610 images, ground truth public)
-is the fix in progress: once placed at
-`datasets/VisDrone/VisDrone2019-DET-test-dev/{images,annotations}/`, it
-becomes the locked test for all future decisions; `test-challenge` is not
-usable locally (ground truth withheld). Past results in this readme remain
-correctly labeled as val-based, not locked-test, until this lands.
+**Locked test: VisDrone2019-DET-test-dev (1,610 images, public GT), placed
+and locked 2026-08-21.** `test-challenge` is not usable locally (ground
+truth withheld). The first read on it is already a real finding, not a
+formality: every prior decision (checkpoint selection, inference-mode
+selection, the highres-pilot gate, tracker/ReID comparisons) had repeatedly
+used the same 548-image val set, and the highres pilot's AP-small gain does
+**not** clearly replicate on test-dev -- see
+[Detection](#detection). Confirms the risk was real, not hypothetical; from
+here on, val-based selection-era results and test-dev reads are both
+labeled as such.
 
 ## Evaluation policy
 
 - Select checkpoints and thresholds on validation.
-- Once VisDrone test-dev is in place: never use it for model, tracker,
-  prompt, or backend selection -- selection-era results before that point
-  are disclosed as val-based (see [Dataset](#dataset)).
+- Never use VisDrone2019-DET-test-dev for model, tracker, prompt, or
+  backend selection -- only for confirmatory reads reported as-is. The
+  highres-pilot promotion (val-based, before test-dev was locked) is not
+  retroactively reversed by a test-dev read; future levers must be gated
+  against test-dev directly instead.
 - Report precision, recall, mAP50, and mAP50-95 per class and overall.
 - Report tracking only after sequence-level evaluator validation.
 - Split latency into preprocessing, inference, postprocessing, tracking, VLM,
@@ -136,17 +136,34 @@ Small-object inference-mode selection (548 VisDrone-DET val images, COCO-style A
 | SAHI 640 tiles | 0.193 | 0.142 | 282.0 | Rejected |
 | Hybrid full-frame + tiles | 0.177 | 0.117 | 200.1 | Rejected |
 
-**Checkpoint promoted 2026-08-21.** The mode-selection checkpoint above was
-trained only at 640 despite inferring at 1280 -- a train/infer resolution
-mismatch. A 5-epoch native-1280 continuation, gated in advance at AP-small
-+0.010 absolute / overall AP drop <=0.005, passed with margin: AP
-0.264->0.296 (+0.0325), AP-small 0.194->0.216 (+0.0223) -- and propagated
-into a real tracking gain (see [Tracking](#tracking)). This is the core
-small-object-accuracy result to date. Full writeup:
+**Checkpoint promoted 2026-08-21 (val-based decision).** The mode-selection
+checkpoint above was trained only at 640 despite inferring at 1280 -- a
+train/infer resolution mismatch. A 5-epoch native-1280 continuation, gated
+in advance at AP-small +0.010 absolute / overall AP drop <=0.005, passed on
+val with margin: AP 0.264->0.296 (+0.0325), AP-small 0.194->0.216 (+0.0223)
+-- and propagated into a real tracking gain (see [Tracking](#tracking)).
+
+**Locked test-dev first read (2026-08-21): the AP-small gain does not
+clearly replicate.**
+
+| Split | Baseline AP / AP-small | Pilot AP / AP-small | Delta |
+|---|---:|---:|---:|
+| val (selection-era) | 0.264 / 0.194 | 0.296 / 0.216 | AP +0.0325, AP-small +0.0223 |
+| **test-dev (locked, first read)** | 0.215 / 0.138 | 0.229 / 0.141 | AP +0.0144, AP-small **+0.0027** |
+
+The test-dev AP-small delta is far under the +0.010 gate that decided the
+promotion -- consistent with the val-selection risk flagged in
+[Dataset](#dataset): the same 548 val images were reused across many
+experiments before this. The promotion is **not reversed** by a single
+test-dev read (that would make test-dev another selection surface), but its
+practical small-object benefit should be treated as **unconfirmed**, not
+established, until a future lever is tested directly against test-dev.
+Full writeup:
 [benchmark protocol](docs/benchmark_protocol.md#visdrone-highres-fine-tune-pilot-and-checkpoint-promotion).
 
 **Evidence.** `experiments/visdrone_det_small_object_v1_20260818/run.json`,
-`experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`.
+`experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`,
+`experiments/visdrone_testdev_locked_first_read_20260821/run.json`.
 
 ### Tracking
 
@@ -292,9 +309,15 @@ This is exactly the class of experiment now redirected to VisDrone instead.
 
 - Source videos collected from the web have incomplete provenance and cannot
   be assumed redistributable.
-- No VisDrone test split is locked yet (see [Dataset](#dataset)) -- every
-  result above has been selected against the same val set it is reported
-  on, across many experiments. This is the single most important open gap.
+- The promoted detector checkpoint's AP-small gain was gated and passed on
+  val (+0.0223) but does **not** clearly replicate on the now-locked
+  VisDrone2019-DET-test-dev (+0.0027, under the +0.010 gate) -- see
+  [Detection](#detection). Confirms val-based selection across many
+  experiments likely inflated it; treat the checkpoint's small-object
+  benefit as unconfirmed until retested with a test-dev-gated lever.
+- Tracking, counting, and ReID comparisons still have no equivalent locked
+  test (only VisDrone-MOT-val exists) -- the same inflation risk applies
+  there and is unmeasured.
 - The tracking result is an integration baseline on VisDrone, not an
   official VisDrone benchmark (no ignore-region handling).
 - Traffic speed requires camera calibration or a documented approximation.
@@ -326,12 +349,13 @@ Priority: small-object detection and tracking accuracy on VisDrone. Full
 history of completed work, experiments (including rejected ones), and minor
 fixes: [docs/history.md](docs/history.md).
 
-1. **Lock a real VisDrone test.** Source and place
-   VisDrone2019-DET-test-dev (GT public) at
-   `datasets/VisDrone/VisDrone2019-DET-test-dev/`; every decision so far has
-   repeatedly used the same val set (see [Dataset](#dataset)).
-2. **Push the small-object gain further** once the test is locked (e.g.
-   scale-aware copy-paste), building on the highres-pilot result.
+1. **Find a small-object lever that survives test-dev.** VisDrone2019-DET-test-dev
+   is locked (2026-08-21); the promoted checkpoint's AP-small gain did not
+   clearly replicate on it (see [Detection](#detection)). Retest candidates
+   (e.g. scale-aware copy-paste, more highres-pilot epochs) gated against
+   test-dev directly, not val.
+2. **Lock an equivalent test for tracking/ReID** -- only VisDrone-MOT-val
+   exists today, same inflation risk as detection had.
 3. **Close the congestion product gap**: the confidence fix still leaves
    the motivating clip mostly `NORMAL`.
 4. TVLR Stage C stays paused; VLM/LLM fine-tuning, quantization, and

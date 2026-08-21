@@ -2,11 +2,15 @@
 
 **Status (2026-08-21): VisDrone2019-DET/MOT is now the primary dataset** for
 detector/tracker development and evaluation (see the readme's
-[Dataset](../readme.md#dataset) section). Only VisDrone `train`/`val` are
-available locally; `test-dev` (GT public) needs to be sourced and placed at
-`datasets/VisDrone/VisDrone2019-DET-test-dev/` to close the "selecting
-against val repeatedly" gap disclosed there. Everything below this point
-documents the Vietnam dataset work (`v2` through `v5`), retained as
+[Dataset](../readme.md#dataset) section). `train`/`val`/`test-dev` (1,610
+images, public GT) are available locally; `test-dev` is locked as of
+2026-08-21 and must never be used for selection, only confirmatory reads.
+Its first read showed the promoted detector's AP-small gate does not
+clearly replicate off val -- see
+[benchmark protocol](benchmark_protocol.md#visdrone-highres-fine-tune-pilot-and-checkpoint-promotion).
+No locked equivalent exists yet for VisDrone-MOT (tracking/ReID); only
+MOT-val is available, same inflation risk unmeasured. Everything below this
+point documents the Vietnam dataset work (`v2` through `v5`), retained as
 historical record and field-validation source only -- it is not the active
 benchmark.
 
