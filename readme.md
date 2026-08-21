@@ -322,54 +322,20 @@ This is exactly the class of experiment now redirected to VisDrone instead.
 
 ## Roadmap
 
-Current delivery priority is small-object detection and tracking accuracy on
-VisDrone. Reasoning work is limited to pretrained-model integration and demo
-quality; VLM/LLM fine-tuning, all quantization work, and physical deployment
-are explicitly deferred. Full method detail for every completed item is in
-[the benchmark protocol](docs/benchmark_protocol.md) unless linked otherwise.
+Priority: small-object detection and tracking accuracy on VisDrone. Full
+history of completed work, experiments (including rejected ones), and minor
+fixes: [docs/history.md](docs/history.md).
 
-**Dataset**
-- [ ] **Priority**: source and place VisDrone2019-DET-test-dev (1,610 images, GT public) at `datasets/VisDrone/VisDrone2019-DET-test-dev/`, then lock it as the never-touched test for all future decisions (test-challenge is not usable locally -- GT withheld).
-- [x] (Historical) Audit the Vietnam dataset, identify leakage, and build source-grouped, hash-locked v5 splits -- retained only for field validation, see [above](#field-validation-vietnam-clips-historical).
-
-**Detector**
-- [x] Compare standard, high-resolution, SAHI, and hybrid inference on VisDrone-DET; select standard 1280.
-- [x] Diagnose a train/infer resolution mismatch on the VisDrone baseline checkpoint and run a gated 5-epoch native-1280 continuation -- **passed with margin**, promoted 2026-08-21.
-- [x] (Historical, on Vietnam v5) NWD bbox-loss and P2 detection-head ablations against the small-object gap -- both **rejected**.
-- [ ] Retest a small-object loss/architecture/augmentation lever (e.g. scale-aware copy-paste) directly on VisDrone once the locked test exists.
-- [ ] Deferred: evaluate a newer Ultralytics architecture generation (e.g. YOLO26) as a new baseline.
-- [ ] Deferred: export and benchmark detector FP16/INT8 candidates.
-
-**Tracking and counting**
-- [x] Feed the selected detector into ByteTrack once per source frame; compare 640 vs. 1280.
-- [x] Repair and validate sequence-level class-aware tracking evaluation (motmetrics IoU-distance fix); integrate TrackEval for HOTA/DetA/AssA.
-- [x] Confirm the highres-pilot detection gain propagates into tracking (IDF1 +0.023, MOTA +0.089, ID switches -114).
-- [x] Test a real pretrained ReID embedding against `model:auto` -- **no improvement**, reconfirms the detection-recall bottleneck.
-- [x] Derive frame-count and line-crossing ground truth from VisDrone-MOT trajectories and measure error.
-
-**Alerts and analytics**
-- [x] Implement deterministic analytics/event schema with synthetic tests; complete ROI/counting-line/congestion acceptance.
-- [x] Add and synthetic-test a prolonged-stop alert with speed hysteresis and gap reset.
-- [x] Diagnose the UAV camera-motion ROI failure and implement GMC -- the fix is `uav_motion`'s count-alone trigger, not GMC itself (A/B tested); reconfirmed on the promoted checkpoint.
-- [x] Build a detection-independent stillness signal for severe-occlusion jams -- automatic trigger **rejected and root-caused**; visual heatmap variant **works**.
-- [x] Test two cheap congestion-trigger fixes (lower confidence: partial, safe fix; count-alone trigger: **rejected**, false-positives on a light-traffic clip).
-- [ ] Open product gap: the confidence fix alone still leaves the motivating clip mostly `NORMAL`.
-
-**VLM/LLM and evidence**
-- [x] Freeze VLM/LLM evaluation inputs, JSON/prompt contract v1, two-reviewer annotation tooling.
-- [x] Fix the VLM/LLM prompt-copying bug (v1 to v3), verified grounded on two real clips.
-- [x] Add deterministic event keyframe/clip evidence selection with provenance hashes.
-- [x] Add a Streamlit dashboard over pipeline run output.
-- [ ] Resolve or formally defer the reasoning adjudication queue; does not block CV delivery.
-
-**TVLR (paused after Stage B)**
-- [x] Freeze the offline TVLR feasibility protocol. See [TVLR protocol](docs/tvlr_protocol.md).
-- [x] Run the Stage-B development oracle: real recovery opportunity (33.8% of ByteTrack-missed tiny/occluded GT) but only 6.1% WAPE improvement and worse on one dev sequence -- not an achieved result. `experiments/tvlr_oracle_dev_v1_20260820/run.json`.
-- [ ] **Paused**: Stage C is deprioritized while detector/tracking work on VisDrone continues instead.
-
-**Deferred beyond current goal**
-- [ ] Quantize and benchmark the selected VLM and LLM.
-- [ ] Validate an appropriate physical edge/NPU target.
+1. **Lock a real VisDrone test.** Source and place
+   VisDrone2019-DET-test-dev (GT public) at
+   `datasets/VisDrone/VisDrone2019-DET-test-dev/`; every decision so far has
+   repeatedly used the same val set (see [Dataset](#dataset)).
+2. **Push the small-object gain further** once the test is locked (e.g.
+   scale-aware copy-paste), building on the highres-pilot result.
+3. **Close the congestion product gap**: the confidence fix still leaves
+   the motivating clip mostly `NORMAL`.
+4. TVLR Stage C stays paused; VLM/LLM fine-tuning, quantization, and
+   physical edge/NPU deployment stay deferred.
 
 ## License
 
