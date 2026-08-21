@@ -504,6 +504,54 @@ should now be treated as unconfirmed pending a lever tested directly
 against test-dev. Full record:
 `experiments/visdrone_testdev_locked_first_read_20260821/run.json`.
 
+### Why the gain didn't replicate: val-vs-test-dev diagnostic
+
+Rather than guess at another blind fix, `scripts/analyze_visdrone_split_gap.py`
+compares ground-truth box-scale and per-class distributions directly from
+the raw annotations (no detector involved), at the same imgsz=1280
+letterbox scale used everywhere else in this project:
+
+| Split | Images | Median box scale (px) | Fraction <16px | Boxes/image |
+|---|---:|---:|---:|---:|
+| train | 6,471 | 22.19 | 33.25% | 53.04 |
+| val | 548 | 22.55 | 30.78% | 70.73 |
+| test-dev | 1,610 | 19.69 | 40.44% | 46.65 |
+
+test-dev does skew smaller overall, but the effect is wildly uneven by
+class: `pedestrian`/`people` collapse from a val median of ~17px to a
+test-dev median of ~11px (46-71% of boxes under 16px, versus 44-46% on
+val) -- far more extreme than any vehicle class. But this project's actual
+scope excludes `pedestrian`/`people` entirely (`included_classes` in every
+pipeline config is vehicles only), so this alone cannot explain the AP-small
+gate failure. Recomputing AP-small restricted to the 8 vehicle classes only
+(from the already-recorded per-class breakdowns):
+
+| Split | Baseline (vehicle-only AP-small) | Pilot (vehicle-only AP-small) | Delta |
+|---|---:|---:|---:|
+| val | 0.1913 | 0.2140 | +0.0227 |
+| test-dev | 0.1469 | 0.1493 | **+0.0024** |
+
+The collapse is not a pedestrian/people class-averaging artifact -- it
+persists almost identically when restricted to vehicles. Note also that
+the **baseline** checkpoint's own vehicle AP-small drops 23% relative
+(0.191->0.147) from val to test-dev, before even considering the pilot:
+test-dev is intrinsically a harder, more diverse split for this detector
+in general, not specifically resistant to the resolution fix. The most
+defensible reading is that the pilot's apparent gain was disproportionately
+shaped by properties of val itself (the same 548 images already used for
+checkpoint selection and mode selection in earlier experiments), rather
+than a genuinely general small-object-vehicle improvement -- consistent
+with, but not fully explained by, the selection-on-val risk already
+disclosed. This is a diagnostic, not a root cause with a clear fix
+identified; unlike the Vietnam v5 object-scale gap, no single explanatory
+variable has been isolated yet.
+
+**Implication for future levers.** Any further small-object candidate
+(more highres-pilot epochs, copy-paste augmentation, etc.) must be
+developed without repeated checks against val across many experiments,
+and read against test-dev exactly once per candidate, to avoid repeating
+this same inflation pattern.
+
 Since detection recall was already identified as the bottleneck, a parallel
 ablation tested whether a real pretrained ReID embedding
 (`yolo26n-reid.onnx`, auto-downloaded via Ultralytics 8.4.115's

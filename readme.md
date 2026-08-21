@@ -312,9 +312,17 @@ This is exactly the class of experiment now redirected to VisDrone instead.
 - The promoted detector checkpoint's AP-small gain was gated and passed on
   val (+0.0223) but does **not** clearly replicate on the now-locked
   VisDrone2019-DET-test-dev (+0.0027, under the +0.010 gate) -- see
-  [Detection](#detection). Confirms val-based selection across many
-  experiments likely inflated it; treat the checkpoint's small-object
-  benefit as unconfirmed until retested with a test-dev-gated lever.
+  [Detection](#detection). A ground-truth distribution diagnostic
+  (`scripts/analyze_visdrone_split_gap.py`) rules out class-averaging as
+  the cause (the gap persists restricted to vehicle classes only) but does
+  not isolate a single fix-able root cause the way the Vietnam v5 gap did
+  -- the baseline checkpoint's own vehicle AP-small also drops 23%
+  relative from val to test-dev, so test-dev looks intrinsically harder
+  in general, not specifically resistant to this fix. Full diagnostic:
+  [benchmark protocol](docs/benchmark_protocol.md#why-the-gain-didnt-replicate-val-vs-test-dev-diagnostic).
+  Treat the checkpoint's small-object benefit as unconfirmed until
+  retested with a lever developed without repeated val checks and gated
+  against test-dev exactly once.
 - Tracking, counting, and ReID comparisons still have no equivalent locked
   test (only VisDrone-MOT-val exists) -- the same inflation risk applies
   there and is unmeasured.
