@@ -6,7 +6,9 @@ NVIDIA RTX 3050 Laptop GPU (6 GB VRAM). Quantization and physical edge/NPU
 deployment are explicitly deferred until the current research goal is
 complete.
 
-See [docs/quickstart.md](docs/quickstart.md) for installation and CLI usage.
+See [docs/quickstart.md](docs/quickstart.md) for installation and CLI usage,
+and [docs/literature_review.md](docs/literature_review.md) for the papers
+behind the algorithms and problems below.
 
 ---
 
