@@ -1,0 +1,34 @@
+schema_version: 1
+benchmark_id: visdrone_det_highres_pilot_eval_v1
+
+dataset:
+  name: VisDrone2019-DET-val
+  split: validation
+  images: datasets/VisDrone/VisDrone2019-DET-val/images
+  annotations: datasets/VisDrone/VisDrone2019-DET-val/annotations
+  classes: [pedestrian, people, bicycle, car, van, truck, tricycle, awning-tricycle, bus, motor]
+
+model:
+  weights: runs/detect/research/yolov8s_visdrone_highres_ft_v1_20260821T105030/weights/best.pt
+  expected_sha256: a9bd5c8382f33a7b7b0aabed6dfdbe0a9f6e5443d531d9c0c8b8e3dcf59e8483
+  device: cuda:0
+  confidence: 0.01
+  iou: 0.7
+  max_det: 1000
+
+evaluation:
+  coco_max_dets: [1, 100, 1000]
+  output_root: benchmark_outputs/visdrone_det_highres_pilot_eval_v1
+  require_clean_worktree: true
+  claim_boundary: >-
+    COCO-style validation comparison on valid VisDrone objects with maxDets
+    1000, identical protocol to visdrone_det_sahi.yaml's standard_1280 mode,
+    run against the yolov8s_visdrone_highres_ft_v1 pilot checkpoint to check
+    it against the locked gates in configs/experiments/yolov8s_visdrone_highres_ft_v1.yaml.
+    This is not the official VisDrone protocol because ignored regions are
+    excluded rather than handled by the official matching rules.
+
+modes:
+  standard_1280:
+    type: standard
+    imgsz: 1280
