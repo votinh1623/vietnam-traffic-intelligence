@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "run_id": "visdrone_testdev_locked_first_read_20260821",
+  "status": "completed",
+  "claim_boundary": "First-ever read of VisDrone2019-DET-test-dev (1,610 images, public GT, never used for any prior selection decision in this project). This result is reported as-is and must not be used to reverse or reselect the already-promoted highres-pilot checkpoint -- doing so would turn test-dev into another selection surface and defeat its purpose as a locked test.",
+  "dataset": {
+    "name": "VisDrone2019-DET-test-dev",
+    "image_count": 1610,
+    "ground_truth_box_count": 75102,
+    "image_manifest_sha256": "87bf5ffe0647bf7184e6b4b26a463f7138296aa76e0d808795c176565f336179",
+    "annotation_manifest_sha256": "e413d1a8cad1b7a01357258c4eb20d4b162f5d9dae199fa7d39ebafb8d8e5967"
+  },
+  "configs": {
+    "highres_pilot": "configs/evaluation/visdrone_det_testdev_locked_v1.yaml",
+    "baseline": "configs/evaluation/visdrone_det_testdev_locked_baseline_v1.yaml"
+  },
+  "results": {
+    "baseline_640_trained": {
+      "checkpoint_sha256": "0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08",
+      "ap": 0.21457686527617512,
+      "ap50": 0.3680885077422018,
+      "ap_small": 0.13831816380308892,
+      "ap_medium": 0.29905632408718563,
+      "ap_large": 0.2939666316908597
+    },
+    "highres_pilot": {
+      "checkpoint_sha256": "a9bd5c8382f33a7b7b0aabed6dfdbe0a9f6e5443d531d9c0c8b8e3dcf59e8483",
+      "ap": 0.22895146688910012,
+      "ap50": 0.38801623077766634,
+      "ap_small": 0.1409500537752799,
+      "ap_medium": 0.3261114966822538,
+      "ap_large": 0.3579736238435148
+    },
+    "delta_pilot_minus_baseline": {
+      "ap": 0.014374601612924993,
+      "ap_small": 0.0026318899721909757
+    },
+    "comparison_to_val_measured_delta": {
+      "val_ap_delta": 0.032537442559179,
+      "val_ap_small_delta": 0.0222960974903732,
+      "testdev_ap_delta_as_fraction_of_val": 0.4417,
+      "testdev_ap_small_delta_as_fraction_of_val": 0.118
+    }
+  },
+  "interpretation": "The AP-small gain that passed the pre-registered gate (+0.010 minimum) on val (+0.0223) does not clearly replicate on the locked test-dev split (+0.0027, well under the gate threshold). The overall AP gain also shrinks substantially (val +0.0325 -> test-dev +0.0144, 44% of the val-measured gain). This is consistent with the risk flagged before test-dev was sourced: repeated selection against the same 548-image val set across many experiments (checkpoint selection, mode selection, the pilot's own gate, tracker/ReID comparisons) likely inflated the apparent size of this specific gain. The promotion decision is NOT reversed by this single read (that would make test-dev another selection surface), but the practical small-object benefit of the promoted checkpoint should now be treated as unconfirmed, not established, until independently retested.",
+  "next_step": "Any future small-object detection lever (copy-paste augmentation, architecture/loss retests) must be gated against this locked test-dev split directly, not against val, to avoid repeating this inflation."
+}
