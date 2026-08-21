@@ -1,0 +1,20 @@
+# botsort_reid_pretrained.yaml
+# Identical to botsort_reid_custom.yaml except model is a real pretrained
+# ReID checkpoint (yolo26n-reid.onnx, auto-downloaded by Ultralytics 8.4.115
+# via ultralytics/trackers/utils/reid.py's REID_ASSETS/attempt_download_asset)
+# instead of model:auto (which reuses the detector's own pre-Detect-head
+# features). Isolates whether a dedicated appearance embedding beats feature
+# reuse, holding the detector/BoT-SORT thresholds fixed.
+tracker_type: botsort
+track_high_thresh: 0.5
+track_low_thresh: 0.1
+new_track_thresh: 0.6
+track_buffer: 60
+match_thresh: 0.8
+fuse_score: True
+gmc_method: sparseOptFlow
+
+proximity_thresh: 0.5
+appearance_thresh: 0.8
+with_reid: True
+model: yolo26n-reid.onnx
