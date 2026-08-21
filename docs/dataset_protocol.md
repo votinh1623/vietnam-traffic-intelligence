@@ -81,3 +81,23 @@ source split and polygon-to-box conversion, then removes 53 exact duplicate
 boxes during materialization. No duplicate boxes remain in any split. V5 has
 its own locked test manifest and must not be compared as though it were the
 same dataset version as v4.
+
+### Source composition and the object-scale gap
+
+All 1,214 v5 images come from only 12 source videos (5 train / 2 calibration
+/ 2 validation / 3 test). 11 are repurposed YouTube uploads (7 auto-named on
+download, plus `traffic_jam`, `traffic_normal`, `vid3`, and `vid4`, confirmed
+as YouTube sources); exactly 1 (`DJI_20250516071323_0341_D`, in validation)
+is a native drone capture. The two sources explicitly titled as aerial drone
+footage both landed in the locked test by the source-disjoint split -- with
+only 12 sources total, this is close to unavoidable, not a labeling defect.
+
+Measured directly from the label files (`sqrt(w*h)` in pixels at
+imgsz=1280): only 4.7% of train boxes are under 16px versus 48.8% of test
+boxes. A model trained on this data sees real small-object examples rarely,
+then is evaluated on a split where they dominate. This is the likely root
+cause of the detector's validation-to-test gap (see
+[benchmark protocol](benchmark_protocol.md)): a data scarcity problem, not
+something a loss function or architecture change alone can fully correct --
+both an NWD bbox-loss ablation and a P2 architecture ablation targeting this
+exact gap were tried and rejected.

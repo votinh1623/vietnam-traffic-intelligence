@@ -51,6 +51,22 @@ summary correctness, or quantization parity can be reported.
 
 ## Detector training and validation
 
+### Why YOLOv8
+
+Chosen over newer Ultralytics releases (e.g. YOLO26, which ships in the same
+pinned `ultralytics==8.4.115` install used here) for three reasons, not
+because it was benchmarked as more accurate: it is a widely validated
+baseline with a large body of independent small-object/aerial literature to
+contextualize results against (including the NWD paper this project's own
+loss ablation is based on); it has years of mature ONNX/TensorRT/edge export
+tooling, relevant to this project's deferred edge/NPU goal; and its
+internals are stable and well documented enough to safely monkey-patch (the
+NWD loss) and extend (the P2 head) directly, which is a real risk to redo
+correctly on a newer, less-verified architecture. Evaluating a newer
+architecture generation as a new baseline is a legitimate, identified future
+direction -- not yet executed, and not assumed to be worse or better than
+YOLOv8 until it is.
+
 YOLOv8s was first initialized from COCO and fine-tuned on VisDrone2019-DET as
 an initialization checkpoint (`mAP50=0.389`, `mAP50-95=0.225` at the best
 validation epoch, 74). The historical `vietnam_dataset_v2` run
@@ -231,6 +247,27 @@ fixed and re-run (moved every metric by at most 0.002 -- see the readme's
 Tracking caveat). Historical root tracking CSV files predate the motmetrics
 repair and remain `invalid`.
 
+### BoT-SORT and ReID ablation
+
+Switching the tracker from ByteTrack to BoT-SORT (`botsort_custom.yaml`,
+same thresholds) nearly halved ID switches (462->207), raised IDF1
+(0.309->0.355) and AssA (0.453->0.535), but MOTA and fragmentations got
+slightly worse. Enabling ReID on top of BoT-SORT (`model:auto`, reusing the
+detector's own pre-Detect-head features -- no separate ReID checkpoint)
+added essentially nothing further (IDF1 0.355->0.358, ID switches
+207->209 -- within noise). DetA stayed nearly flat across all three
+trackers (0.196-0.206) while AssA moved with tracker choice, i.e. detection
+recall, not association, is this pipeline's dominant limitation, which no
+ReID choice can fix by itself -- reconfirmed 2026-08-21 by swapping in a
+real pretrained embedding (`yolo26n-reid.onnx`) instead of `model:auto`: all
+three configurations (none/auto/pretrained) cluster within noise (IDF1
+0.355-0.358, ID switches 207-209, MOTA 0.004-0.005); see
+`experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`.
+`bytetrack_custom.yaml` remains the pipeline default pending a decision on
+the BoT-SORT ID-switch/MOTA trade-off. A ByteTrack candidate with aligned
+0.4 track/new thresholds was also tested and rejected (worse IDF1, MOTA,
+and +257 ID switches).
+
 The controlled resolution experiment is recorded in
 `experiments/tracking_visdrone_mot_resolution_v1_20260818/run.json`. On the
 same eight vehicle classes and ByteTrack parameters, standard 1280 increased
@@ -382,6 +419,71 @@ low-texture frames -- check `gmc_total_failures` (run-wide) and
 are local ad-hoc reruns (`configs/pipeline/offline_video_uav_gmc.yaml` and
 its `offline_video_uav_gmc_off_ab.yaml` sibling), not a new hashed
 experiment record.
+
+**Reconfirmed 2026-08-21 after the checkpoint promotion below.** `run52`
+(fixed-camera config) still stays `NORMAL` for all 300 frames (occupancy
+peaked 0.272 vs. the original 0.296) -- expected, since this failure was
+already diagnosed as a `fixed_camera` mode/threshold limitation, not a
+detection-recall gap. `run53` (`uav_motion` config) still transitions
+`NORMAL`->`CONGESTED` at frame 64, 236/300 frames `CONGESTED` -- unchanged
+from the original checkpoint. Both are local, gitignored reruns; the
+promotion itself is recorded in
+`experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`.
+
+## VisDrone highres fine-tune pilot and checkpoint promotion
+
+The `yolov8s_visdrone` baseline (used by all UAV-mode pipeline configs) was
+trained only at 640 even though standard-1280 inference wins the small-object
+benchmark above -- a train/infer resolution mismatch. In a deterministic
+498-image train sample, moving from 640 to 1280 processing changes the
+median letterboxed box scale from 11.16px to 22.31px and reduces the
+fraction below 16px from 67.7% to 33.6%.
+
+A gated pilot (`configs/experiments/yolov8s_visdrone_highres_ft_v1.yaml`)
+continued this checkpoint for 5 epochs natively at 1280 (`lr0=0.0002`,
+`cos_lr`, `mosaic=0.0` -- mosaic shrinks objects back into 640-scale
+quadrants, working against this exact goal), gated in advance at AP-small
++0.010 absolute / overall AP drop <=0.005, evaluated once with the same
+frozen COCO-style evaluator used for the small-object selection table.
+Smoke-tested first for VRAM safety: batch=2 peaked at 3.21GB
+allocated/3.74GB reserved (safe); batch=4 measured ~6.94GB on a dense batch
+(rejected as unsafe on the 6GB GPU).
+
+**Result: passed with margin.** AP 0.264->0.296 (+0.0325, improved rather
+than merely non-regressing), AP-small 0.194->0.216 (+0.0223, 2.2x the
+required minimum). The training run itself took 1h36m, peak CUDA 3.42GB
+allocated/4.20GB reserved.
+
+The gain was checked for propagation into tracking by swapping only the
+detector checkpoint into the existing standard-1280/ByteTrack benchmark
+(`tracking_visdrone_mot_selected_v1.yaml`'s protocol, same eight vehicle
+classes/thresholds):
+
+| Metric | 640-trained | Highres pilot | Delta |
+|---|---:|---:|---:|
+| IDF1 | 0.481 | 0.504 | +0.023 |
+| Precision | 0.578 | 0.642 | +0.064 |
+| Recall | 0.521 | 0.516 | -0.005 |
+| MOTA | 0.132 | 0.221 | +0.089 |
+| ID switches | 568 | 454 | -114 |
+| False positives | 24,221 | 18,390 | -5,831 |
+
+A real, propagating improvement with recall essentially unchanged (not
+traded away for precision) -- confirming the earlier DetA/AssA finding that
+detection quality, not the tracking algorithm, was the limiting factor. The
+checkpoint was promoted as the default for the 4 UAV-mode pipeline configs
+2026-08-21 (`offline_video_uav.yaml`, `offline_video_uav_gmc.yaml`,
+`offline_video_uav_gmc_off_ab.yaml`, `uav_visdrone_benchmark_v1.yaml`); the
+Vietnam v5 checkpoint (`yolov8s_v5_seed0`) used by the other pipeline
+configs is a separate lineage, untouched by this change. Full record:
+`experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`.
+
+Since detection recall was already identified as the bottleneck, a parallel
+ablation tested whether a real pretrained ReID embedding
+(`yolo26n-reid.onnx`, auto-downloaded via Ultralytics 8.4.115's
+`REID_ASSETS`) would do better than `model:auto`'s feature reuse -- see
+"BoT-SORT and ReID ablation" above. It did not: this is consistent with
+recall, not appearance matching, being the constraint.
 
 ## Detection-independent stillness signal (prototype)
 
