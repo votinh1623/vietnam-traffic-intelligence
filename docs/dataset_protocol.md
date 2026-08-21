@@ -1,5 +1,15 @@
 # Dataset integrity protocol
 
+**Status (2026-08-21): VisDrone2019-DET/MOT is now the primary dataset** for
+detector/tracker development and evaluation (see the readme's
+[Dataset](../readme.md#dataset) section). Only VisDrone `train`/`val` are
+available locally; `test-dev` (GT public) needs to be sourced and placed at
+`datasets/VisDrone/VisDrone2019-DET-test-dev/` to close the "selecting
+against val repeatedly" gap disclosed there. Everything below this point
+documents the Vietnam dataset work (`v2` through `v5`), retained as
+historical record and field-validation source only -- it is not the active
+benchmark.
+
 The current `vietnam_dataset_v2` split is retained as a legacy development
 artifact. It is not a valid scientific test because source videos and adjacent
 frames occur across train, validation, and test.
