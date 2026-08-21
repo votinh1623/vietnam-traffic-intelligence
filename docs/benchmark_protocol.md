@@ -559,6 +559,42 @@ ablation tested whether a real pretrained ReID embedding
 "BoT-SORT and ReID ablation" above. It did not: this is consistent with
 recall, not appearance matching, being the constraint.
 
+## Copy-paste augmentation pilot (pre-registration)
+
+Written before running anything or looking at any result, per the
+discipline established after the highres-pilot gate failed to replicate on
+test-dev (see above): no repeated val checks, no post-hoc parameter
+tuning, one test-dev read at the end.
+
+**Method.** `scripts/train/copy_paste_augment.py` builds a crop bank from
+VisDrone-DET-train boxes of the 8 vehicle classes only (excludes
+pedestrian/people -- outside this project's scope), then pastes 3-6 crops
+per augmented image, each resized into an 8-28px target scale at
+imgsz=1280 letterbox (the underrepresented small range), rejecting any
+placement overlapping an existing box beyond IoU 0.10. 3,000 of the 6,471
+train images (pre-registered, not tuned) get one augmented copy each,
+combined with all original images as the training set (9,471 images
+total, a ~46% increase -- disclosed as a confound: more images also means
+more gradient steps per epoch, not attributable to augmentation content
+alone).
+
+**Training.** Continues from the same pre-promotion 640-trained baseline
+checkpoint used by the highres pilot (not the promoted highres-pilot
+checkpoint itself, to isolate augmentation's own effect rather than
+compounding it with the unconfirmed resolution fix). Same hyperparameters
+as the highres pilot otherwise: 5 epochs, imgsz=1280, batch=2,
+`lr0=0.0002`, `cos_lr`, `mosaic=0.0`.
+
+**Locked gate (test-dev, vehicle classes only, set before training):**
+promote as a candidate worth pursuing further only if vehicle-class
+AP-small on VisDrone2019-DET-test-dev reaches at least
+`0.1469 + 0.010 = 0.1569` (the pre-promotion baseline's own test-dev
+vehicle AP-small, plus the same +0.010 absolute margin used for the
+highres-pilot gate). The highres pilot's test-dev vehicle AP-small
+(0.1493) is reported alongside for reference, not as the primary
+comparison point -- augmentation is tested against the plain baseline, not
+against an unconfirmed result.
+
 ## Detection-independent stillness signal (prototype)
 
 **Motivation.** A local pipeline run (fixed-camera profile, 900 frames of a
