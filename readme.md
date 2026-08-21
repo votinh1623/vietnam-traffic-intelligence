@@ -175,9 +175,20 @@ VisDrone2019-DET validation images, four inference modes, COCO-style AP):
 | Mode | AP | AP-small | p50 latency (ms/img) | Decision |
 |---|---:|---:|---:|---|
 | Standard 640 | 0.212 | 0.118 | 23.7 | Reference |
-| **Standard 1280** | **0.264** | **0.194** | 130.8 | **Selected for tracking pipeline** |
+| **Standard 1280** | **0.264** | **0.194** | 130.8 | **Selected for tracking pipeline (checkpoint since superseded, see below)** |
 | SAHI 640 tiles | 0.193 | 0.142 | 282.0 | Small-object ablation only |
 | Hybrid full-frame + tiles | 0.177 | 0.117 | 200.1 | Rejected |
+
+**Checkpoint promoted 2026-08-21.** This table's numbers are frozen to the mode-selection study's
+original conditions (the 640-trained checkpoint). The checkpoint itself was later continued for 5
+epochs natively at 1280 (`configs/experiments/yolov8s_visdrone_highres_ft_v1.yaml`, gated at AP-small
++0.01 absolute / overall AP drop <=0.005) and passed with margin: AP 0.264->0.296 (+0.0325), AP-small
+0.194->0.216 (+0.0223), evaluated with the same frozen COCO-style evaluator. The gain propagated into
+tracking (below) without touching the tracker. This new checkpoint is now the UAV pipeline default;
+see `experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`. A parallel ablation
+swapping the tracker's ReID embedding for a real pretrained model (`yolo26n-reid.onnx`) instead of
+`model:auto` gave no improvement (IDF1/ID-switches/MOTA all within noise of the no-ReID baseline),
+consistent with detection recall -- not association -- being the dominant limitation.
 
 NWD bbox-loss ablation (ties the loss directly to the object-scale gap
 above; identical dataset/init/hyperparameters as the baseline, only the
@@ -363,18 +374,26 @@ formal quality scoring are still pending.
 ### UAV system evaluation
 
 **Setup.** Full pipeline (selected 1280 detector + ByteTrack + analytics +
-evidence export) run end to end on 300 real 1080p UAV frames.
+evidence export) run end to end on 300 real 1080p UAV frames. Re-run
+2026-08-21 (`run52`/`run53`) after promoting the highres-pilot checkpoint
+(see [Detection](#detection)); original `run25` numbers on the
+640-trained checkpoint are kept below for comparison, not as the current
+default.
 
-| Metric | Value |
-|---|---:|
-| End-to-end throughput | 3.70 FPS (RTX 3050) |
-| Congestion detection, fixed camera ROI | **Failed** — stayed `NORMAL` for all 300 frames despite a visibly congested scene (static occupancy peaked at 0.296) |
-| Congestion detection, `uav_motion` mode | **Fixed** — transitioned `NORMAL`→`CONGESTED` at frame ~64-65, **with or without GMC** (A/B tested, see caveat) |
+| Metric | run25 (640-trained, 2026-08-18) | run52/53 (highres pilot, 2026-08-21) |
+|---|---:|---:|
+| End-to-end throughput | 3.70 FPS (RTX 3050) | 3.40-3.46 FPS -- same detector cost class; the small drop is within normal run-to-run system variance, not a new bottleneck |
+| Congestion detection, fixed camera ROI | **Failed** -- stayed `NORMAL` for all 300 frames (static occupancy peaked at 0.296) | **Still fails the same way** -- stayed `NORMAL` for all 300 frames, occupancy peaked at 0.272. Expected: this failure was already diagnosed as a `fixed_camera` mode/threshold limitation on this clip, not a detection-recall gap that a better detector fixes by itself |
+| Congestion detection, `uav_motion` mode | **Fixed** -- transitioned `NORMAL`→`CONGESTED` at frame ~64-65 | **Reconfirmed** -- transitioned at the same frame 64, 236/300 frames `CONGESTED` |
 
-**Evidence.** `experiments/uav_pipeline_e2e_v1_20260818/run.json`; GMC
-transform direction verified against a synthetic shift in
+**Evidence.** Original: `experiments/uav_pipeline_e2e_v1_20260818/run.json`.
+Re-run: `output/pipeline/run52/run.json` (fixed-camera config),
+`output/pipeline/run53/run.json` (uav_motion config) -- both gitignored
+local outputs; `experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`
+is the committed hash-backed record of the checkpoint promotion itself.
+GMC transform direction verified against a synthetic shift in
 `tests/test_motion.py`; A/B: `output/pipeline/run50` (GMC off) vs `run51`
-(GMC on); full writeup:
+(GMC on, both on the older checkpoint); full writeup:
 [benchmark protocol](docs/benchmark_protocol.md#uav-moving-camera-analytics-gmc).
 
 **Caveat.** This fix is `analytics.mode: uav_motion`'s count-alone
@@ -511,7 +530,7 @@ all quantization work, and physical deployment are explicitly deferred.
 - [x] Test an NWD bbox-loss ablation against the detector's small-object generalization gap (rejected: worse than baseline CIoU on every locked-test metric and class).
 - [x] Test a P2 detection-head architecture ablation (adds a stride-4 output) against the same gap (rejected: worse than baseline and worse than NWD on every locked-test metric; training required recovering from a CUDA OOM, a BatchNorm corruption at batch=1, and an Ultralytics `resume=True` bug -- see [benchmark protocol](docs/benchmark_protocol.md#p2-detection-head-ablation-rejected)).
 - [x] Diagnose the overlooked training-resolution mismatch on VisDrone: the selected checkpoint was trained only at 640 even though 1280 inference won the small-object benchmark. In a deterministic 498-image train sample, moving from 640 to 1280 changes the median letterboxed box scale from 11.16 px to 22.31 px and reduces the fraction below 16 px from 67.7% to 33.6%. A direct 1280/no-mosaic continuation pilot is now frozen at `configs/experiments/yolov8s_visdrone_highres_ft_v1.yaml`; the final true 1280/batch-2 smoke passed with 3.21 GB peak CUDA allocation and 3.74 GB peak reservation. A batch-4 smoke also completed but Ultralytics reported about 6.94 GB on a dense batch, so batch 4 is rejected as unsafe on the 6 GB GPU. This is the next detector experiment, before custom copy-paste or another architecture/loss variant.
-- [ ] Run the five-epoch, batch-2 VisDrone high-resolution continuation from the clean committed state, then evaluate its selected checkpoint once with the frozen COCO-style evaluator. Promote only if AP-small improves by at least 0.010 absolute while overall AP drops by no more than 0.005; otherwise stop this branch.
+- [x] Ran the five-epoch, batch-2 VisDrone high-resolution continuation and evaluated it once with the frozen COCO-style evaluator: AP-small +0.0223 absolute (2.2x the +0.010 gate), overall AP +0.0325 (improved, not just non-regressing). Promoted as the UAV pipeline default (`configs/pipeline/offline_video_uav*.yaml`, `uav_visdrone_benchmark_v1.yaml`) 2026-08-21. The gain propagated into tracking on a matched standard-1280/ByteTrack re-run (IDF1 +0.023, MOTA +0.089, ID switches -114, precision +0.064, recall roughly flat) without touching the tracker. A separate ablation swapping the ReID embedding for a real pretrained model (`yolo26n-reid.onnx`) instead of `model:auto` gave no improvement, reinforcing that detection recall, not tracking algorithm choice, is this pipeline's dominant lever. Full numbers: `experiments/visdrone_highres_pilot_and_reid_results_20260821/run.json`.
 - [x] Freeze the offline TVLR feasibility protocol before inspecting its oracle result. It explicitly excludes detections already recovered by ByteTrack, reports candidates below/inside/above ByteTrack's association thresholds separately, protects an internal holdout, and forbids a real-time claim because forward/backward support uses future frames. See [TVLR protocol](docs/tvlr_protocol.md).
 - [x] Run the Stage-B development oracle on 896 VisDrone-MOT frames using cached post-NMS proposals (`conf=0.02`, `max_det=3000`). No frame saturated and the inference pass took 93 s. Among 8,994 tiny-or-occluded observations missed by ByteTrack, 3,044 (33.8%) retained a matching proposal; the incremental oracle recall ceiling is +0.146, and 2,900/4,362 incremental candidates have strict +/-1-frame support. Aggregate frame-count WAPE improves only 6.1% under the ideal GT-selected oracle (0.236 -> 0.222), and it worsens on one of three development sequences, so the opportunity is real but false-positive/count-error control is the central Stage-C risk. These are upper bounds, not achieved TVLR results; the internal holdout remains unopened. The committed summary is `experiments/tvlr_oracle_dev_v1_20260820/run.json`.
 - [ ] Implement Stage C TVLR only against the frozen baselines: selected ByteTrack, naive `conf=0.02`, and ByteTrack with a lowered second-stage threshold. It must use no GT identity and must pass the predeclared precision/HOTA/counting gates before any detector retraining.
