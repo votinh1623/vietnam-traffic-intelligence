@@ -48,3 +48,6 @@ Thumbs.db
 experiments/*/artifacts/
 experiments/*/logs/
 benchmark_outputs/
+
+# Local working report exported to ChatGPT/Word/Slides; intentionally untracked
+/reports/project_full_report_working.md
