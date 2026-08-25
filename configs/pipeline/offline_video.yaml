@@ -14,7 +14,11 @@ perception:
   show_confidence: true
   line_width: 2
   device: "0"
-  tracker: bytetrack_custom.yaml
+  # BoT-SORT, not ByteTrack: real VisDrone-MOT measurement shows BoT-SORT
+  # nearly halves ID switches (462->207) in dense, same-class-crowded scenes
+  # -- the exact failure mode observed here (track lost a few frames, wrong
+  # ID assigned on reappearance). See docs/benchmark_protocol.md#bot-sort-and-reid-ablation.
+  tracker: botsort_custom.yaml
 
 video:
   codec: mp4v
