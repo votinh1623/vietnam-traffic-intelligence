@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import time
+from collections import deque
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any, Protocol
 
 import cv2
 
+from .analytics.overlay import draw_frame_stats
 from .config import PipelineConfig
 from .evidence import EVIDENCE_SCHEMA_VERSION
 from .schemas import (
@@ -244,6 +246,11 @@ class PipelineRunner:
         track_count = 0
         event_count = 0
         last_progress_write = started_clock
+        # Rolling window (not a cumulative average) so the on-screen FPS
+        # tracks recent throughput, not a slow-changing average over the
+        # whole run.
+        recent_frame_times: deque[float] = deque(maxlen=30)
+        non_vehicle_classes = {"pedestrian", "people"}
         try:
             with tracks_path.open("w", newline="", encoding="utf-8") as tracks_file, (
                 events_path.open("w", encoding="utf-8")
@@ -297,6 +304,22 @@ class PipelineRunner:
                             annotated = self.overlay_renderer.draw(
                                 annotated, analytics_batch.snapshot
                             )
+
+                    recent_frame_times.append(time.perf_counter())
+                    if len(recent_frame_times) >= 2:
+                        span = recent_frame_times[-1] - recent_frame_times[0]
+                        live_fps = (len(recent_frame_times) - 1) / span if span > 0 else None
+                    else:
+                        live_fps = None
+                    vehicle_count = sum(
+                        1 for track in result.tracks if track.class_name not in non_vehicle_classes
+                    )
+                    annotated = draw_frame_stats(
+                        annotated,
+                        frame_index=frame_index,
+                        fps=live_fps,
+                        vehicle_count=vehicle_count,
+                    )
                     writer.write(annotated)
 
                     # Ghi frame mới nhất ra ảnh để dashboard đọc theo thời

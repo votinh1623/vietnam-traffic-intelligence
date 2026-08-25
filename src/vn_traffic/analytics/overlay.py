@@ -11,6 +11,36 @@ from ..config import AnalyticsConfig
 from ..schemas import AnalyticsSnapshot
 
 
+def draw_frame_stats(frame: Any, *, frame_index: int, fps: float | None, vehicle_count: int) -> Any:
+    """Always-on demo overlay: frame number, live processing FPS, vehicle count.
+
+    Independent of analytics being enabled -- drawn on every run so the
+    output video is reviewable as a standalone demo (frame/fps/count are
+    the baseline expectation, not something only a full analytics profile
+    should show).
+    """
+    fps_text = "n/a" if fps is None else f"{fps:.1f}"
+    lines = [
+        f"Frame: {frame_index}",
+        f"FPS: {fps_text}",
+        f"Vehicles: {vehicle_count}",
+    ]
+    # Top-right corner so this never overlaps the analytics overlay, which
+    # occupies the top-left when analytics is enabled.
+    frame_width = frame.shape[1]
+    for index, text in enumerate(lines):
+        y = 30 + index * 28
+        (text_w, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        x = frame_width - text_w - 12
+        cv2.putText(
+            frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4, cv2.LINE_AA
+        )
+        cv2.putText(
+            frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA
+        )
+    return frame
+
+
 class AnalyticsOverlay:
     COLORS = {
         "NORMAL": (0, 200, 0),
