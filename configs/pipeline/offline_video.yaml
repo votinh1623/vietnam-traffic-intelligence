@@ -12,7 +12,11 @@ perception:
   max_det: 300
   show_labels: true
   show_confidence: true
-  line_width: 2
+  # Ultralytics' Annotator ties label text size directly to line_width
+  # (font scale = line_width/3, no separate font-size control in the cv2
+  # rendering path) -- 1 is the minimum, keeping id/class/conf labels from
+  # covering the small distant boxes they're supposed to describe.
+  line_width: 1
   device: "0"
   # BoT-SORT, not ByteTrack: real VisDrone-MOT measurement shows BoT-SORT
   # nearly halves ID switches (462->207) in dense, same-class-crowded scenes.
