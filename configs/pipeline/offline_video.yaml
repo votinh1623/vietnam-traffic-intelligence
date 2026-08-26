@@ -24,7 +24,11 @@ perception:
   # the zero-IoU-after-1-frame-gap failure mode measured on real footage)
   # was tried and made switches worse (62->74 candidates on the same clip),
   # not better -- reverted. See docs/benchmark_protocol.md#bot-sort-and-reid-ablation.
-  tracker: botsort_custom.yaml
+  # Chosen by direct visual review (user judged this better than plain
+  # BoT-SORT despite the automated switch-candidate heuristic disagreeing
+  # slightly) -- see botsort_reid_lowprox.yaml for the proximity_thresh
+  # reasoning.
+  tracker: botsort_reid_lowprox.yaml
 
 video:
   codec: mp4v
