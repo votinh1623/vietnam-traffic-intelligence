@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import cv2
-import numpy as np
 
 from ..config import AnalyticsConfig
 from ..schemas import AnalyticsSnapshot
@@ -52,13 +51,13 @@ class AnalyticsOverlay:
         self.config = config
 
     def draw(self, frame: Any, snapshot: AnalyticsSnapshot) -> Any:
-        # Drawn from the snapshot's own (possibly GMC-warped) geometry rather
-        # than recomputed from the static config, so the overlay always shows
-        # the region analytics actually used for this frame.
-        roi = np.array(snapshot.roi_polygon_px, dtype=np.int32)
+        # Counting line still drawn from the snapshot's own (possibly
+        # GMC-warped) geometry, so it always shows where analytics actually
+        # measured this frame. ROI polygon itself is intentionally not drawn
+        # -- it still applies to the underlying occupancy/count math, just
+        # no longer rendered on screen.
         line = snapshot.counting_line_px
         color = self.COLORS[snapshot.congestion_state]
-        cv2.polylines(frame, [roi], isClosed=True, color=(255, 180, 0), thickness=2)
         cv2.line(
             frame,
             tuple(map(int, line[0])),
