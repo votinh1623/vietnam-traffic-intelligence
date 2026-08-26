@@ -23,7 +23,7 @@ match_thresh: 0.8
 fuse_score: True
 gmc_method: sparseOptFlow
 
-proximity_thresh: 0.1
+proximity_thresh: 0.01
 appearance_thresh: 0.5
 with_reid: True
 model: yolo26n-reid.onnx
