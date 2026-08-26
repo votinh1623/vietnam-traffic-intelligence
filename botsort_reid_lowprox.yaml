@@ -1,0 +1,29 @@
+# botsort_reid_lowprox.yaml
+# Same as botsort_reid_custom.yaml but with proximity_thresh lowered from
+# 0.5 to 0.1 and a real pretrained embedding instead of model:auto.
+#
+# Why: reading ultralytics/trackers/bot_sort.py's BOTSORT.get_dists()
+# directly -- appearance/ReID distance is only consulted for a
+# track/detection pair when IoU-distance <= (1 - proximity_thresh); pairs
+# outside that get their embedding distance forced to 1.0 (ignored). At the
+# default 0.5, that requires IoU >= 0.5 just to let ReID be consulted at
+# all. Measured directly on real footage: tracks lost for a single frame
+# reappear with raw IoU = 0.000 against their last box (small, fast-moving
+# objects covering more than their own size in one frame) -- appearance
+# never gets a chance to rescue these under the default. Lowering
+# proximity_thresh to 0.1 lets ReID be consulted down to IoU >= 0.1,
+# specifically targeting this failure mode. See
+# docs/benchmark_protocol.md for the measured before/after.
+tracker_type: botsort
+track_high_thresh: 0.5
+track_low_thresh: 0.1
+new_track_thresh: 0.6
+track_buffer: 60
+match_thresh: 0.8
+fuse_score: True
+gmc_method: sparseOptFlow
+
+proximity_thresh: 0.1
+appearance_thresh: 0.5
+with_reid: True
+model: yolo26n-reid.onnx
