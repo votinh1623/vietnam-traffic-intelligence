@@ -51,8 +51,12 @@ class TrafficAnalytics:
         }
         self._event_number = 0
         self._frames_by_state: Counter[str] = Counter()
+        self._frames_by_perception_status: Counter[str] = Counter()
         self._transition_count = 0
         self._prolonged_stop_count = 0
+        self._perception_status = "reliable"
+        self._silence_since_s: float | None = None
+        self._detection_silence_events = 0
         self._max_bbox_union_occupancy = 0.0
         self._max_roi_track_count = 0
         self._occupancy = BBoxUnionOccupancy(
@@ -121,6 +125,36 @@ class TrafficAnalytics:
         current_speeds: list[float] = []
         roi_track_ids: set[int] = set()
         events: list[dict[str, Any]] = []
+
+        # perception_status: independent of congestion_state. Uses raw
+        # `tracks` (before included_classes filtering below) -- the
+        # strongest available signal for "did the detector produce
+        # anything at all this frame", not just "anything in a vehicle
+        # class inside the ROI".
+        previous_perception_status = self._perception_status
+        if tracks:
+            self._silence_since_s = None
+            self._perception_status = "reliable"
+        else:
+            if self._silence_since_s is None:
+                self._silence_since_s = timestamp_s
+            if (
+                timestamp_s - self._silence_since_s
+                >= self.config.detection_silence_min_duration_s
+            ):
+                self._perception_status = "detection_silence"
+        if self._perception_status != previous_perception_status:
+            if self._perception_status == "detection_silence":
+                self._detection_silence_events += 1
+            events.append(
+                self._event(
+                    "perception_status_change",
+                    timestamp_s=timestamp_s,
+                    frame_index=frame_index,
+                    previous_status=previous_perception_status,
+                    current_status=self._perception_status,
+                )
+            )
 
         for track in tracks:
             if track.class_name not in self.config.included_classes:
@@ -265,13 +299,27 @@ class TrafficAnalytics:
         )
         if transition is not None:
             self._transition_count += 1
+            # A transition INTO NORMAL during detection_silence must not be
+            # reported downstream as a confirmed clear road -- the detector
+            # produced nothing, so "no congestion detected" cannot be
+            # distinguished from "nothing was seen". A transition into
+            # DENSE/CONGESTED during silence is not suppressed: that path
+            # only fires via the stillness signal (see
+            # CongestionStateMachine), an independent, detector-free
+            # corroborating signal, not a silent guess.
+            reported_current_state = transition.current
+            if (
+                reported_current_state == "NORMAL"
+                and self._perception_status == "detection_silence"
+            ):
+                reported_current_state = "UNKNOWN"
             events.append(
                 self._event(
                     "congestion_transition",
                     timestamp_s=timestamp_s,
                     frame_index=frame_index,
                     previous_state=transition.previous,
-                    current_state=transition.current,
+                    current_state=reported_current_state,
                     measurements={
                         "bbox_union_occupancy": bbox_union_occupancy,
                         "roi_track_count": len(roi_track_ids),
@@ -283,6 +331,7 @@ class TrafficAnalytics:
 
         state = self.state_machine.state
         self._frames_by_state[state] += 1
+        self._frames_by_perception_status[self._perception_status] += 1
         self._max_bbox_union_occupancy = max(
             self._max_bbox_union_occupancy,
             bbox_union_occupancy,
@@ -294,6 +343,7 @@ class TrafficAnalytics:
             frame_index=frame_index,
             timestamp_s=timestamp_s,
             congestion_state=state,
+            perception_status=self._perception_status,
             roi_track_count=len(roi_track_ids),
             bbox_union_occupancy=bbox_union_occupancy,
             mean_speed_px_s=mean_speed,
@@ -350,6 +400,8 @@ class TrafficAnalytics:
             ),
             "stillness_enabled": self.config.stillness_enabled,
             "state_frames": dict(self._frames_by_state),
+            "perception_status_frames": dict(self._frames_by_perception_status),
+            "detection_silence_events": self._detection_silence_events,
             "congestion_transitions": self._transition_count,
             "prolonged_stop_events": self._prolonged_stop_count,
             "cumulative_crossings": {

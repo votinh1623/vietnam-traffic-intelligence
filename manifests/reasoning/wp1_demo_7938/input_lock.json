@@ -1,0 +1,1633 @@
+{
+  "schema_version": 1,
+  "reasoning_contract_schema_version": 1,
+  "set_id": "wp1_demo_7938_v1",
+  "split": "development",
+  "status": "inputs_frozen_annotations_pending",
+  "selection_policy": "all evidence records from the declared run",
+  "artifact_policy": "media stays local; paths resolve under the source run and hashes are authoritative",
+  "source": {
+    "run_id": "run85",
+    "video_name": "FDown.vn_Tai_video_Facebook_720p (HD)_7938.mp4",
+    "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+    "frames_processed": 667,
+    "events_jsonl_sha256": "48e572751613d8191da8d137a2e7daeff076c2001b44c72a328a4cc689245ab1",
+    "evidence_jsonl_sha256": "68a21b1f956dc5497d67773049d0fbc66cb1e0b43008a951bdde894e61b27377"
+  },
+  "case_count": 26,
+  "cases": [
+    {
+      "case_id": "development-0001",
+      "event_sha256": "cae98c4eeaaf172b18b6fedaea4e0e196d93f6db5a49fa63bda59ab97879e525",
+      "evidence_sha256": "7bd459b6feba4a9ab88a92adc2c7449ef33d0172d87c23ce6545bfe0de5675b2",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000001",
+        "event_type": "line_crossing",
+        "timestamp_s": 0.43333333333333335,
+        "frame_index": 13,
+        "track_id": 19,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 55.147565254689255
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000001",
+        "event_id": "event-000001",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 13,
+        "source_timestamp_s": 0.43333333333333335,
+        "keyframe": {
+          "path": "evidence/frames/event-000001.jpg",
+          "frame_index": 13,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "744314a654244756e17bf8af7fe897ab08378ee0a0b8d7b80597f9792f6f41cb",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "639115eb849f1c2aeedf17c64d1f81127e927261239e9e05527eb63a879ade0f"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000001_event_crop.jpg",
+          "frame_index": 13,
+          "width": 42,
+          "height": 33,
+          "raw_bgr_sha256": "54a71e658b366e8b1aff4e2c62da40627b04ecf78f55b78d5024bf605dfe9bea",
+          "raw_shape": [
+            33,
+            42,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "9d3853d68f05b542905677a20cd46f1a2e9790d48b225558edeaded36ef15b04",
+          "bbox_px": [
+            463,
+            807,
+            505,
+            840
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0002",
+      "event_sha256": "b3b67e043acb9be22465541186327ef7bbf83e025c5f1176738afc6bb796a182",
+      "evidence_sha256": "7d4fa392e73ad1af2ee8effcc27766c405197e9d3c824d18a5eb5f38a7da0452",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000002",
+        "event_type": "line_crossing",
+        "timestamp_s": 1.4,
+        "frame_index": 42,
+        "track_id": 18,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 51.30364155803251
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000002",
+        "event_id": "event-000002",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 42,
+        "source_timestamp_s": 1.4,
+        "keyframe": {
+          "path": "evidence/frames/event-000002.jpg",
+          "frame_index": 42,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "4f02ba21753692d988d1152e388dd590808c3114e16e2557aa99e81e4a9960f0",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "c24e950afad6c49eb137060661e98c3b6f5613920613737a5da82935b31e82fd"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000002_event_crop.jpg",
+          "frame_index": 42,
+          "width": 44,
+          "height": 32,
+          "raw_bgr_sha256": "855c5cf0952726cae1f2945a68f1932be752c1006d2b62963150cd3acef14728",
+          "raw_shape": [
+            32,
+            44,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "7f54904b0e39f2904d290c6ee4bde9b5322716b0676c04f58cc5049b41bfd077",
+          "bbox_px": [
+            407,
+            807,
+            451,
+            839
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0003",
+      "event_sha256": "16fe93bdee68cb57f68a7d9cc8e0870eba1b3fa6a3bb7ad784fde90734a1602c",
+      "evidence_sha256": "213ae6767c909df30efb84818988fcb61179100869b5ee209eea85d7a2787c2f",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000003",
+        "event_type": "line_crossing",
+        "timestamp_s": 1.5666666666666667,
+        "frame_index": 47,
+        "track_id": 5,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 37.525501073221584
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000003",
+        "event_id": "event-000003",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 47,
+        "source_timestamp_s": 1.5666666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000003.jpg",
+          "frame_index": 47,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "3b6131bb3a94d4abd2afe019506b9bc5d0927ab491d388e5bfc170cba4fec941",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "093d8e098d675bccad6ac0d1c2ec9e7275e1a406a66898cbea3c4cc6c0b19361"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000003_event_crop.jpg",
+          "frame_index": 47,
+          "width": 41,
+          "height": 35,
+          "raw_bgr_sha256": "6a0f4e90308dcc5da7f06559d6634bee2d7cbf449fd75cb5c1ce8bdba0c60119",
+          "raw_shape": [
+            35,
+            41,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "4a1ed73ce67f82d1d795a95c314e624263a18be252559c2d0f37ad6eca8a07fd",
+          "bbox_px": [
+            499,
+            805,
+            540,
+            840
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0004",
+      "event_sha256": "599d77e9c15cec2a130c4c10fdad426dda0117efa77093635ee4e1cf93a70114",
+      "evidence_sha256": "cc94ecae9d8b29b186220e848e1db8fd6a9b29c2066a102b071052481ec50900",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000004",
+        "event_type": "line_crossing",
+        "timestamp_s": 1.6,
+        "frame_index": 48,
+        "track_id": 82,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 48.93520550454513
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000004",
+        "event_id": "event-000004",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 48,
+        "source_timestamp_s": 1.6,
+        "keyframe": {
+          "path": "evidence/frames/event-000004.jpg",
+          "frame_index": 48,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "60dbf42fd09932c11d77462a3e3ac6136a28944199486ac746d50fd79dd1bc8d",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "9e14bb81e558457a03f276dbc25b01c5996717711bbffc36a6e92f3e07030fd8"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000004_event_crop.jpg",
+          "frame_index": 48,
+          "width": 44,
+          "height": 36,
+          "raw_bgr_sha256": "9d9f0d4b7b7304c60b5b0a1cc18236ae60eeb92c6300f81babe649a0d2966ac1",
+          "raw_shape": [
+            36,
+            44,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "baac28e52306749637d2cc35ba55974f129ad2b97c0063431643990a55e3e9b8",
+          "bbox_px": [
+            497,
+            803,
+            541,
+            839
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0005",
+      "event_sha256": "a6100187c4680529155529e13ac663735cc95d9eeb0c806927147191d2f0ce95",
+      "evidence_sha256": "252457c470a6f094bf9c8394ac4921e27914fb514097568b0651ef8511741a6b",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000005",
+        "event_type": "line_crossing",
+        "timestamp_s": 2.3,
+        "frame_index": 69,
+        "track_id": 17,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 47.30847115390946
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000005",
+        "event_id": "event-000005",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 69,
+        "source_timestamp_s": 2.3,
+        "keyframe": {
+          "path": "evidence/frames/event-000005.jpg",
+          "frame_index": 69,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "96c49258a51837a80a8221d5d2b8540d550f3125f421728fdae1c34825681fa2",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "09a578336df9c3cdf4d52b585d348a76433d0621d22a14e7046a31cd3832bc91"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000005_event_crop.jpg",
+          "frame_index": 69,
+          "width": 39,
+          "height": 34,
+          "raw_bgr_sha256": "94da702f9c7a84e70b998b7b9b74e5799a9b643b6a3bbdfec27eb32691dfac98",
+          "raw_shape": [
+            34,
+            39,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "b6881eb36c2b9c51cf84bf0f15c0f72e663ccea07fae489ab3d62d2ea715ae1a",
+          "bbox_px": [
+            415,
+            806,
+            454,
+            840
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0006",
+      "event_sha256": "8d1370e8eb19870b48d586b201ad0acb5fba7301968d7af39f623c5132184458",
+      "evidence_sha256": "bf4e81cf3474410ce69305d64d4548b303823981a7a24491db8081b78aa86737",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000006",
+        "event_type": "line_crossing",
+        "timestamp_s": 2.3666666666666667,
+        "frame_index": 71,
+        "track_id": 23,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 56.86444125735269
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000006",
+        "event_id": "event-000006",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 71,
+        "source_timestamp_s": 2.3666666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000006.jpg",
+          "frame_index": 71,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "478da556c2b5a0be4c185b6ce8837a46bf7d0cc7c4cf0897e6900854d15c63bf",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "3868d619c366ff5ba020a5ba2125bc83ee1467094438d3e71c091d7eb0e7345c"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000006_event_crop.jpg",
+          "frame_index": 71,
+          "width": 44,
+          "height": 35,
+          "raw_bgr_sha256": "79e7efd7a5561085553ae6d253b1287de5e9217f617610aac913ea9d89e4476a",
+          "raw_shape": [
+            35,
+            44,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "09bdcbb433edc9706fd2970ee8e37ea89793538a1446527d9b43075cbb63dac0",
+          "bbox_px": [
+            460,
+            806,
+            504,
+            841
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0007",
+      "event_sha256": "d07aaa487dcf6d7d277403c1a0d03732c7b92373a3cb66d00b4985a03cc3a8f3",
+      "evidence_sha256": "e51d97e3937b75dc3dee249f1a90aa194d046db2e1968de07352ed275c5270aa",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000007",
+        "event_type": "line_crossing",
+        "timestamp_s": 2.6,
+        "frame_index": 78,
+        "track_id": 11,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "down",
+        "measurements": {
+          "speed_px_s": 16.897097761983325
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000007",
+        "event_id": "event-000007",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 78,
+        "source_timestamp_s": 2.6,
+        "keyframe": {
+          "path": "evidence/frames/event-000007.jpg",
+          "frame_index": 78,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "bbe799e8dacedb5338e1007816bc1d8ccb5937886d08bedf7256052dae3e057d",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "de726415dff5fb3a4a18e8c8189405f1c8aa9ad4b5584712ef91b61de17a10d1"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000007_event_crop.jpg",
+          "frame_index": 78,
+          "width": 43,
+          "height": 47,
+          "raw_bgr_sha256": "7a933fc71830ea1f89b7041ca0e69f496892fafe293aa085b3176744fccce812",
+          "raw_shape": [
+            47,
+            43,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "ba517c11285ef7e719ad4a1d787de19e9051573188ce17e8e6af718d5a2a054a",
+          "bbox_px": [
+            301,
+            817,
+            344,
+            864
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0008",
+      "event_sha256": "76408eeaf3df8efa738bbd25dc0c38b150021dd9d43ce9449c580bd29147bd02",
+      "evidence_sha256": "c06beac436e03c5b231a1e582718ac80f08e906d789c304762645e45e79f9c32",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000008",
+        "event_type": "line_crossing",
+        "timestamp_s": 3.3666666666666667,
+        "frame_index": 101,
+        "track_id": 36,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 45.31496891358788
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000008",
+        "event_id": "event-000008",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 101,
+        "source_timestamp_s": 3.3666666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000008.jpg",
+          "frame_index": 101,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "3c6c2dccf06cca0562d5bcd65e5a496c6af588a5758557abaa997b72da00b434",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "39e75417fc725f86fc32741f75d2ee8d78eac7fec907fab4f4a9996add247440"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000008_event_crop.jpg",
+          "frame_index": 101,
+          "width": 39,
+          "height": 36,
+          "raw_bgr_sha256": "75e9bdb8e6e4f1a0ea42425c4994d6264f9ddced4a823a64c0ca9e342ca5ff8f",
+          "raw_shape": [
+            36,
+            39,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "de4f594912260b848dd454adec451e51ba62997e7604f74654e7ca36a89229a1",
+          "bbox_px": [
+            458,
+            805,
+            497,
+            841
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0009",
+      "event_sha256": "5ecf84f4888ac513542729bcf7c61f4afbace4027b32c3768311408105463cca",
+      "evidence_sha256": "6bdfd6f9eb292844cbb1c9e0b947f1fbb8ea797abf87c6993b14d850af7219fc",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000009",
+        "event_type": "line_crossing",
+        "timestamp_s": 4.166666666666667,
+        "frame_index": 125,
+        "track_id": 78,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 73.54122537049699
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000009",
+        "event_id": "event-000009",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 125,
+        "source_timestamp_s": 4.166666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000009.jpg",
+          "frame_index": 125,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "a7bbe41b671104928c0b1edd08507ff9526330a843158c29d892231d6849a0c1",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "97df4640be0572e58bc2bf22d3f82c07ee9f4d72279b8bd69ef434b1a0cccfa4"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000009_event_crop.jpg",
+          "frame_index": 125,
+          "width": 40,
+          "height": 32,
+          "raw_bgr_sha256": "7f1ee711b60463943bc3bbb298aa3be09a6d8ead537b41809bf3302cfdab498b",
+          "raw_shape": [
+            32,
+            40,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "eb821398d3b29c56ba6d3569ab41da1e284d0e77f4a81a7512e79dc5be15c4fe",
+          "bbox_px": [
+            473,
+            808,
+            513,
+            840
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0010",
+      "event_sha256": "9bb9fca696c3179e788868e94fb2a1f02001115aad8ab36a2fdb33ca9e0f3c07",
+      "evidence_sha256": "5978b165823c43443adc09f1266d45338cd4095ff57ab809b9fd9ca535bfd198",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000010",
+        "event_type": "line_crossing",
+        "timestamp_s": 4.266666666666667,
+        "frame_index": 128,
+        "track_id": 55,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 60.54604367196913
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000010",
+        "event_id": "event-000010",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 128,
+        "source_timestamp_s": 4.266666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000010.jpg",
+          "frame_index": 128,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "5e57bb793c9526e90e1869cd33296e68c598b38679a236e7e75354f622e1759a",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "7b95672d0d03ed6de613dd42b3e70f0516b9d067a19b9b46c8359162794dc49d"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000010_event_crop.jpg",
+          "frame_index": 128,
+          "width": 42,
+          "height": 38,
+          "raw_bgr_sha256": "32d116ae6d5316db9712eff4641301978637e7125a0373f27080a4003cc9e1e1",
+          "raw_shape": [
+            38,
+            42,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "0f2abed198a4ec768930374f38c7f50f547b4ece44e65d4259d83d02a44ae400",
+          "bbox_px": [
+            409,
+            805,
+            451,
+            843
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0011",
+      "event_sha256": "4ca39ace2e0cf29c25cf3bfcf8d93d36545a32addf956b6fd7d6a8b34b73e80e",
+      "evidence_sha256": "fe26e953f4c2055d33be508f04448f0056b6861c7734938615e9395bda65200d",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000011",
+        "event_type": "line_crossing",
+        "timestamp_s": 5.333333333333333,
+        "frame_index": 160,
+        "track_id": 94,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 67.56601900077672
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000011",
+        "event_id": "event-000011",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 160,
+        "source_timestamp_s": 5.333333333333333,
+        "keyframe": {
+          "path": "evidence/frames/event-000011.jpg",
+          "frame_index": 160,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "7a8cf8ee794c6f6294aa2478d341a21a5ecf0dbf2b050fbd0e528d3f048bc566",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "1d7eb5574c9ea26eb1752eb1b718f9a9b3d9bfb1ba10e1e42dd5213ccfb22520"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000011_event_crop.jpg",
+          "frame_index": 160,
+          "width": 48,
+          "height": 42,
+          "raw_bgr_sha256": "a3fa45e85cf38571bb34cd7ff9df2f798b0d57b300fd9668ec05db1cf4337c98",
+          "raw_shape": [
+            42,
+            48,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "34f8850fb88fdc0efc633e9f886343a068402a098ce953d2956563b4939c6d3a",
+          "bbox_px": [
+            456,
+            801,
+            504,
+            843
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0012",
+      "event_sha256": "dfd9266fdb46186273f90b9c48a38d75021b849c489e4642309cca569a857017",
+      "evidence_sha256": "b963bbda55458245cc25cef63fdbb9e7bdafe904613355ca15cc680252b27832",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000012",
+        "event_type": "line_crossing",
+        "timestamp_s": 5.4,
+        "frame_index": 162,
+        "track_id": 108,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 69.23907245031099
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000012",
+        "event_id": "event-000012",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 162,
+        "source_timestamp_s": 5.4,
+        "keyframe": {
+          "path": "evidence/frames/event-000012.jpg",
+          "frame_index": 162,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "2d4f58c4e235790e63d7550553cf5ebb2571cae7a70b7c84131d531de9e0bc6f",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "0f211b09a49895a637f3cdbf85b5cca9c087bce501c7452fa94eca220dc18c26"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000012_event_crop.jpg",
+          "frame_index": 162,
+          "width": 41,
+          "height": 34,
+          "raw_bgr_sha256": "a6e1bfe6cdfce060fabc1bd14b56ff2de059caa92cd10f5cc85ed9ec3fb4c2c1",
+          "raw_shape": [
+            34,
+            41,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "d6fa3e9b6ce304f0a6f91d9df5b5138cfe055168c586935d69e3335308473a9a",
+          "bbox_px": [
+            403,
+            805,
+            444,
+            839
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0013",
+      "event_sha256": "8c5772479b5e1b79f0550bd5fe0ad2b81068373e280832f8c58b8b41b54e659a",
+      "evidence_sha256": "4b2198f998c4e1db969d918c4d2daf6235bf11be6222da58c74fb77e1ce338b8",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000013",
+        "event_type": "line_crossing",
+        "timestamp_s": 7.2,
+        "frame_index": 216,
+        "track_id": 169,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 60.70139334702953
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000013",
+        "event_id": "event-000013",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 216,
+        "source_timestamp_s": 7.2,
+        "keyframe": {
+          "path": "evidence/frames/event-000013.jpg",
+          "frame_index": 216,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "d3a477206e2c23066ce2049f2e8b52ac6e1b8e5ef911763a663949c3983bfac3",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "550ea9068f6c5429dd574916faff02fa6e828d7d9754bd608a9bc3571ca6e78b"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000013_event_crop.jpg",
+          "frame_index": 216,
+          "width": 41,
+          "height": 37,
+          "raw_bgr_sha256": "9e51a22ab59d079d6f1560b0a13a8c7e4b3b5c224bd51197fd0054fb125653b1",
+          "raw_shape": [
+            37,
+            41,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "865721bdd9a9e21a3c8e3e0cc5f3cd95ac04051c2f2980ece3eaa77e6b957bde",
+          "bbox_px": [
+            397,
+            805,
+            438,
+            842
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0014",
+      "event_sha256": "54ed37f2fce15a4c5aa17bb478fb5576f43b91d7478e38f4973d77780e328f76",
+      "evidence_sha256": "067e0a706c6a9cb5bfe43d166f00ab5b011dbea9e7749388fda32cf989a1663f",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000014",
+        "event_type": "line_crossing",
+        "timestamp_s": 8.4,
+        "frame_index": 252,
+        "track_id": 199,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 64.40395428593189
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000014",
+        "event_id": "event-000014",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 252,
+        "source_timestamp_s": 8.4,
+        "keyframe": {
+          "path": "evidence/frames/event-000014.jpg",
+          "frame_index": 252,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "37369426e3b9d05d738953f3e00d77f2ecb31f32a8b237e020bdb5df4c99b4b7",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "c83e9166d619899afd81acc270be67bfcf72d63936333a0051ddeedde33c8f6b"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000014_event_crop.jpg",
+          "frame_index": 252,
+          "width": 40,
+          "height": 35,
+          "raw_bgr_sha256": "4df7051470332b0d9b70d642b2f565c9e2da29fd2fbdff886c32650c7df3eea9",
+          "raw_shape": [
+            35,
+            40,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "e8710755af6f2eeddbb639824875fafd734fdd854bfafca5b8a7c909516dbd9b",
+          "bbox_px": [
+            491,
+            806,
+            531,
+            841
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0015",
+      "event_sha256": "5096b10305a3b3835cf74b145d2c3497e75c09acad3215e2be5bb4ef81a00ba4",
+      "evidence_sha256": "8fe829d7e639822dc05ce6d326f2d69f1232a51746c2e04406c7cb442c495e00",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000015",
+        "event_type": "line_crossing",
+        "timestamp_s": 8.666666666666666,
+        "frame_index": 260,
+        "track_id": 289,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 61.33161253270983
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000015",
+        "event_id": "event-000015",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 260,
+        "source_timestamp_s": 8.666666666666666,
+        "keyframe": {
+          "path": "evidence/frames/event-000015.jpg",
+          "frame_index": 260,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "a5d5b28df1c3d8aa29ba3c0f4d366a69e60ebb34f3799f16e5d0c81928eb1e37",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "69c9a24ffa95aa2438360e68efdd55cb740f3381c467a061edbacaada4f90c78"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000015_event_crop.jpg",
+          "frame_index": 260,
+          "width": 39,
+          "height": 35,
+          "raw_bgr_sha256": "13de4ebb7e6b58f026de9ed9cc6cff7ff2ff26e199aeaba425290edaa8c0ae8e",
+          "raw_shape": [
+            35,
+            39,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "6719ca4a21318dcb3916a8afa61c731b34f8eb0051ec1a228adeccfaf80c750d",
+          "bbox_px": [
+            486,
+            791,
+            525,
+            826
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0016",
+      "event_sha256": "72927d46b500064094104b0783494fde35abf55d7b932e37f6fc3c04510c1f7f",
+      "evidence_sha256": "57de65fcc68f8e84002387af81444f6d457920e4f98fef62d658edf33656012c",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000016",
+        "event_type": "line_crossing",
+        "timestamp_s": 9.233333333333333,
+        "frame_index": 277,
+        "track_id": 223,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 73.68537429759482
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000016",
+        "event_id": "event-000016",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 277,
+        "source_timestamp_s": 9.233333333333333,
+        "keyframe": {
+          "path": "evidence/frames/event-000016.jpg",
+          "frame_index": 277,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "3862b2dd18a437fe6972b24c8766ec50187da4b07640f2a9238d1937b1b0dafd",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "ecf8bb96a56119d24908f9932d092076ea27f84c793d1d8999f156d408a2e5d8"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000016_event_crop.jpg",
+          "frame_index": 277,
+          "width": 39,
+          "height": 35,
+          "raw_bgr_sha256": "b671ddfda64a4547356c006b4f330ef6e1f260a1a22ef9040560c71209bc2b17",
+          "raw_shape": [
+            35,
+            39,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "0dae14da941c376d85a500caf4728eb1365af68b2df8d8e41bcc93cb5a50b653",
+          "bbox_px": [
+            447,
+            805,
+            486,
+            840
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0017",
+      "event_sha256": "6067dd954629d2f279ce238f7cb57d0a936084f7060a7b0939b4d9a10530df45",
+      "evidence_sha256": "7851a2f94bf3435fa392be7ebc732831010d7df58557e5f4123be5cfd3fbf738",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000017",
+        "event_type": "line_crossing",
+        "timestamp_s": 10.466666666666667,
+        "frame_index": 314,
+        "track_id": 261,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 78.12666248102423
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000017",
+        "event_id": "event-000017",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 314,
+        "source_timestamp_s": 10.466666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000017.jpg",
+          "frame_index": 314,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "7d184568544ceb4b99a5076333b2296db913e9fdafba9f8cc1e72a4b173dcc9d",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "49f1a2e90c1379c7976335ee68dd1e4dc36cc6f5460fc3da5e7b51826c280029"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000017_event_crop.jpg",
+          "frame_index": 314,
+          "width": 40,
+          "height": 33,
+          "raw_bgr_sha256": "0f9c04e2226576e019c97a8be569eaf5c9498f2d88b29f157a1d9597566ff0b5",
+          "raw_shape": [
+            33,
+            40,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "b244918f8c835fb4d13b61f3feac20dffeca7d48f01756a3158dc6df50c57020",
+          "bbox_px": [
+            409,
+            806,
+            449,
+            839
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0018",
+      "event_sha256": "f8190082ff37f45ff9083269e5416c683b7b82915cb7fda8273dd18500240b7c",
+      "evidence_sha256": "f43dd3dc70dbb6b786d65b8459bcfe370784a7d0b862cde03c4228c7ff729211",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000018",
+        "event_type": "line_crossing",
+        "timestamp_s": 11.533333333333333,
+        "frame_index": 346,
+        "track_id": 283,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 67.68848371350248
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000018",
+        "event_id": "event-000018",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 346,
+        "source_timestamp_s": 11.533333333333333,
+        "keyframe": {
+          "path": "evidence/frames/event-000018.jpg",
+          "frame_index": 346,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "44b716a049b39b3afb15cdeb4383e7fdc571cba03715f01a16520e8033fdac55",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "62b50efe202e7b51e71781d8d32b4790c523c093b11eee0691f317ddcce309b6"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000018_event_crop.jpg",
+          "frame_index": 346,
+          "width": 43,
+          "height": 38,
+          "raw_bgr_sha256": "1e67e1885b0d98a8e051051a70119af3c3874fab73e4cdc9bec0401d49e3e333",
+          "raw_shape": [
+            38,
+            43,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "821c7cc1f03f9f478bab08c6e386669a705b0a2ccd96ae74e19c606d883b86c3",
+          "bbox_px": [
+            399,
+            803,
+            442,
+            841
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0019",
+      "event_sha256": "9fde227c1d45cd87333285a154bcb86f902be9b5d0f022e2b3d84a3a0fde9bd0",
+      "evidence_sha256": "72df03f27370a101c681de5217c1bc870f7f4e89221cf41a478a0b824d78aae0",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000019",
+        "event_type": "line_crossing",
+        "timestamp_s": 12.833333333333334,
+        "frame_index": 385,
+        "track_id": 301,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "down",
+        "measurements": {
+          "speed_px_s": 14.463068133062771
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000019",
+        "event_id": "event-000019",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 385,
+        "source_timestamp_s": 12.833333333333334,
+        "keyframe": {
+          "path": "evidence/frames/event-000019.jpg",
+          "frame_index": 385,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "2d6bc54142aa0ad9416d9bb535be4810c3dc803bc42a6eac2f9ed431813fe578",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "f986627bb436b155361d32ed5816003f876915e965896ca76502e102c04a6188"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000019_event_crop.jpg",
+          "frame_index": 385,
+          "width": 42,
+          "height": 39,
+          "raw_bgr_sha256": "d555963c0c52e48b9fe0eae2942d9a014bc57ffc65c4aa09abb28edf7c359021",
+          "raw_shape": [
+            39,
+            42,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "de38b6403f0676c37dbf5baa1901289c2ff8a89640590ad3b1f7aa7295617c59",
+          "bbox_px": [
+            284,
+            821,
+            326,
+            860
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0020",
+      "event_sha256": "6b71e840a289c1506e721f0b0d7f70969670b1bae2cf6069572db0909a69a75a",
+      "evidence_sha256": "3610a589bfe69248f2570f619de6fdaa803d356fa9a683a6120364ffbab13000",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000020",
+        "event_type": "line_crossing",
+        "timestamp_s": 17.333333333333332,
+        "frame_index": 520,
+        "track_id": 409,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 67.84382168346733
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000020",
+        "event_id": "event-000020",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 520,
+        "source_timestamp_s": 17.333333333333332,
+        "keyframe": {
+          "path": "evidence/frames/event-000020.jpg",
+          "frame_index": 520,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "9f51a4ed04477176f93087239edffccf9d673152579c0b1362a6443a64c4cd10",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "096be6a7c59a7f6d0f2dc624a8103fe74fb6a61347e31dcbd69f429008029d2b"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000020_event_crop.jpg",
+          "frame_index": 520,
+          "width": 41,
+          "height": 34,
+          "raw_bgr_sha256": "eebe81d70804b133f6f49b01b2434423bc07d8b4a0c10ca87c476fa013ebedd3",
+          "raw_shape": [
+            34,
+            41,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "bc710376a8d0d344ff726befdc07963a0b786d8f2c4488fbfc7d7e43d5372e10",
+          "bbox_px": [
+            500,
+            807,
+            541,
+            841
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0021",
+      "event_sha256": "dc530fd5425a9735bc4605f150c47c69726405e24b7914ebd077b81461597365",
+      "evidence_sha256": "2b37e80162a026847f29ea3a9eb878cf777fffec3f51b38c59c139bb09d4d63a",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000021",
+        "event_type": "line_crossing",
+        "timestamp_s": 17.366666666666667,
+        "frame_index": 521,
+        "track_id": 408,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 68.44463188548148
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000021",
+        "event_id": "event-000021",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 521,
+        "source_timestamp_s": 17.366666666666667,
+        "keyframe": {
+          "path": "evidence/frames/event-000021.jpg",
+          "frame_index": 521,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "24164e8426dfe8829e8869c5b64bc44d44a5b38870d852baf87ca4a1176c0708",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "ad27a360ab21af6c12dd6cce40775366164fe3d8bf7ee5e0a7dd808bccbd55e3"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000021_event_crop.jpg",
+          "frame_index": 521,
+          "width": 39,
+          "height": 32,
+          "raw_bgr_sha256": "5197e51353312d5463829daf950dc0d5336581af6829ef45fecb8413e9edb244",
+          "raw_shape": [
+            32,
+            39,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "b36b04dc3227af1c3be2eaf089ee67756a810abbcc3dbaf7d06beb1632b1b80a",
+          "bbox_px": [
+            456,
+            807,
+            495,
+            839
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0022",
+      "event_sha256": "5ed3c74ac547c56225d1796cf3be4012f6b3d3a263e0d27d6a6d666c03e1deba",
+      "evidence_sha256": "0195b0ebb613c61b541b44006885beef0ef0d4fa1dee1563a5e5bdc745a9a922",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000022",
+        "event_type": "line_crossing",
+        "timestamp_s": 19.766666666666666,
+        "frame_index": 593,
+        "track_id": 442,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 70.09222873488451
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000022",
+        "event_id": "event-000022",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 593,
+        "source_timestamp_s": 19.766666666666666,
+        "keyframe": {
+          "path": "evidence/frames/event-000022.jpg",
+          "frame_index": 593,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "ec1f3f0f0663869d550d6544eac688d9dda49f4ad043600c5065f6975ad63cad",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "53a636402f9443138963b419f1257847887634381c147da0087801f2ed93fee3"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000022_event_crop.jpg",
+          "frame_index": 593,
+          "width": 47,
+          "height": 35,
+          "raw_bgr_sha256": "7edb1c7c13cc65b1696083910405ba6a93167e49ddc046b15313173a03e05e47",
+          "raw_shape": [
+            35,
+            47,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "70d0c647e44d58bb48616a4977f827a3746e1d15011d82e795cbbf3b8c64c649",
+          "bbox_px": [
+            524,
+            805,
+            571,
+            840
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0023",
+      "event_sha256": "2a2a7cd3be1c4a0f4699fb9ad675ec5c0e9a88a677fb0d96fff59ec9d03613a3",
+      "evidence_sha256": "7f77f1bd6c3c39ac095b30f8871f01a4188051a94bea1824f28cfc6db6d86f71",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000023",
+        "event_type": "line_crossing",
+        "timestamp_s": 19.833333333333332,
+        "frame_index": 595,
+        "track_id": 440,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 71.91806748535575
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000023",
+        "event_id": "event-000023",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 595,
+        "source_timestamp_s": 19.833333333333332,
+        "keyframe": {
+          "path": "evidence/frames/event-000023.jpg",
+          "frame_index": 595,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "439049faa3d2e55c8fafa1c803e6cdabf377dd621efaf29cba88dbb42d59c6a4",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "3529e613cc7cb928bdc29cce5d1e1e890fe210984142ec16464c27d5f341e480"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000023_event_crop.jpg",
+          "frame_index": 595,
+          "width": 37,
+          "height": 36,
+          "raw_bgr_sha256": "cb0edc06dfce2a926ddefd09753850544402513ed3ad2b03eb221126da78ff69",
+          "raw_shape": [
+            36,
+            37,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "ebc2bacf6cbdae77be6b273db0dab5eae5a5902234ce7b168d1f9dae59fdb048",
+          "bbox_px": [
+            410,
+            805,
+            447,
+            841
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0024",
+      "event_sha256": "9ea3379a270597b4d51ad56a1135944cd3e481cf82a9070905b837aab8a6f68c",
+      "evidence_sha256": "3fc9553a7b708927088fc2e5a762fd8ac843f4e24e8656146d24cd446c72e185",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000024",
+        "event_type": "line_crossing",
+        "timestamp_s": 20.033333333333335,
+        "frame_index": 601,
+        "track_id": 451,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 69.28759578499478
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000024",
+        "event_id": "event-000024",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 601,
+        "source_timestamp_s": 20.033333333333335,
+        "keyframe": {
+          "path": "evidence/frames/event-000024.jpg",
+          "frame_index": 601,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "446d2290a8dd7ee670b5be56b481068cfe2ccbdc9f9e3825dbc951a4f0a492bd",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "1c7aa31de988e831e9c266857de38f4bcd0b7801cbec5aea9ee1d83e78c13e77"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000024_event_crop.jpg",
+          "frame_index": 601,
+          "width": 41,
+          "height": 38,
+          "raw_bgr_sha256": "55393242b3c22a9fd7546955a15563139be9fbae4b810e7129b27b2511c54bd9",
+          "raw_shape": [
+            38,
+            41,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "30080175e52bae4f00dd21dccbbd03b6fd1a47f409c7699cd4352488e0dc78b2",
+          "bbox_px": [
+            456,
+            804,
+            497,
+            842
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0025",
+      "event_sha256": "67f7254f50e822f5d8028b5cae0185f4d0a5e79363924f1cf5751954725de39f",
+      "evidence_sha256": "14fddc93b35d719b9b090a35a7216ee2267bfba0719697a82c37aa0a9d54d625",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000025",
+        "event_type": "line_crossing",
+        "timestamp_s": 20.633333333333333,
+        "frame_index": 619,
+        "track_id": 357,
+        "class_id": 4,
+        "class_name": "truck",
+        "direction": "down",
+        "measurements": {
+          "speed_px_s": 8.591014986314459
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000025",
+        "event_id": "event-000025",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 619,
+        "source_timestamp_s": 20.633333333333333,
+        "keyframe": {
+          "path": "evidence/frames/event-000025.jpg",
+          "frame_index": 619,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "206facd0ea32e2b4e48b55180428fd91672430692a9372047c932853a1d247af",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "7983cd91076389d3950af345af5189f412c6d941eb865abcdcf65ec157639479"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000025_event_crop.jpg",
+          "frame_index": 619,
+          "width": 41,
+          "height": 48,
+          "raw_bgr_sha256": "b4050358d4897b29ab77bfebca83f31e6ffed5f162e8de99ceda67e34a0d95f5",
+          "raw_shape": [
+            48,
+            41,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "b4ddb704db12c4d657659fef08acc29c88744e8a676078cdf633b36a5f7bfdf9",
+          "bbox_px": [
+            297,
+            816,
+            338,
+            864
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "development-0026",
+      "event_sha256": "ced6126a008bbce1d3c8847399cd29a2740a022bd1bfbb47866ba764ed49a3ee",
+      "evidence_sha256": "8908d1ba3c750e3ae2e736c69051dbc8ebe957604666300350cb7a8f55f04a39",
+      "event": {
+        "schema_version": 4,
+        "event_id": "event-000026",
+        "event_type": "line_crossing",
+        "timestamp_s": 21.6,
+        "frame_index": 648,
+        "track_id": 492,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "up",
+        "measurements": {
+          "speed_px_s": 72.71588334314858
+        }
+      },
+      "evidence": {
+        "schema_version": 3,
+        "evidence_id": "evidence-event-000026",
+        "event_id": "event-000026",
+        "event_type": "line_crossing",
+        "source_video_sha256": "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7",
+        "source_frame_index": 648,
+        "source_timestamp_s": 21.6,
+        "keyframe": {
+          "path": "evidence/frames/event-000026.jpg",
+          "frame_index": 648,
+          "width": 720,
+          "height": 1280,
+          "raw_bgr_sha256": "2148e19cbaccc048469dd4ad35803dc9dacdf54ba7ec55e74c2ba2e5436ab475",
+          "raw_shape": [
+            1280,
+            720,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "f7d710846001d3d400d6affc5e6a96ed44469c80123f2e893c325e61563afba6"
+        },
+        "event_crop": {
+          "path": "evidence/frames/event-000026_event_crop.jpg",
+          "frame_index": 648,
+          "width": 36,
+          "height": 32,
+          "raw_bgr_sha256": "5dd501fd8813d54cd79981cc70a0e4003cb47b65a86773e2cf6b8deb919b7619",
+          "raw_shape": [
+            32,
+            36,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "66430ad3f115a665da2cf7b0c3c740789ae27b4a4236c5fd459e9d12f99707af",
+          "bbox_px": [
+            409,
+            807,
+            445,
+            839
+          ]
+        }
+      }
+    }
+  ],
+  "lock_sha256": "bbfc31e4b534f9c90897f588b635a2c8343337bfd29874d7522273f306ee7c1d"
+}

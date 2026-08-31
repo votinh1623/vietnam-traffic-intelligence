@@ -20,8 +20,9 @@ package/driver versions: [environment](environment.md).
 
 ## Detection (single image/video CLI)
 
-Always pass an explicit model path. The historical CLI default still points to
-the legacy v2 checkpoint for backward compatibility.
+`--model` defaults to `runs/detect/research/yolov8s_v5_seed0/weights/best.pt`
+(the validation-selected v5 checkpoint, see `scripts/detect.py`) -- pass
+`--model` explicitly to run a different checkpoint.
 
 ```powershell
 # One image
@@ -39,7 +40,8 @@ media plus `detections.csv`.
 
 ## Offline detection and tracking pipeline
 
-The MVP path uses one YOLO instance for detection and ByteTrack. It writes the
+The MVP path uses one YOLO instance for detection and tracking (BoT-SORT by
+default -- see `configs/pipeline/offline_video.yaml`). It writes the
 stable artifact contract documented in [Output schema](output_schema.md):
 `tracks.csv`, `analytics.csv`, `events.jsonl`, `evidence.jsonl` + `evidence/`,
 `summary.json`, `annotated.mp4`, `latest_frame.jpg`, and `run.json`.
@@ -56,27 +58,31 @@ python run_pipeline.py `
 # Short integration check
 python run_pipeline.py --max-frames 30 --imgsz 640
 
-# UAV moving-camera mode with global motion compensation
-python run_pipeline.py --config configs/pipeline/offline_video_uav_gmc.yaml
+# The two WP1 demo videos (BoT-SORT+ReID, measurement manifest, multi-view
+# evidence) -- see reports/ke-hoach-pipeline-va-mo-phong.md Gate G1
+python run_pipeline.py --config configs/pipeline/offline_video_0681.yaml
+python run_pipeline.py --config configs/pipeline/offline_video_7938.yaml
 
 # Visual heatmap for severely occluded jams the detector draws no boxes over
 python run_pipeline.py --config configs/pipeline/offline_video_stillness_heatmap_demo.yaml
 ```
 
 The default config references the validation-selected v5 checkpoint. Override
-`--model` to run another checkpoint without editing the YAML. Use
-`configs/pipeline/offline_video_uav_gmc.yaml` for moving/panning UAV footage
-(`analytics.mode: uav_motion`, `gmc_enabled: true`) instead of the
-fixed-camera default.
+`--model` to run another checkpoint without editing the YAML.
+`analytics.mode: uav_motion` + `gmc_enabled: true` (global motion
+compensation for a moving/panning camera) is still a supported config
+option; the demo config that exercised it (`offline_video_uav_gmc.yaml`)
+was retired along with the highres-pilot checkpoint it depended on. The
+current UAV demo configs (`offline_video_0681.yaml`, `offline_video_7938.yaml`)
+use the fixed-camera default instead.
 
 `stillness_heatmap.enabled: true` (top-level, independent of `analytics.*`)
 tints `annotated.mp4` wherever a region is both visually dense and
 near-motionless -- a real, validated visual aid for severe-occlusion jams
 the detector cannot resolve into boxes. It is a human-facing visualization
-only, not an automatic alert: see
-[benchmark protocol](benchmark_protocol.md#detection-independent-stillness-signal-prototype)
-for why a fixed-threshold automatic trigger for this same failure mode was
-tried and rejected.
+only, not an automatic alert: a fixed-threshold automatic trigger for this
+same failure mode was tried in `analytics.stillness_enabled` and rejected
+(measured no clear improvement on a static-camera test scene).
 
 ## Dashboard
 
@@ -134,14 +140,46 @@ At launch, full runs require a committed, clean worktree. The runner records
 config, weights, dataset, manifest and test-lock hashes together with the Git
 commit, environment, GPU, and resulting checkpoint hash.
 
-## VLM/LLM reasoning (ad hoc)
+## VLM/LLM reasoning
 
-There is no standalone CLI yet for the reasoning stage; it is driven by
-`src/vn_traffic/reasoning/vlm_runtime.py` (`run_vlm_case`) and
-`src/vn_traffic/reasoning/llm_runtime.py` (`run_llm_case`), given a frozen
-event + evidence record from a pipeline run. See
-[the reasoning protocol](reasoning_protocol.md) for the two-stage contract
-and prompt versions.
+`scripts/reasoning/run_vlm.py` and `scripts/reasoning/run_llm.py` are
+standalone CLIs over one frozen development case (event + evidence record
+from a completed pipeline run, frozen via
+`scripts/reasoning/freeze_evidence_set.py`). Both need a local model
+directory (`models/qwen3-vl-2b-instruct`, `models/qwen3-0.6b`) -- weights
+are not downloaded automatically. `--dry-run` validates the case (evidence
+hashes, model IDs) without loading either model.
+
+```powershell
+# Validate a case without loading the VLM
+python scripts/reasoning/run_vlm.py `
+  --config configs/reasoning/development_v1.yaml `
+  --case-id development-0001 `
+  --dry-run
+
+# Run the VLM, then feed its validated result into the LLM
+python scripts/reasoning/run_vlm.py `
+  --config configs/reasoning/development_v1.yaml `
+  --case-id development-0001 `
+  --model-dir models/qwen3-vl-2b-instruct `
+  --output output/reasoning/development-0001-vlm.json
+
+python scripts/reasoning/run_llm.py `
+  --config configs/reasoning/development_v1.yaml `
+  --case-id development-0001 `
+  --vlm-result output/reasoning/development-0001-vlm.json `
+  --model-dir models/qwen3-0.6b `
+  --output output/reasoning/development-0001-llm.json
+```
+
+Both models must load sequentially on a 6 GB GPU (`execution_policy:
+sequential_load_run_unload`); a single-image VLM call alone measured a peak
+of ~5.7 GB VRAM (see
+`experiments/qwen3_vl_2b_dev_smoke_20260817/run.json`), and Windows can also
+fail to load either model with "paging file is too small" if free system
+RAM is low at the time (unrelated to VRAM -- close memory-heavy
+applications and retry). See [the reasoning protocol](reasoning_protocol.md)
+for the two-stage contract and prompt versions.
 
 ## Repository layout
 
@@ -149,24 +187,23 @@ and prompt versions.
 .
 |-- configs/
 |   |-- datasets/            # audited dataset metadata
-|   |-- experiments/         # reproducible experiment definitions
+|   |-- experiments/         # detector training config (current model)
 |   |-- pipeline/            # offline-video runtime configuration
 |   `-- reasoning/           # versioned VLM/LLM prompts
-|-- docs/                    # protocols, architecture, and environment evidence
-|-- experiments/             # lightweight run manifests and hashes
+|-- docs/                    # quickstart, output schema, reasoning protocol
+|-- experiments/             # current model + VLM/LLM smoke-test run manifests
 |-- manifests/
-|   |-- datasets/            # leakage audits and detector test locks
+|   |-- datasets/            # detector test-split lock
+|   |-- measurement/         # per-video ROI/counting-line manifests
 |   `-- reasoning/           # content-addressed VLM/LLM input locks
 |-- scripts/
-|   |-- data/                # audit, materialization, overlap, and lock tools
-|   |-- reasoning/           # content-addressed evidence-set tooling
+|   |-- data/                # test-split lock tool (train_detector.py preflight)
+|   |-- reasoning/           # evidence-set freezing, VLM/LLM CLIs
 |   |-- train/               # provenance-aware detector training
-|   |-- detect.py            # image, directory, and video inference
-|   |-- tracking_metrics.py  # tested MOT metric implementation
-|   `-- evaluate_tracking.py # tracking evaluation CLI
+|   `-- detect.py            # image, directory, and video inference
 |-- src/
 |   `-- vn_traffic/          # perception, analytics, evidence, reasoning contracts
-|-- tests/                   # dataset, metrics, pipeline, and analytics tests
+|-- tests/                   # pipeline, analytics, evidence, and reasoning tests
 |-- app.py                   # Streamlit dashboard over a pipeline run directory
 |-- detect.py                # backward-compatible root CLI
 |-- run_pipeline.py          # repository-local MVP pipeline CLI
@@ -176,10 +213,16 @@ and prompt versions.
 ```
 
 Large datasets, model weights, generated videos, and runtime outputs are kept
-outside version control. The local workspace retains the audited v2 source,
-superseded v4 provenance set, current v5 dataset, required baseline/v5
-checkpoints, and latest run15-run16 acceptance outputs (with run13-run14 kept
-locally as the preceding evidence-schema history). Temporary extraction
-sets, superseded smoke/finetune runs, invalid analytics runs, and legacy output
-videos are intentionally removed after their lightweight manifests or findings
-have been recorded.
+outside version control. The local workspace retains the current v5 dataset
+and the single current detector checkpoint
+(`runs/detect/research/yolov8s_v5_seed0/`). Earlier research directions
+(NWD loss, P2 detection head, copy-paste augmentation, highres fine-tune,
+TVLR, SAHI, detector/tracker benchmark sweeps) were tried, measured, and
+closed -- their code, configs, checkpoints, and raw evaluation outputs have
+been removed rather than kept as unused weight. `output/pipeline/run16` is
+kept as the artifact_root for the committed default reasoning lock
+(`manifests/reasoning/evidence_dev_v1/input_lock.json`); `run85`/`run86` are
+the current WP1 demo pipeline outputs
+(`configs/reasoning/wp1_demo_7938.yaml`/`wp1_demo_0681.yaml`). Other
+temporary extraction sets, superseded smoke/finetune runs, and legacy
+pipeline run outputs are intentionally removed once no longer needed.

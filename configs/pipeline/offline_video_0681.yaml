@@ -1,8 +1,13 @@
 schema_version: 1
 
-# Both paths can be overridden from the CLI.
-source: datasets/raw_videos/traffic_normal.mp4
+# WP1 demo config #1 of 2 (see manifests/measurement/video_0681.yaml and
+# reports/ke-hoach-pipeline-va-mo-phong.md Gate G1: "chạy end-to-end trên
+# ít nhất hai video UAV khác đặc tính"). Same locked tracker/analytics
+# profile as configs/pipeline/offline_video.yaml -- only source and
+# measurement_manifest differ.
+source: "datasets/raw_videos/FDown.vn_Tai_video_Facebook_720p (HD)_0681.mp4"
 model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+measurement_manifest: manifests/measurement/video_0681.yaml
 
 perception:
   imgsz: 1280
@@ -11,17 +16,8 @@ perception:
   max_det: 300
   show_labels: true
   show_confidence: true
-  # Ultralytics' Annotator ties label text size directly to line_width
-  # (font scale = line_width/3, no separate font-size control in the cv2
-  # rendering path) -- 1 is the minimum, keeping id/class/conf labels from
-  # covering the small distant boxes they're supposed to describe.
   line_width: 1
   device: "0"
-  # BoT-SORT+ReID, not ByteTrack: measurably fewer ID switches than
-  # ByteTrack in dense scenes, and ReID's occlusion-crossing ID retention
-  # was chosen by direct visual review over an automated proxy metric that
-  # disagreed -- see botsort_reid_lowprox.yaml for the proximity_thresh
-  # reasoning.
   tracker: botsort_reid_lowprox.yaml
 
 video:
@@ -32,8 +28,6 @@ video:
 output:
   root: output/pipeline
 
-# Deterministic raw evidence for later VLM/LLM stages. Every event receives a
-# keyframe; only congestion transitions receive a temporal clip by default.
 evidence:
   enabled: true
   keyframe_event_types: [line_crossing, congestion_transition, prolonged_stop]
@@ -42,9 +36,9 @@ evidence:
   post_event_s: 3
   jpeg_quality: 90
   clip_codec: mp4v
+  multi_view_enabled: true
+  event_crop_padding_ratio: 0.25
 
-# Initial demo-calibrated geometry and thresholds. They are normalized/configurable
-# defaults, not production calibration for a new camera or viewpoint.
 analytics:
   enabled: true
   included_classes: [bus, car, motorcycle, truck]

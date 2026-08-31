@@ -114,6 +114,12 @@ class AnalyticsConfig:
     prolonged_stop_release_speed_px_s: float = 10.0
     prolonged_stop_min_duration_s: float = 5.0
     prolonged_stop_max_gap_s: float = 1.0
+    # How long the perception stage must produce literally zero raw
+    # detections (any class, before included_classes filtering) before
+    # perception_status flips from "reliable" to "detection_silence". This
+    # is independent of congestion_state/traffic_state -- see
+    # AnalyticsSnapshot.perception_status.
+    detection_silence_min_duration_s: float = 2.0
 
 
 @dataclass(frozen=True)
@@ -156,6 +162,18 @@ class EvidenceConfig:
     post_event_s: float = 3.0
     jpeg_quality: int = 90
     clip_codec: str = "mp4v"
+    # Multi-view evidence (see reports/ke-hoach-pipeline-va-mo-phong.md WP1):
+    # alongside the existing full-frame keyframe, also crop and write a
+    # roi_crop (from the measurement manifest's roi_polygon, when present)
+    # and an event_crop (a padded crop around the event's own track bbox at
+    # its frame, when the event has a track_id resolvable in tracks.csv).
+    # Off by default -- existing single-keyframe behavior is unchanged
+    # unless a config opts in.
+    multi_view_enabled: bool = False
+    # Fractional padding added around the tight track bbox before cropping
+    # for event_crop, so the crop shows some surrounding context instead of
+    # just the vehicle's silhouette; clamped to frame bounds.
+    event_crop_padding_ratio: float = 0.25
 
 
 @dataclass(frozen=True)
@@ -177,6 +195,11 @@ class PipelineConfig:
     fallback_fps: float = 30.0
     max_frames: int | None = None
     config_path: Path | None = None
+    # Optional per-video measurement geometry (src/vn_traffic/measurement_manifest.py).
+    # Its absence must never fail the pipeline or synthesize region/line
+    # claims -- see PipelineRunner.run()'s handling and Gate G1 in
+    # reports/ke-hoach-pipeline-va-mo-phong.md.
+    measurement_manifest: Path | None = None
     analytics: AnalyticsConfig = AnalyticsConfig()
     evidence: EvidenceConfig = EvidenceConfig()
     stillness_heatmap: StillnessHeatmapConfig = StillnessHeatmapConfig()
@@ -248,6 +271,9 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
     analytics = _mapping(raw.get("analytics"), "analytics")
     congestion = _mapping(analytics.get("congestion"), "analytics.congestion")
     abnormal = _mapping(analytics.get("abnormal"), "analytics.abnormal")
+    perception_status = _mapping(
+        analytics.get("perception"), "analytics.perception"
+    )
     legacy_occupancy_fields = {
         "dense_enter_occupancy",
         "dense_exit_occupancy",
@@ -421,6 +447,12 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
                 "prolonged_stop_max_gap_s", defaults.prolonged_stop_max_gap_s
             )
         ),
+        detection_silence_min_duration_s=float(
+            perception_status.get(
+                "detection_silence_min_duration_s",
+                defaults.detection_silence_min_duration_s,
+            )
+        ),
     )
     validate_analytics_config(config)
     return config
@@ -492,6 +524,14 @@ def _load_evidence(raw: dict[str, Any]) -> EvidenceConfig:
         post_event_s=float(evidence.get("post_event_s", defaults.post_event_s)),
         jpeg_quality=int(evidence.get("jpeg_quality", defaults.jpeg_quality)),
         clip_codec=str(evidence.get("clip_codec", defaults.clip_codec)),
+        multi_view_enabled=bool(
+            evidence.get("multi_view_enabled", defaults.multi_view_enabled)
+        ),
+        event_crop_padding_ratio=float(
+            evidence.get(
+                "event_crop_padding_ratio", defaults.event_crop_padding_ratio
+            )
+        ),
     )
     validate_evidence_config(config)
     return config
@@ -533,6 +573,11 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
             else None
         ),
         config_path=config_path,
+        measurement_manifest=(
+            resolve_project_path(raw["measurement_manifest"])
+            if raw.get("measurement_manifest")
+            else None
+        ),
         analytics=_load_analytics(raw),
         evidence=_load_evidence(raw),
         stillness_heatmap=_load_stillness_heatmap(raw),
@@ -600,10 +645,9 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         # under camera pan/zoom every pixel appears to move regardless of
         # real object motion, so "near-motionless" stops meaning anything.
         # Also, the automatic CongestionStateMachine trigger this drives is
-        # a confirmed negative result even on a static camera (see
-        # docs/benchmark_protocol.md); do not additionally enable it where
-        # its one input signal is invalid. Revisit once stillness has GMC-
-        # based ego-motion compensation.
+        # a confirmed negative result even on a static camera; do not
+        # additionally enable it where its one input signal is invalid.
+        # Revisit once stillness has GMC-based ego-motion compensation.
         raise ValueError(
             "analytics.stillness_enabled is not valid with analytics.mode: "
             "uav_motion (raw optical flow does not account for camera "
@@ -694,6 +738,8 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         raise ValueError("prolonged_stop_min_duration_s must be positive")
     if config.prolonged_stop_max_gap_s <= 0:
         raise ValueError("prolonged_stop_max_gap_s must be positive")
+    if config.detection_silence_min_duration_s <= 0:
+        raise ValueError("detection_silence_min_duration_s must be positive")
 
 
 def validate_evidence_config(config: EvidenceConfig) -> None:
@@ -703,3 +749,5 @@ def validate_evidence_config(config: EvidenceConfig) -> None:
         raise ValueError("evidence.jpeg_quality must be in [1, 100]")
     if len(config.clip_codec) != 4:
         raise ValueError("evidence.clip_codec must contain exactly four characters")
+    if config.event_crop_padding_ratio < 0:
+        raise ValueError("evidence.event_crop_padding_ratio cannot be negative")

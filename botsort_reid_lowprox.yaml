@@ -1,6 +1,7 @@
 # botsort_reid_lowprox.yaml
-# Same as botsort_reid_custom.yaml but with proximity_thresh lowered from
-# 0.5 to 0.1 and a real pretrained embedding instead of model:auto.
+# BoT-SORT with ReID enabled and proximity_thresh lowered from the default
+# 0.5 to 0.01, using a real pretrained embedding (yolo26n-reid.onnx)
+# instead of model:auto.
 #
 # Why: reading ultralytics/trackers/bot_sort.py's BOTSORT.get_dists()
 # directly -- appearance/ReID distance is only consulted for a
@@ -11,9 +12,10 @@
 # reappear with raw IoU = 0.000 against their last box (small, fast-moving
 # objects covering more than their own size in one frame) -- appearance
 # never gets a chance to rescue these under the default. Lowering
-# proximity_thresh to 0.1 lets ReID be consulted down to IoU >= 0.1,
-# specifically targeting this failure mode. See
-# docs/benchmark_protocol.md for the measured before/after.
+# proximity_thresh to near-zero lets ReID be consulted almost regardless of
+# IoU, specifically targeting this failure mode. Chosen by direct visual
+# review of occlusion-crossing ID retention on real UAV footage over an
+# automated candidate-switch proxy metric that disagreed.
 tracker_type: botsort
 track_high_thresh: 0.5
 track_low_thresh: 0.1

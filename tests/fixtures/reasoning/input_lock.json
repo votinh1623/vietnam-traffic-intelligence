@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "reasoning_contract_schema_version": 1,
+  "set_id": "reasoning_test_fixture_v1",
+  "split": "development",
+  "status": "inputs_frozen_annotations_pending",
+  "selection_policy": "single fixture case for unit tests",
+  "artifact_policy": "media stays local; paths resolve under artifact_root",
+  "source": {
+    "run_id": "fixture",
+    "video_name": "fixture.mp4",
+    "source_video_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "frames_processed": 11,
+    "events_jsonl_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "evidence_jsonl_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "case_count": 1,
+  "cases": [
+    {
+      "case_id": "development-0001",
+      "event_sha256": "6582a2dc3169d48189e9ba07afd4fb05a80dd8033cdbc3b2413b2908da2ee250",
+      "evidence_sha256": "8ff904d062c20e5de3e231872e8a0efea94349dec0709a1f268602365900767a",
+      "event": {
+        "schema_version": 2,
+        "event_id": "event-000001",
+        "event_type": "line_crossing",
+        "timestamp_s": 0.3333333333333333,
+        "frame_index": 10,
+        "track_id": 16,
+        "class_id": 1,
+        "class_name": "car",
+        "direction": "down",
+        "measurements": {
+          "speed_px_s": 109.83435995134892
+        }
+      },
+      "evidence": {
+        "schema_version": 2,
+        "evidence_id": "evidence-event-000001",
+        "event_id": "event-000001",
+        "event_type": "line_crossing",
+        "source_video_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "source_frame_index": 10,
+        "source_timestamp_s": 0.3333333333333333,
+        "keyframe": {
+          "path": "keyframes/development-0001.jpg",
+          "frame_index": 10,
+          "width": 8,
+          "height": 8,
+          "raw_bgr_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "raw_shape": [
+            8,
+            8,
+            3
+          ],
+          "raw_dtype": "uint8",
+          "sha256": "2908f86921026bf6c09e8b100da1614416346d0578aa1c1766e62461cf6b0550"
+        }
+      }
+    }
+  ],
+  "lock_sha256": "6d4287ba778a1bb799e88493aded8c6cab3a3d12f5d13d95dbb98d75d307fa56"
+}

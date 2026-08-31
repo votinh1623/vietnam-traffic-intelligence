@@ -23,10 +23,19 @@ _KEYFRAME_MOTION_PHRASES = (
 
 
 def validate_grounding_policy(
-    assessment: dict[str, Any], request: dict[str, Any]
+    assessment: dict[str, Any],
+    request: dict[str, Any],
+    *,
+    clip_frames_shown: bool,
 ) -> None:
-    """Reject motion claims when the model received only a still keyframe."""
-    if request["evidence"]["clips"]:
+    """Reject motion claims unless the model was actually shown clip frames.
+
+    `clip_frames_shown` must reflect what was actually fed to the model,
+    not whether the request references clip evidence -- `run_vlm_case`
+    below only ever loads `keyframes[0]`, so a request with clip evidence
+    the model never saw must still be treated as keyframe-only.
+    """
+    if clip_frames_shown:
         return
     for index, observation in enumerate(assessment["observations"]):
         claim = " " + observation["claim_vi"].casefold()
@@ -53,6 +62,26 @@ def extract_json_object(text: str) -> dict[str, Any]:
             continue
         return payload
     raise ValueError("VLM output does not contain one valid JSON object")
+
+
+def load_prompts(config: dict[str, Any], project_root: Path) -> dict[str, Any]:
+    """Load the prompt file the config declares under `prompts:`.
+
+    Both reasoning CLIs (run_vlm.py, run_llm.py) must call this instead of
+    hardcoding a prompts_*.yaml filename -- a config that still points at
+    an older prompt version (e.g. prompts_v1.yaml, which has the fixed
+    prompt-copying bug prompts_v3.yaml fixed) should be visible in the
+    config file, not buried in the CLI.
+    """
+    import yaml
+
+    prompts_name = config.get("prompts")
+    if not isinstance(prompts_name, str) or not prompts_name:
+        raise ValueError("config must declare a `prompts:` file name")
+    prompts_path = project_root / "configs" / "reasoning" / prompts_name
+    if not prompts_path.is_file():
+        raise FileNotFoundError(f"declared prompts file is unavailable: {prompts_path}")
+    return yaml.safe_load(prompts_path.read_text(encoding="utf-8"))
 
 
 def load_development_case(
@@ -82,6 +111,27 @@ def load_development_case(
             if file_sha256(path) != artifact["sha256"]:
                 raise ValueError(f"evidence artifact SHA-256 mismatch: {path}")
     return config, request, artifact_root
+
+
+def _multi_view_note(request: dict[str, Any]) -> str:
+    """Explain multiple images, when present, as same-instant crops -- not
+    a sequence over time. Without this, a model shown 2-3 images risks
+    inferring motion between them, which validate_grounding_policy would
+    then correctly reject since clip_frames_shown is still False for these
+    (still images of one moment carry no motion information, unlike real
+    clip frames)."""
+    keyframes = request["evidence"]["keyframes"]
+    if len(keyframes) <= 1:
+        return ""
+    refs = ", ".join(keyframe["ref"] for keyframe in keyframes)
+    return (
+        f"\n\n{len(keyframes)} images are provided ({refs}), in this order: "
+        "full frame, then (if present) a cropped region of interest, then "
+        "(if present) a tight crop around the specific vehicle in this "
+        "event. All images are the SAME instant in time, only the field of "
+        "view differs -- they are not a sequence and show no motion. Do "
+        "not describe movement, direction, or change between them."
+    )
 
 
 def _prompt_text(request: dict[str, Any]) -> str:
@@ -126,6 +176,7 @@ def _prompt_text(request: dict[str, Any]) -> str:
     return (
         "Event identity JSON (not visual ground truth):\n"
         + json.dumps(visual_context, ensure_ascii=False, sort_keys=True)
+        + _multi_view_note(request)
         + "\n\nOutput exactly one JSON object matching this shape (claim_vi "
         "below is a placeholder describing what to write, not example text "
         "to copy):\n"
@@ -151,8 +202,15 @@ def run_vlm_case(
     keyframes = request["evidence"]["keyframes"]
     if not keyframes:
         raise ValueError("keyframe-first VLM policy requires a keyframe")
-    image_path = artifact_root / keyframes[0]["path"]
-    image = Image.open(image_path).convert("RGB")
+    # All entries in evidence.keyframes are loaded and shown, not just the
+    # first -- multi-view evidence (full frame + ROI crop + event crop, see
+    # src/vn_traffic/evidence.py) puts additional still-image views of the
+    # same instant here rather than in a separate collection. _prompt_text
+    # explains this ordering to the model via _multi_view_note.
+    images = [
+        Image.open(artifact_root / keyframe["path"]).convert("RGB")
+        for keyframe in keyframes
+    ]
     processor = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
     model = AutoModelForMultimodalLM.from_pretrained(
         model_dir,
@@ -168,7 +226,8 @@ def run_vlm_case(
         {
             "role": "user",
             "content": [
-                {"type": "image", "image": image},
+                {"type": "image", "image": image} for image in images
+            ] + [
                 {"type": "text", "text": _prompt_text(request)},
             ],
         }
@@ -197,7 +256,13 @@ def run_vlm_case(
     contract_error = None
     try:
         validate_vlm_assessment(assessment, request)
-        validate_grounding_policy(assessment, request)
+        # Still False even with multi-view evidence: every entry in
+        # evidence.keyframes (full frame, ROI crop, event crop) is a still
+        # image of the same instant, not a real clip -- see
+        # _multi_view_note. This call path never loads request["evidence"]
+        # ["clips"] at all, so clip_frames_shown stays False regardless of
+        # whether the request references clip evidence.
+        validate_grounding_policy(assessment, request, clip_frames_shown=False)
     except ContractError as error:
         contract_status = "invalid"
         contract_error = str(error)

@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..evidence import EVIDENCE_SCHEMA_VERSION
+
 
 EVIDENCE_SET_SCHEMA_VERSION = 1
 
@@ -50,8 +52,11 @@ def build_evidence_lock(
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     if metadata.get("status") != "completed":
         raise ValueError("reasoning evidence can only be frozen from a completed run")
-    if metadata.get("evidence", {}).get("schema_version") != 2:
-        raise ValueError("reasoning evidence lock requires evidence schema version 2")
+    if metadata.get("evidence", {}).get("schema_version") != EVIDENCE_SCHEMA_VERSION:
+        raise ValueError(
+            "reasoning evidence lock requires evidence schema version "
+            f"{EVIDENCE_SCHEMA_VERSION}"
+        )
 
     events = _read_jsonl(events_path)
     evidence_records = _read_jsonl(evidence_path)
@@ -77,7 +82,7 @@ def build_evidence_lock(
             raise ValueError(f"frame mismatch for event: {event_id}")
         if event.get("event_type") != evidence.get("event_type"):
             raise ValueError(f"event type mismatch for event: {event_id}")
-        if evidence.get("schema_version") != 2:
+        if evidence.get("schema_version") != EVIDENCE_SCHEMA_VERSION:
             raise ValueError(f"unsupported evidence schema for event: {event_id}")
         if evidence.get("source_video_sha256") != declared_source_sha256:
             raise ValueError(f"source SHA-256 mismatch for event: {event_id}")

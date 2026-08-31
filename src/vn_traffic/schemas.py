@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 
-ANALYTICS_SCHEMA_VERSION = 3
+ANALYTICS_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,16 @@ class AnalyticsSnapshot:
     frame_index: int
     timestamp_s: float
     congestion_state: str
+    # Independent of congestion_state: "reliable" or "detection_silence"
+    # (the perception stage produced zero raw detections for at least
+    # analytics.perception.detection_silence_min_duration_s). A dense/
+    # congested state reached during silence via the stillness signal is
+    # still trustworthy corroborated evidence; congestion_state itself is
+    # never forced to UNKNOWN here. It is the emitted congestion_transition
+    # event's current_state -- what actually reaches VLM/LLM reports -- that
+    # gets overridden to "UNKNOWN" instead of "NORMAL" during silence, so a
+    # silent recall collapse cannot be reported downstream as a clear road.
+    perception_status: str
     roi_track_count: int
     bbox_union_occupancy: float
     mean_speed_px_s: float | None
@@ -55,6 +65,7 @@ class AnalyticsSnapshot:
             "frame_index": self.frame_index,
             "timestamp_s": self.timestamp_s,
             "congestion_state": self.congestion_state,
+            "perception_status": self.perception_status,
             "roi_track_count": self.roi_track_count,
             "bbox_union_occupancy": self.bbox_union_occupancy,
             "mean_speed_px_s": self.mean_speed_px_s,
@@ -79,6 +90,7 @@ ANALYTICS_CSV_FIELDS = (
     "frame_index",
     "timestamp_s",
     "congestion_state",
+    "perception_status",
     "roi_track_count",
     "bbox_union_occupancy",
     "mean_speed_px_s",

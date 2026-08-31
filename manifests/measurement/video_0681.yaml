@@ -1,0 +1,44 @@
+# Measurement manifest for FDown.vn_Tai_video_Facebook_720p (HD)_0681.mp4.
+# Schema v1 -- see src/vn_traffic/measurement_manifest.py. Geometry only,
+# no traffic-law claims (section 2.3 of reports/ke-hoach-pipeline-va-mo-phong.md).
+#
+# region_1/line_1 reuse the ROI/counting-line already validated across
+# run73-80 on this exact video (configs/pipeline/offline_video.yaml) rather
+# than inventing new, uncalibrated geometry.
+#
+# camera.motion=unknown: not measured for this specific video (only 7938 was
+# run through scripts/diagnose_gmc_sparseoptflow.py). Left honest rather than
+# assumed static or moving.
+schema_version: 1
+scene_id: video_0681
+
+camera:
+  motion: unknown
+
+measurement:
+  roi_polygon:
+    - [0.48, 0.05]
+    - [0.62, 0.05]
+    - [0.84, 0.95]
+    - [0.30, 0.95]
+  ignore_regions: []
+  regions:
+    - id: region_1
+      polygon:
+        - [0.48, 0.05]
+        - [0.62, 0.05]
+        - [0.84, 0.95]
+        - [0.30, 0.95]
+  counting_lines:
+    - id: line_1
+      points:
+        - [0.32, 0.65]
+        - [0.78, 0.65]
+      direction_labels:
+        side_a_to_b: direction_a
+        side_b_to_a: direction_b
+
+provenance:
+  author: manual
+  created_at: "2026-08-27T00:00:00+00:00"
+  source_sha256: "8fbaf58025bae1f0c41ef94b2e4d9f0537302fa51f07031e838720da95fe435d"

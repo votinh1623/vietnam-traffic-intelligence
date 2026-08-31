@@ -232,12 +232,13 @@ class PipelineConfigTests(unittest.TestCase):
             path = Path(temp_dir) / "pipeline.yaml"
             path.write_text(
                 "source: input.mp4\nmodel: model.pt\n"
-                "perception:\n  tracker: bytetrack_custom.yaml\n",
+                "perception:\n  tracker: botsort_reid_lowprox.yaml\n",
                 encoding="utf-8",
             )
             config = load_pipeline_config(path)
             self.assertEqual(
-                Path(config.tracker), (PROJECT_ROOT / "bytetrack_custom.yaml").resolve()
+                Path(config.tracker),
+                (PROJECT_ROOT / "botsort_reid_lowprox.yaml").resolve(),
             )
 
     def test_rejects_missing_source(self) -> None:

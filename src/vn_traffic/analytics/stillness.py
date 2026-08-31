@@ -148,9 +148,8 @@ class StillnessTracker:
     caller-supplied ROI when given. Stage 2 integration point for
     `CongestionStateMachine` -- see its `stalled_dense_fraction` parameter.
 
-    Thresholds are absolute and demo-calibrated on one real frame pair (see
-    docs/benchmark_protocol.md#detection-independent-stillness-signal-prototype),
-    the same honesty bar the existing congestion thresholds are held to, not
+    Thresholds are absolute and demo-calibrated on one real frame pair, the
+    same honesty bar the existing congestion thresholds are held to, not
     tuned across multiple scenes.
     """
 
@@ -220,10 +219,11 @@ def stalled_dense_score(
     always flags roughly the same top fraction of any frame, regardless of
     how severe the scene actually is -- confirmed empirically: a fixed
     absolute threshold's fraction stayed flat at ~0.15-0.20 across an entire
-    real 900-frame clip whether the visible scene was light or gridlocked,
-    see docs/benchmark_protocol.md). It IS however validated to spatially
-    localize a real packed/stalled cluster well, frame by frame, across a
-    real clip -- see scripts/diagnose_stillness.py's heatmap mode. Intended
+    real 900-frame clip whether the visible scene was light or gridlocked).
+    It IS however validated to spatially localize a real packed/stalled
+    cluster well, frame by frame, across a real clip -- see
+    `StillnessHeatmapRenderer`'s heatmap mode
+    (`configs/pipeline/offline_video_stillness_heatmap_demo.yaml`). Intended
     for a visual heatmap a human operator reads, not as a state-machine
     trigger.
     """

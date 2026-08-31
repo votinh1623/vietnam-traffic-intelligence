@@ -21,6 +21,7 @@ from vn_traffic.reasoning.contracts import (  # noqa: E402
     validate_vlm_assessment,
     validate_vlm_request,
 )
+from vn_traffic.evidence import EVIDENCE_SCHEMA_VERSION  # noqa: E402
 from vn_traffic.reasoning.freeze import (  # noqa: E402
     build_evidence_lock,
     canonical_sha256,
@@ -170,6 +171,33 @@ class ReasoningContractTests(unittest.TestCase):
         self.assertEqual(request["evidence"]["keyframes"][0]["ref"], "keyframe-1")
         validate_vlm_request(request)
 
+    def test_builds_request_with_multi_view_crops_as_additional_keyframes(
+        self,
+    ) -> None:
+        # roi_crop/event_crop (src/vn_traffic/evidence.py multi-view
+        # evidence) are still images of the same instant, so they surface
+        # as ordinary additional entries in evidence.keyframes -- not a new
+        # "crops" collection requiring a schema bump.
+        case = {
+            "case_id": "evaluation-0002",
+            "event": valid_request()["event"],
+            "evidence": {
+                "keyframe": {"path": "frame.jpg", "sha256": "b" * 64},
+                "roi_crop": {"path": "roi.jpg", "sha256": "c" * 64},
+                "event_crop": {"path": "event.jpg", "sha256": "d" * 64},
+            },
+        }
+        request = build_vlm_request(case)
+        keyframes = request["evidence"]["keyframes"]
+        self.assertEqual(len(keyframes), 3)
+        self.assertEqual([kf["ref"] for kf in keyframes], [
+            "keyframe-1", "keyframe-2", "keyframe-3",
+        ])
+        self.assertEqual([kf["path"] for kf in keyframes], [
+            "frame.jpg", "roi.jpg", "event.jpg",
+        ])
+        validate_vlm_request(request)
+
 
 class EvidenceLockTests(unittest.TestCase):
     def test_checked_in_evaluation_lock_is_valid(self) -> None:
@@ -234,7 +262,7 @@ class EvidenceLockTests(unittest.TestCase):
                 "timestamp_s": 0.2,
             }
             evidence = {
-                "schema_version": 2,
+                "schema_version": EVIDENCE_SCHEMA_VERSION,
                 "evidence_id": "evidence-event-1",
                 "event_id": "event-1",
                 "event_type": "line_crossing",
@@ -260,7 +288,7 @@ class EvidenceLockTests(unittest.TestCase):
                         "source": str(source),
                         "frames_processed": 3,
                         "evidence": {
-                            "schema_version": 2,
+                            "schema_version": EVIDENCE_SCHEMA_VERSION,
                             "source_video_sha256": source_sha,
                         },
                     }

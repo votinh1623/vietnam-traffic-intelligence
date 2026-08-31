@@ -4,6 +4,9 @@ split: development
 input_lock: manifests/reasoning/evidence_dev_v1/input_lock.json
 artifact_root: output/pipeline/run16
 execution_policy: sequential_load_run_unload
+# v3 fixed the prompt-copying bug v1/v2 had (see docs/reasoning_protocol.md);
+# v1/v2 stay on disk only for historical hash reference, not for CLI use.
+prompts: prompts_v3.yaml
 
 # Initial RTX 3050 6 GB candidates. Resolve and record immutable model revisions
 # before downloading or benchmarking; model IDs alone are not provenance.

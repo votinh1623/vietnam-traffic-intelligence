@@ -1,9 +1,0 @@
-# bytetrack_custom.yaml
-tracker_type: bytetrack
-track_high_thresh: 0.5
-track_low_thresh: 0.1
-new_track_thresh: 0.6
-track_buffer: 60        # Tăng từ 30 lên 60
-match_thresh: 0.8
-fuse_score: True
-gmc_method: sparseOptFlow   # Giữ nguyên, nếu vẫn lỗi thì đổi thành 'none'

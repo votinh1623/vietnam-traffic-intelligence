@@ -1,0 +1,28 @@
+schema_version: 1
+status: wp1_gate_g1_demo
+split: development
+input_lock: manifests/reasoning/wp1_demo_0681/input_lock.json
+artifact_root: output/pipeline/run86
+execution_policy: sequential_load_run_unload
+prompts: prompts_v3.yaml
+
+vlm:
+  model_id: Qwen/Qwen3-VL-2B-Instruct
+  revision: 89644892e4d85e24eaac8bacfd4f463576704203
+  backend: transformers
+  dtype: float16
+  input_policy: keyframe_first
+  clip_sample_frames: 3
+  max_new_tokens: 384
+
+llm:
+  model_id: Qwen/Qwen3-0.6B
+  revision: c1899de289a04d12100db370d81485cdf75e47ca
+  backend: transformers
+  dtype: float16
+  thinking: false
+  max_new_tokens: 512
+
+generation:
+  do_sample: false
+  seed: 0

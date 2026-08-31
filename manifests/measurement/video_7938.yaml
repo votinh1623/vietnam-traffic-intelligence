@@ -1,0 +1,46 @@
+# Measurement manifest for FDown.vn_Tai_video_Facebook_720p (HD)_7938.mp4.
+# Schema v1 -- see src/vn_traffic/measurement_manifest.py. Geometry only,
+# no traffic-law claims (section 2.3 of reports/ke-hoach-pipeline-va-mo-phong.md).
+#
+# region_1/line_1 reuse the ROI/counting-line already validated across
+# run73-80 on this exact video (configs/pipeline/offline_video.yaml) rather
+# than inventing new, uncalibrated geometry.
+#
+# camera.motion=moving is measured, not assumed: scripts/diagnose_gmc_sparseoptflow.py
+# on this video found a consistent ~0.9965-0.9995 per-frame scale factor
+# (zoom-out, ~18% over the clip) with 0% GMC identity-fallback across 666
+# frames -- see the ReID/tracker-sweep investigation in this project's
+# session history.
+schema_version: 1
+scene_id: video_7938
+
+camera:
+  motion: moving
+
+measurement:
+  roi_polygon:
+    - [0.48, 0.05]
+    - [0.62, 0.05]
+    - [0.84, 0.95]
+    - [0.30, 0.95]
+  ignore_regions: []
+  regions:
+    - id: region_1
+      polygon:
+        - [0.48, 0.05]
+        - [0.62, 0.05]
+        - [0.84, 0.95]
+        - [0.30, 0.95]
+  counting_lines:
+    - id: line_1
+      points:
+        - [0.32, 0.65]
+        - [0.78, 0.65]
+      direction_labels:
+        side_a_to_b: direction_a
+        side_b_to_a: direction_b
+
+provenance:
+  author: manual
+  created_at: "2026-08-27T00:00:00+00:00"
+  source_sha256: "3ad43fcf55aa6204865c1d756a5e002689b95d9379b14cfcafd47cf17d42b8b7"

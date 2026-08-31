@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import subprocess
+import sys
 import time
 from collections import deque
 from dataclasses import asdict
@@ -14,8 +16,10 @@ from typing import Any, Protocol
 import cv2
 
 from .analytics.overlay import draw_frame_stats
-from .config import PipelineConfig
+from .config import PipelineConfig, PROJECT_ROOT
 from .evidence import EVIDENCE_SCHEMA_VERSION
+from .measurement_manifest import load_measurement_manifest
+from .reasoning.freeze import file_sha256
 from .schemas import (
     ANALYTICS_SCHEMA_VERSION,
     ANALYTICS_CSV_FIELDS,
@@ -65,6 +69,8 @@ class EvidenceExporter(Protocol):
         run_dir: Path,
         fps: float,
         frames_processed: int,
+        measurement_manifest: dict[str, Any] | None = None,
+        tracks_path: Path | None = None,
     ) -> dict[str, Any]: ...
 
 
@@ -97,6 +103,8 @@ class NoEvidence:
         run_dir: Path,
         fps: float,
         frames_processed: int,
+        measurement_manifest: dict[str, Any] | None = None,
+        tracks_path: Path | None = None,
     ) -> dict[str, Any]:
         manifest_path = run_dir / "evidence.jsonl"
         temporary = manifest_path.with_suffix(".jsonl.tmp")
@@ -128,6 +136,104 @@ def next_run_directory(root: Path) -> Path:
     run_dir = root / f"run{max(numbers, default=0) + 1}"
     run_dir.mkdir()
     return run_dir
+
+
+def _git_provenance(project_root: Path) -> dict[str, Any]:
+    """Best-effort commit + dirty-worktree status; never fails the run."""
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        ).stdout
+        return {"commit": commit, "dirty": bool(status.strip())}
+    except Exception as error:
+        return {
+            "commit": None,
+            "dirty": None,
+            "error": f"{type(error).__name__}: {error}",
+        }
+
+
+def _environment_provenance() -> dict[str, Any]:
+    """Best-effort interpreter/package/GPU snapshot; never fails the run."""
+    info: dict[str, Any] = {"python_version": sys.version.split()[0]}
+    try:
+        import torch
+
+        info["torch_version"] = torch.__version__
+        info["cuda_available"] = torch.cuda.is_available()
+        if info["cuda_available"]:
+            info["cuda_device_name"] = torch.cuda.get_device_name(0)
+    except Exception:
+        pass
+    try:
+        import ultralytics
+
+        info["ultralytics_version"] = ultralytics.__version__
+    except Exception:
+        pass
+    return info
+
+
+def _run_provenance(config: PipelineConfig) -> dict[str, Any]:
+    """Hashes + environment snapshot so a run can be traced back to exactly
+    what produced it -- a path alone is not evidence, since the file at
+    that path can be replaced later (see docs on run provenance)."""
+    tracker_path = Path(config.tracker)
+    return {
+        "git": _git_provenance(PROJECT_ROOT),
+        "environment": _environment_provenance(),
+        "source_sha256": (
+            file_sha256(config.source) if config.source.is_file() else None
+        ),
+        "model_sha256": (
+            file_sha256(config.model) if config.model.is_file() else None
+        ),
+        "config_sha256": (
+            file_sha256(config.config_path)
+            if config.config_path and config.config_path.is_file()
+            else None
+        ),
+        "tracker_sha256": (
+            file_sha256(tracker_path) if tracker_path.is_file() else None
+        ),
+    }
+
+
+def _load_measurement_manifest_metadata(
+    config: PipelineConfig, source_sha256: str | None
+) -> dict[str, Any] | None:
+    """Load+validate the optional measurement manifest, if declared.
+
+    Absence is not an error (Gate G1). A declared-but-invalid manifest, or
+    one whose provenance.source_sha256 does not match the actual source
+    video being processed, IS an error -- a manifest silently applied to
+    the wrong video would misplace ROI/counting-line geometry without any
+    visible symptom.
+    """
+    if config.measurement_manifest is None:
+        return None
+    manifest = load_measurement_manifest(config.measurement_manifest)
+    declared = manifest["provenance"]["source_sha256"]
+    if source_sha256 is not None and declared != source_sha256:
+        raise ValueError(
+            "measurement_manifest.provenance.source_sha256 does not match "
+            f"the source video being processed: manifest declares {declared}, "
+            f"actual source hashes to {source_sha256}"
+        )
+    return manifest
 
 
 def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
@@ -252,6 +358,18 @@ class PipelineRunner:
         recent_frame_times: deque[float] = deque(maxlen=30)
         non_vehicle_classes = {"pedestrian", "people"}
         try:
+            # Inside the try block (not before it) so a malformed manifest
+            # or a source/manifest hash mismatch is recorded as a "failed"
+            # run.json with a clear error, same as any other run failure --
+            # not an unrecorded crash before any run.json exists.
+            provenance = _run_provenance(self.config)
+            measurement_manifest = _load_measurement_manifest_metadata(
+                self.config, provenance["source_sha256"]
+            )
+            metadata["provenance"] = provenance
+            metadata["measurement_manifest"] = measurement_manifest
+            write_json_atomic(metadata_path, metadata)
+
             with tracks_path.open("w", newline="", encoding="utf-8") as tracks_file, (
                 events_path.open("w", encoding="utf-8")
             ) as events_file, analytics_path.open(
@@ -396,6 +514,8 @@ class PipelineRunner:
                 run_dir=run_dir,
                 fps=fps,
                 frames_processed=frame_count,
+                measurement_manifest=measurement_manifest,
+                tracks_path=tracks_path,
             )
             elapsed_s = time.perf_counter() - started_clock
             metadata.update(

@@ -2,12 +2,12 @@ schema_version: 1
 
 # Visual-only heatmap demo for analytics stillness (see
 # src/vn_traffic/analytics/stillness.py's stalled_dense_score/
-# StillnessHeatmapRenderer and docs/benchmark_protocol.md). Independent of
-# analytics.stillness_enabled (the state-machine trigger, which does not
-# yet reliably escalate to CONGESTED on this clip -- see the readme). This
-# renders a per-frame heatmap onto annotated.mp4 using a frame-relative
-# threshold, validated to spatially localize the same clip's gridlocked
-# motorcycle mass the detector draws zero boxes over.
+# StillnessHeatmapRenderer). Independent of analytics.stillness_enabled
+# (the state-machine trigger, which does not yet reliably escalate to
+# CONGESTED on this clip). This renders a per-frame heatmap onto
+# annotated.mp4 using a frame-relative threshold, validated to spatially
+# localize the same clip's gridlocked motorcycle mass the detector draws
+# zero boxes over.
 source: datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4
 model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
 
@@ -20,7 +20,7 @@ perception:
   show_confidence: true
   line_width: 2
   device: "0"
-  tracker: bytetrack_custom.yaml
+  tracker: botsort_reid_lowprox.yaml
 
 video:
   codec: mp4v

@@ -17,7 +17,7 @@ _INCIDENT_CATEGORIES = {
     "road_hazard",
     "other",
 }
-_TRAFFIC_STATES = {"NORMAL", "DENSE", "CONGESTED", "UNSPECIFIED"}
+_TRAFFIC_STATES = {"NORMAL", "DENSE", "CONGESTED", "UNSPECIFIED", "UNKNOWN"}
 _ACTION_LEVELS = {"none", "monitor", "review", "alert"}
 
 
@@ -169,22 +169,39 @@ def validate_vlm_request(payload: Any) -> None:
 
 
 def build_vlm_request(case: dict[str, Any]) -> dict[str, Any]:
-    """Build the exact VLM boundary from one frozen evidence-lock case."""
+    """Build the exact VLM boundary from one frozen evidence-lock case.
+
+    Multi-view still images (full-frame keyframe, ROI crop, event crop --
+    see src/vn_traffic/evidence.py) are all exposed as ordinary entries in
+    `evidence.keyframes`, not a new collection: they are all still images
+    of the *same instant*, differing only in field of view, so the existing
+    keyframes list already fits without a schema change. This is
+    deliberately unlike `clips`, which carries real motion over time and is
+    gated by validate_grounding_policy's clip_frames_shown.
+    """
     evidence_record = _mapping(case.get("evidence"), "case.evidence")
     media: dict[str, list[dict[str, Any]]] = {"keyframes": [], "clips": []}
-    for artifact_name, collection, ref in (
-        ("keyframe", "keyframes", "keyframe-1"),
-        ("clip", "clips", "clip-1"),
-    ):
+    keyframe_count = 0
+    for artifact_name in ("keyframe", "roi_crop", "event_crop"):
         artifact = evidence_record.get(artifact_name)
         if artifact is not None:
-            media[collection].append(
+            keyframe_count += 1
+            media["keyframes"].append(
                 {
-                    "ref": ref,
+                    "ref": f"keyframe-{keyframe_count}",
                     "path": artifact["path"],
                     "sha256": artifact["sha256"],
                 }
             )
+    clip_artifact = evidence_record.get("clip")
+    if clip_artifact is not None:
+        media["clips"].append(
+            {
+                "ref": "clip-1",
+                "path": clip_artifact["path"],
+                "sha256": clip_artifact["sha256"],
+            }
+        )
     request = {
         "schema_version": REASONING_SCHEMA_VERSION,
         "case_id": case["case_id"],

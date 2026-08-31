@@ -15,7 +15,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from vn_traffic.config import EvidenceConfig  # noqa: E402
-from vn_traffic.evidence import EventEvidenceExporter  # noqa: E402
+from vn_traffic.evidence import (  # noqa: E402
+    EVIDENCE_SCHEMA_VERSION,
+    EventEvidenceExporter,
+)
 
 
 def create_video(path: Path, frame_count: int = 6, fps: float = 5.0) -> None:
@@ -100,7 +103,7 @@ class EventEvidenceExporterTests(unittest.TestCase):
             self.assertEqual(summary["selected_events"], 2)
             self.assertEqual(summary["keyframes_written"], 2)
             self.assertEqual(summary["clips_written"], 1)
-            self.assertEqual(summary["schema_version"], 2)
+            self.assertEqual(summary["schema_version"], EVIDENCE_SCHEMA_VERSION)
             self.assertEqual(summary["extraction_mode"], "sequential_second_pass")
             self.assertEqual(len(summary["source_video_sha256"]), 64)
             self.assertIn("keyframe", records[0])
@@ -300,6 +303,190 @@ class EventEvidenceExporterTests(unittest.TestCase):
                     fps=5.0,
                     frames_processed=1,
                 )
+
+
+def write_tracks_csv(path: Path, rows: list[dict]) -> None:
+    import csv
+
+    fieldnames = [
+        "frame_index", "timestamp_s", "track_id", "class_id", "class_name",
+        "confidence", "x1", "y1", "x2", "y2",
+    ]
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+
+def measurement_manifest(roi_polygon) -> dict:
+    return {
+        "schema_version": 1,
+        "scene_id": "fixture",
+        "camera": {"motion": "unknown"},
+        "measurement": {
+            "roi_polygon": roi_polygon,
+            "ignore_regions": [],
+            "regions": [],
+            "counting_lines": [],
+        },
+        "provenance": {
+            "author": "test",
+            "created_at": "2026-08-27T00:00:00+00:00",
+            "source_sha256": "0" * 64,
+        },
+    }
+
+
+class MultiViewEvidenceTests(unittest.TestCase):
+    def _export(
+        self,
+        *,
+        events: tuple[dict, ...],
+        tracks: list[dict] | None = None,
+        manifest: dict | None = None,
+        multi_view_enabled: bool = True,
+    ):
+        # Deliberately not a TemporaryDirectory context manager: callers
+        # inspect files under run_dir after this returns, so the directory
+        # must outlive this method. Test-only leak onto the OS temp dir.
+        run_dir = Path(tempfile.mkdtemp())
+        source = run_dir / "source.avi"
+        events_path = run_dir / "events.jsonl"
+        create_video(source)
+        events_path.write_text(
+            "".join(json.dumps(event) + "\n" for event in events),
+            encoding="utf-8",
+        )
+        tracks_path = None
+        if tracks is not None:
+            tracks_path = run_dir / "tracks.csv"
+            write_tracks_csv(tracks_path, tracks)
+        exporter = EventEvidenceExporter(
+            EvidenceConfig(
+                enabled=True,
+                keyframe_event_types=(
+                    "line_crossing",
+                    "congestion_transition",
+                ),
+                clip_event_types=(),
+                multi_view_enabled=multi_view_enabled,
+            )
+        )
+        summary = exporter.export(
+            source=source,
+            events_path=events_path,
+            run_dir=run_dir,
+            fps=5.0,
+            frames_processed=6,
+            measurement_manifest=manifest,
+            tracks_path=tracks_path,
+        )
+        records = [
+            json.loads(line)
+            for line in (run_dir / "evidence.jsonl").read_text().splitlines()
+        ]
+        return run_dir, summary, records
+
+    def test_event_crop_written_when_track_bbox_resolvable(self) -> None:
+        run_dir, summary, records = self._export(
+            events=(
+                {
+                    "event_id": "event-000001",
+                    "event_type": "line_crossing",
+                    "frame_index": 2,
+                    "timestamp_s": 0.4,
+                    "track_id": 7,
+                },
+            ),
+            tracks=[
+                {
+                    "frame_index": 2, "timestamp_s": 0.4, "track_id": 7,
+                    "class_id": 1, "class_name": "car", "confidence": 0.9,
+                    "x1": 10, "y1": 10, "x2": 30, "y2": 30,
+                }
+            ],
+            manifest=measurement_manifest([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]),
+        )
+        self.assertEqual(summary["event_crops_written"], 1)
+        self.assertEqual(summary["roi_crops_written"], 0)
+        record = records[0]
+        self.assertIn("event_crop", record)
+        self.assertNotIn("roi_crop", record)
+        crop = record["event_crop"]
+        self.assertEqual(len(crop["bbox_px"]), 4)
+        # Padded around the 20x20 track bbox -- strictly smaller than the
+        # full 64x48 frame.
+        self.assertLess(crop["width"], 64)
+        self.assertLess(crop["height"], 48)
+        self.assertTrue((run_dir / crop["path"]).is_file())
+
+    def test_roi_crop_fallback_when_event_has_no_track_id(self) -> None:
+        run_dir, summary, records = self._export(
+            events=(
+                {
+                    "event_id": "event-000002",
+                    "event_type": "congestion_transition",
+                    "frame_index": 3,
+                    "timestamp_s": 0.6,
+                },
+            ),
+            tracks=[],
+            manifest=measurement_manifest([[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]]),
+        )
+        self.assertEqual(summary["event_crops_written"], 0)
+        self.assertEqual(summary["roi_crops_written"], 1)
+        record = records[0]
+        self.assertIn("roi_crop", record)
+        self.assertNotIn("event_crop", record)
+        self.assertTrue((run_dir / record["roi_crop"]["path"]).is_file())
+
+    def test_no_crop_when_no_manifest_and_no_resolvable_track(self) -> None:
+        run_dir, summary, records = self._export(
+            events=(
+                {
+                    "event_id": "event-000003",
+                    "event_type": "congestion_transition",
+                    "frame_index": 3,
+                    "timestamp_s": 0.6,
+                },
+            ),
+            tracks=None,
+            manifest=None,
+        )
+        self.assertEqual(summary["event_crops_written"], 0)
+        self.assertEqual(summary["roi_crops_written"], 0)
+        record = records[0]
+        self.assertIn("keyframe", record)
+        self.assertNotIn("roi_crop", record)
+        self.assertNotIn("event_crop", record)
+
+    def test_multi_view_disabled_by_default_produces_only_keyframe(self) -> None:
+        run_dir, summary, records = self._export(
+            events=(
+                {
+                    "event_id": "event-000004",
+                    "event_type": "line_crossing",
+                    "frame_index": 2,
+                    "timestamp_s": 0.4,
+                    "track_id": 7,
+                },
+            ),
+            tracks=[
+                {
+                    "frame_index": 2, "timestamp_s": 0.4, "track_id": 7,
+                    "class_id": 1, "class_name": "car", "confidence": 0.9,
+                    "x1": 10, "y1": 10, "x2": 30, "y2": 30,
+                }
+            ],
+            manifest=measurement_manifest([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]),
+            multi_view_enabled=False,
+        )
+        self.assertFalse(summary["multi_view_enabled"])
+        self.assertEqual(summary["event_crops_written"], 0)
+        self.assertEqual(summary["roi_crops_written"], 0)
+        self.assertNotIn("roi_crop", records[0])
+        self.assertNotIn("event_crop", records[0])
 
 
 if __name__ == "__main__":

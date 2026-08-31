@@ -10,12 +10,14 @@ from unittest.mock import patch
 
 import cv2
 import numpy as np
+import yaml
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from vn_traffic.config import PipelineConfig  # noqa: E402
+from vn_traffic.reasoning.freeze import file_sha256  # noqa: E402
 from vn_traffic.runner import PipelineRunner  # noqa: E402
 from vn_traffic.schemas import (  # noqa: E402
     ANALYTICS_SCHEMA_VERSION,
@@ -127,6 +129,13 @@ class PipelineRunnerTests(unittest.TestCase):
             )
             self.assertGreater(metadata["processing_fps"], 0)
             self.assertFalse(metadata["evidence"]["enabled"])
+            provenance = metadata["provenance"]
+            self.assertIn("commit", provenance["git"])
+            self.assertIn("python_version", provenance["environment"])
+            self.assertEqual(len(provenance["source_sha256"]), 64)
+            self.assertEqual(len(provenance["model_sha256"]), 64)
+            self.assertIsNone(provenance["config_sha256"])
+            self.assertIsNone(provenance["tracker_sha256"])
 
             capture = cv2.VideoCapture(str(run_dir / "annotated.mp4"))
             output_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -188,6 +197,112 @@ class PipelineRunnerTests(unittest.TestCase):
             )
             self.assertEqual(metadata["status"], "failed")
             self.assertIn("intentional fixture failure", metadata["error"])
+
+    def _measurement_manifest_payload(self, *, source_sha256: str) -> dict:
+        return {
+            "schema_version": 1,
+            "scene_id": "fixture_scene",
+            "camera": {"motion": "static"},
+            "measurement": {
+                "roi_polygon": None,
+                "ignore_regions": [],
+                "regions": [],
+                "counting_lines": [],
+            },
+            "provenance": {
+                "author": "test",
+                "created_at": "2026-08-27T00:00:00+00:00",
+                "source_sha256": source_sha256,
+            },
+        }
+
+    def test_measurement_manifest_is_loaded_and_recorded_when_declared(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            model = root / "placeholder.pt"
+            create_fixture_video(source)
+            model.write_bytes(b"fake model for dependency-injected test")
+            manifest_path = root / "manifest.yaml"
+            manifest_path.write_text(
+                yaml.safe_dump(
+                    self._measurement_manifest_payload(
+                        source_sha256=file_sha256(source)
+                    )
+                ),
+                encoding="utf-8",
+            )
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=model,
+                output_root=root / "outputs",
+                imgsz=64,
+                device="cpu",
+                measurement_manifest=manifest_path,
+            )
+
+            run_dir = PipelineRunner(config, FakePerception()).run()
+
+            metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "completed")
+            self.assertEqual(
+                metadata["measurement_manifest"]["scene_id"], "fixture_scene"
+            )
+
+    def test_measurement_manifest_absent_does_not_fail_the_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            model = root / "placeholder.pt"
+            create_fixture_video(source)
+            model.write_bytes(b"fake model for dependency-injected test")
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=model,
+                output_root=root / "outputs",
+                imgsz=64,
+                device="cpu",
+            )
+
+            run_dir = PipelineRunner(config, FakePerception()).run()
+
+            metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "completed")
+            self.assertIsNone(metadata["measurement_manifest"])
+
+    def test_measurement_manifest_wrong_source_hash_fails_the_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            model = root / "placeholder.pt"
+            create_fixture_video(source)
+            model.write_bytes(b"fake model for dependency-injected test")
+            manifest_path = root / "manifest.yaml"
+            manifest_path.write_text(
+                yaml.safe_dump(
+                    self._measurement_manifest_payload(source_sha256="0" * 64)
+                ),
+                encoding="utf-8",
+            )
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=model,
+                output_root=root / "outputs",
+                imgsz=64,
+                device="cpu",
+                measurement_manifest=manifest_path,
+            )
+
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                PipelineRunner(config, FakePerception()).run()
+
+            metadata = json.loads(
+                (root / "outputs" / "run1" / "run.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["status"], "failed")
 
 
 if __name__ == "__main__":

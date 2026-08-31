@@ -359,6 +359,54 @@ class TrafficAnalyticsTests(unittest.TestCase):
             any(event["event_type"] == "prolonged_stop" for event in batch.events)
         )
 
+    def test_detection_silence_flips_after_min_duration_with_zero_tracks(self) -> None:
+        config = replace(self.config, detection_silence_min_duration_s=2.0)
+        engine = TrafficAnalytics(config)
+        first = engine.process(
+            frame_index=0, timestamp_s=0.0, tracks=(), frame_width=100, frame_height=100
+        )
+        self.assertEqual(first.snapshot.perception_status, "reliable")
+        second = engine.process(
+            frame_index=1, timestamp_s=1.0, tracks=(), frame_width=100, frame_height=100
+        )
+        self.assertEqual(second.snapshot.perception_status, "reliable")
+        self.assertFalse(
+            any(e["event_type"] == "perception_status_change" for e in second.events)
+        )
+        third = engine.process(
+            frame_index=2, timestamp_s=2.0, tracks=(), frame_width=100, frame_height=100
+        )
+        self.assertEqual(third.snapshot.perception_status, "detection_silence")
+        status_events = [
+            e for e in third.events if e["event_type"] == "perception_status_change"
+        ]
+        self.assertEqual(len(status_events), 1)
+        self.assertEqual(status_events[0]["previous_status"], "reliable")
+        self.assertEqual(status_events[0]["current_status"], "detection_silence")
+        self.assertEqual(engine.summary()["detection_silence_events"], 1)
+
+    def test_perception_status_recovers_immediately_when_detection_reappears(
+        self,
+    ) -> None:
+        config = replace(self.config, detection_silence_min_duration_s=1.0)
+        engine = TrafficAnalytics(config)
+        engine.process(
+            frame_index=0, timestamp_s=0.0, tracks=(), frame_width=100, frame_height=100
+        )
+        silent = engine.process(
+            frame_index=1, timestamp_s=1.0, tracks=(), frame_width=100, frame_height=100
+        )
+        self.assertEqual(silent.snapshot.perception_status, "detection_silence")
+        recovered = self.process(engine, 2, observation(1, 20.0))
+        self.assertEqual(recovered.snapshot.perception_status, "reliable")
+        status_events = [
+            e for e in recovered.events if e["event_type"] == "perception_status_change"
+        ]
+        self.assertEqual(
+            (status_events[0]["previous_status"], status_events[0]["current_status"]),
+            ("detection_silence", "reliable"),
+        )
+
     def test_prolonged_stop_entry_requires_continuous_low_speed(self) -> None:
         config = replace(
             self.config,
@@ -513,6 +561,110 @@ class StillnessAnalyticsIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(third.snapshot.congestion_state, "CONGESTED")
         self.assertEqual(third.snapshot.roi_track_count, 0)
+
+    def test_congested_via_stillness_during_silence_is_not_reported_unknown(
+        self,
+    ) -> None:
+        # perception_status can independently reach "detection_silence" (zero
+        # raw tracks) at the same time the stillness signal legitimately
+        # drives the state machine to CONGESTED. That CONGESTED verdict is
+        # corroborated by an independent, detector-free signal -- it must
+        # reach the emitted event as-is, not get overridden to UNKNOWN the
+        # way a bare "silence -> NORMAL" transition does.
+        config = AnalyticsConfig(
+            roi_polygon=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
+            counting_line=((0.0, 0.5), (1.0, 0.5)),
+            transition_confirm_s=1.0,
+            release_confirm_s=1.0,
+            detection_silence_min_duration_s=1.0,
+            stillness_enabled=True,
+            stillness_downscale=1,
+            stillness_cell_px=8,
+            stillness_motion_threshold=2.0,
+            stillness_texture_threshold=0.5,
+            stillness_congested_enter_fraction=0.5,
+            stillness_congested_exit_fraction=0.3,
+        )
+        engine = TrafficAnalytics(config)
+        frame = _gmc_textured_frame(width=160, height=120, seed=7)
+        # StillnessTracker.update() returns 0.0 on its very first call (no
+        # prior frame to diff motion against), so the real stalled-dense
+        # signal only starts at frame index 1 and the CONGESTED candidate
+        # only has to hold from t=1.0 -- transition confirms at t=2.0,
+        # matching test_static_textured_scene_reaches_congested_with_zero_tracks.
+        engine.process(
+            frame_index=0, timestamp_s=0.0, tracks=(), frame_width=160,
+            frame_height=120, frame=frame,
+        )
+        engine.process(
+            frame_index=1, timestamp_s=1.0, tracks=(), frame_width=160,
+            frame_height=120, frame=frame,
+        )
+        third = engine.process(
+            frame_index=2, timestamp_s=2.0, tracks=(), frame_width=160,
+            frame_height=120, frame=frame,
+        )
+        self.assertEqual(third.snapshot.perception_status, "detection_silence")
+        transitions = [
+            e for e in third.events if e["event_type"] == "congestion_transition"
+        ]
+        self.assertEqual(len(transitions), 1)
+        self.assertEqual(
+            (transitions[0]["previous_state"], transitions[0]["current_state"]),
+            ("NORMAL", "CONGESTED"),
+        )
+
+    def test_release_to_normal_during_continued_silence_reports_unknown(self) -> None:
+        config = AnalyticsConfig(
+            roi_polygon=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
+            counting_line=((0.0, 0.5), (1.0, 0.5)),
+            transition_confirm_s=1.0,
+            release_confirm_s=1.0,
+            detection_silence_min_duration_s=1.0,
+            stillness_enabled=True,
+            stillness_downscale=1,
+            stillness_cell_px=8,
+            stillness_motion_threshold=2.0,
+            stillness_texture_threshold=0.5,
+            stillness_congested_enter_fraction=0.5,
+            stillness_congested_exit_fraction=0.3,
+        )
+        engine = TrafficAnalytics(config)
+        textured = _gmc_textured_frame(width=160, height=120, seed=7)
+        flat = np.full((120, 160, 3), 128, dtype=np.uint8)
+        # See test_congested_via_stillness_during_silence_is_not_reported_unknown
+        # for why CONGESTED confirms at t=2.0, not t=1.0.
+        engine.process(
+            frame_index=0, timestamp_s=0.0, tracks=(), frame_width=160,
+            frame_height=120, frame=textured,
+        )
+        engine.process(
+            frame_index=1, timestamp_s=1.0, tracks=(), frame_width=160,
+            frame_height=120, frame=textured,
+        )
+        congested = engine.process(
+            frame_index=2, timestamp_s=2.0, tracks=(), frame_width=160,
+            frame_height=120, frame=textured,
+        )
+        self.assertEqual(congested.snapshot.congestion_state, "CONGESTED")
+        engine.process(
+            frame_index=3, timestamp_s=3.0, tracks=(), frame_width=160,
+            frame_height=120, frame=flat,
+        )
+        released = engine.process(
+            frame_index=4, timestamp_s=4.0, tracks=(), frame_width=160,
+            frame_height=120, frame=flat,
+        )
+        self.assertEqual(released.snapshot.congestion_state, "NORMAL")
+        self.assertEqual(released.snapshot.perception_status, "detection_silence")
+        transitions = [
+            e for e in released.events if e["event_type"] == "congestion_transition"
+        ]
+        self.assertEqual(len(transitions), 1)
+        self.assertEqual(
+            (transitions[0]["previous_state"], transitions[0]["current_state"]),
+            ("CONGESTED", "UNKNOWN"),
+        )
 
     def test_stillness_enabled_without_a_frame_raises(self) -> None:
         config = AnalyticsConfig(stillness_enabled=True)

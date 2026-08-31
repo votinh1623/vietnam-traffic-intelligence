@@ -7,8 +7,6 @@ import json
 from pathlib import Path
 import sys
 
-import yaml
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -17,7 +15,10 @@ from vn_traffic.reasoning.llm_runtime import (  # noqa: E402
     prepare_llm_request,
     run_llm_case,
 )
-from vn_traffic.reasoning.vlm_runtime import load_development_case  # noqa: E402
+from vn_traffic.reasoning.vlm_runtime import (  # noqa: E402
+    load_development_case,
+    load_prompts,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -52,11 +53,7 @@ def main() -> int:
         return 0
     if args.model_dir is None or args.output is None:
         raise ValueError("--model-dir and --output are required unless --dry-run")
-    prompts = yaml.safe_load(
-        (PROJECT_ROOT / "configs" / "reasoning" / "prompts_v1.yaml").read_text(
-            encoding="utf-8"
-        )
-    )
+    prompts = load_prompts(config, PROJECT_ROOT)
     result = run_llm_case(
         config=config,
         request=request,

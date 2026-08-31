@@ -17,7 +17,7 @@ One row represents one detection/track observation in one frame.
 |---|---|---|
 | `frame_index` | integer | Zero-based decoded frame index |
 | `timestamp_s` | float | `frame_index / source_fps` |
-| `track_id` | nullable integer | ByteTrack identity; empty before assignment |
+| `track_id` | nullable integer | Tracker identity (BoT-SORT by default -- see `configs/pipeline/offline_video.yaml`; not necessarily ByteTrack); empty before assignment |
 | `class_id` | integer | Detector class index |
 | `class_name` | string | Detector class name |
 | `confidence` | float | Detector confidence |
@@ -26,10 +26,10 @@ One row represents one detection/track observation in one frame.
 ## `events.jsonl`
 
 One JSON object per deterministic analytics event. The current event types are
-`line_crossing`, `congestion_transition`, and `prolonged_stop`; the pipeline never invents
-placeholder events. Analytics schema version 2 introduces union-based bbox
-coverage and replaces the invalid legacy `occupancy` field. A line-crossing
-event has this shape:
+`line_crossing`, `congestion_transition`, `prolonged_stop`, and
+`perception_status_change`; the pipeline never invents placeholder events.
+Analytics schema version 2 introduces union-based bbox coverage and replaces
+the invalid legacy `occupancy` field. A line-crossing event has this shape:
 
 ```json
 {
@@ -51,7 +51,14 @@ A congestion transition replaces the track/class/direction fields with
 `bbox_union_occupancy`, ROI-track count, mean pixel speed, and (schema 3)
 `stalled_dense_fraction` when `analytics.stillness_enabled` -- otherwise
 `null`. All events retain `schema_version`, `event_id`, `event_type`,
-`timestamp_s`, and `frame_index`.
+`timestamp_s`, and `frame_index`. **`current_state` can be `"UNKNOWN"`**
+instead of `"NORMAL"` when the transition lands while `perception_status`
+is `detection_silence` (zero raw detections for
+`analytics.perception.detection_silence_min_duration_s`) -- a silent
+detector recall collapse must not be reported downstream as a confirmed
+clear road. A transition into `DENSE`/`CONGESTED` during silence is never
+overridden this way: that path only fires via the detector-independent
+stillness signal, an actual corroborating observation, not a guess.
 
 A `prolonged_stop` event is emitted once when an eligible vehicle track remains
 inside the ROI below the configured entry speed for the configured duration.
@@ -62,6 +69,11 @@ misread as continuous stationary evidence. This remains an image-plane motion
 heuristic. Camera motion, ID switches, and perspective can invalidate a
 physical-stop interpretation unless the video is stabilized/calibrated.
 
+A `perception_status_change` event is emitted when `perception_status` flips
+between `reliable` and `detection_silence` (see `analytics.csv` below). Its
+payload carries `previous_status` and `current_status` instead of
+measurements.
+
 ## `analytics.csv`
 
 One row per processed frame, intended for timeline inspection and calibration.
@@ -70,6 +82,7 @@ One row per processed frame, intended for timeline inspection and calibration.
 |---|---|
 | `frame_index`, `timestamp_s` | Frame position in the source video |
 | `congestion_state` | `NORMAL`, `DENSE`, or `CONGESTED` after hysteresis |
+| `perception_status` | (schema 4) `reliable` or `detection_silence` -- independent of `congestion_state`; see `events.jsonl` above for how this affects a `congestion_transition` event's reported `current_state` |
 | `roi_track_count` | Unique assigned track IDs currently inside the ROI |
 | `bbox_union_occupancy` | Unique raster cells covered by one or more bboxes inside the ROI, divided by ROI cells |
 | `mean_speed_px_s` | Mean centroid displacement rate for current ROI tracks |
@@ -86,9 +99,11 @@ Legacy `*_occupancy` threshold keys are rejected at config load time; schema 2
 requires the explicit `*_bbox_union_occupancy` names. Schema 3 adds
 `stalled_dense_fraction`; when `analytics.stillness_enabled` it can also
 corroborate `CONGESTED` independent of `bbox_union_occupancy`/count, not
-gated by `mean_speed_px_s` (see
-[benchmark protocol](benchmark_protocol.md#detection-independent-stillness-signal-prototype)
-for why, and why its threshold does not yet transfer across scenes).
+gated by `mean_speed_px_s` -- this exists because bbox-union occupancy and
+track count both depend on the detector resolving individual boxes, which
+collapses under severe occlusion exactly when congestion is worst; its
+threshold is demo-calibrated on one real scene, not validated across
+multiple cameras. Schema 4 adds `perception_status`.
 
 ## `summary.json`
 
@@ -166,6 +181,12 @@ Stable top-level fields are:
 - start/completion/failure timestamps;
 - resolved source, model, and config paths;
 - source video properties and perception parameters;
+- `provenance`: git commit + dirty-worktree status, a Python/torch/CUDA/
+  ultralytics environment snapshot, and SHA-256 hashes of the source video,
+  model weights, pipeline config, and tracker config (each `null` if that
+  file could not be hashed, e.g. no `config_path` for a directly
+  constructed `PipelineConfig`) -- a path alone is not evidence of what
+  produced a run, since the file at that path can be replaced later;
 - the evidence-selection policy and evidence export summary;
 - relative artifact paths;
 - processed-frame, track-row, and event counts;
