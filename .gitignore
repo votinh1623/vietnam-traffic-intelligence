@@ -51,3 +51,6 @@ benchmark_outputs/
 
 # Local working report exported to ChatGPT/Word/Slides; intentionally untracked
 /reports/project_full_report_working.md
+
+# Test suite: run locally to verify changes, not tracked in git
+/tests/
