@@ -27,7 +27,7 @@ train:
   epochs: 30
   patience: 15
   imgsz: 1280
-  batch: 4
+  batch: 2
   device: 0
   workers: 0
   optimizer: AdamW

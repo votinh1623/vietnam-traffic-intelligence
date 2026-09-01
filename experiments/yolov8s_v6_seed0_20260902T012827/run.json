@@ -1,0 +1,75 @@
+{
+  "run_id": "yolov8s_v6_seed0_20260902T012827",
+  "status": "failed",
+  "evidence": {
+    "checked_at": "2026-09-01T18:28:25.271275+00:00",
+    "config_path": "C:\\Workspace - Copy\\cv\\configs\\experiments\\yolov8s_v6_seed0.yaml",
+    "config_sha256": "58c01e21696dfc4453319da6360bbb6c44b6502e2d409611e9a157ac4cb0aa21",
+    "weights_path": "C:\\Workspace - Copy\\cv\\runs\\detect\\baseline\\yolov8s_visdrone\\weights\\best.pt",
+    "weights_sha256": "0e0b3812e2d8e7821458c33761f4997cda1a536bac56c96e119ea02f0330fe08",
+    "data_yaml": "C:\\Workspace - Copy\\cv\\datasets\\vietnam_dataset_v5\\data_plus_uit_adrone.yaml",
+    "data_yaml_sha256": "cf3705ae1f499a24ed6136d7862befabedacf1e67a673c433d0c9dca467e6700",
+    "manifest_path": "C:\\Workspace - Copy\\cv\\datasets\\vietnam_dataset_v5\\manifest.csv",
+    "manifest_sha256": "e9ebf4cc2af6bedb34520fd425a2296d456a2cdeade1d6254e1685c10baf6519",
+    "test_lock_verification": {
+      "valid": true,
+      "expected_lock_sha256": "6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3",
+      "computed_lock_sha256": "6a9c275059591b7a1ae410b6a813e9c2041beac068801a37e44db5d432ebc1d3",
+      "verified_image_count": 176,
+      "errors": []
+    },
+    "git": {
+      "commit": "1b1ff7d246cec00882f47b06c2d9bba55db5295c",
+      "dirty": false,
+      "status": []
+    },
+    "environment": {
+      "python": "3.10.20 | packaged by conda-forge | (main, Jun 11 2026, 03:28:51) [MSC v.1944 64 bit (AMD64)]",
+      "executable": "C:\\Users\\ADMIN\\anaconda3\\envs\\traffic\\python.exe",
+      "packages": {
+        "torch": "2.6.0+cu124",
+        "torchvision": "0.21.0+cu124",
+        "ultralytics": "8.4.115",
+        "opencv-python": "5.0.0.93",
+        "numpy": "2.2.6",
+        "pandas": "2.3.3",
+        "PyYAML": "6.0.3"
+      },
+      "gpu": {
+        "cuda_available": true,
+        "cuda_version": "12.4",
+        "device_count": 1,
+        "device_name": "NVIDIA GeForce RTX 3050 6GB Laptop GPU",
+        "vram_bytes": 6441926656
+      }
+    },
+    "smoke": false
+  },
+  "training_arguments": {
+    "epochs": 30,
+    "patience": 15,
+    "imgsz": 1280,
+    "batch": 4,
+    "device": 0,
+    "workers": 0,
+    "optimizer": "AdamW",
+    "lr0": 0.0005,
+    "weight_decay": 0.0005,
+    "freeze": 0,
+    "seed": 0,
+    "deterministic": true,
+    "amp": true,
+    "cache": false,
+    "mosaic": 1.0,
+    "mixup": 0.3,
+    "close_mosaic": 10,
+    "plots": true,
+    "save": true,
+    "val": true,
+    "project": "C:\\Workspace - Copy\\cv\\runs\\detect\\research",
+    "name": "yolov8s_v6_seed0",
+    "exist_ok": false,
+    "data": "C:\\Workspace - Copy\\cv\\datasets\\vietnam_dataset_v5\\data_plus_uit_adrone.yaml"
+  },
+  "error": "MemoryError((1280, 1280, 3), dtype('float64'))"
+}
