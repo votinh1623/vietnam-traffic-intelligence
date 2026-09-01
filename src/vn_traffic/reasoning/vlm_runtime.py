@@ -240,32 +240,53 @@ def run_vlm_case(
         return_tensors="pt",
     ).to(model.device)
     torch.cuda.reset_peak_memory_stats()
+    do_sample = config["generation"]["do_sample"]
+    base_seed = config["generation"].get("seed", 0)
+    # Retrying only helps under sampling: greedy decoding (do_sample=False)
+    # is deterministic, so a retry would replay the exact same failure.
+    # Measured need for this: real runs against both WP1 demo videos found
+    # ~60-67% of greedy-decoded outputs degenerate into diacritic-free
+    # Vietnamese that paraphrases the prompt's own instructions instead of
+    # describing the image (see prompts_v4.yaml/prompts_v5.yaml notes) --
+    # a per-case failure mode, not something a different prompt wording
+    # eliminated, so retrying with a fresh sample is the mitigation.
+    max_attempts = config["generation"].get("max_attempts", 3) if do_sample else 1
+
     started = time.perf_counter()
-    with torch.inference_mode():
-        output_ids = model.generate(
-            **inputs,
-            do_sample=config["generation"]["do_sample"],
-            max_new_tokens=config["vlm"]["max_new_tokens"],
-        )
+    contract_status = "invalid"
+    contract_error = None
+    assessment: dict[str, Any] | None = None
+    raw_text = ""
+    for attempt in range(max_attempts):
+        if do_sample:
+            torch.manual_seed(base_seed + attempt)
+        with torch.inference_mode():
+            output_ids = model.generate(
+                **inputs,
+                do_sample=do_sample,
+                max_new_tokens=config["vlm"]["max_new_tokens"],
+            )
+        generated = output_ids[0][inputs["input_ids"].shape[-1] :]
+        raw_text = processor.decode(generated, skip_special_tokens=True)
+        try:
+            assessment = extract_json_object(raw_text)
+            validate_vlm_assessment(assessment, request)
+            # Still False even with multi-view evidence: every entry in
+            # evidence.keyframes (full frame, ROI crop, event crop) is a
+            # still image of the same instant, not a real clip -- see
+            # _multi_view_note. This call path never loads
+            # request["evidence"]["clips"] at all, so clip_frames_shown
+            # stays False regardless of whether the request references
+            # clip evidence.
+            validate_grounding_policy(assessment, request, clip_frames_shown=False)
+            contract_status = "valid"
+            contract_error = None
+            break
+        except (ValueError, ContractError) as error:
+            contract_status = "invalid"
+            contract_error = str(error)
     torch.cuda.synchronize()
     elapsed_s = time.perf_counter() - started
-    generated = output_ids[0][inputs["input_ids"].shape[-1] :]
-    raw_text = processor.decode(generated, skip_special_tokens=True)
-    assessment = extract_json_object(raw_text)
-    contract_status = "valid"
-    contract_error = None
-    try:
-        validate_vlm_assessment(assessment, request)
-        # Still False even with multi-view evidence: every entry in
-        # evidence.keyframes (full frame, ROI crop, event crop) is a still
-        # image of the same instant, not a real clip -- see
-        # _multi_view_note. This call path never loads request["evidence"]
-        # ["clips"] at all, so clip_frames_shown stays False regardless of
-        # whether the request references clip evidence.
-        validate_grounding_policy(assessment, request, clip_frames_shown=False)
-    except ContractError as error:
-        contract_status = "invalid"
-        contract_error = str(error)
     return {
         "schema_version": 1,
         "case_id": request["case_id"],
@@ -274,6 +295,8 @@ def run_vlm_case(
         "dtype": config["vlm"]["dtype"],
         "elapsed_s": elapsed_s,
         "peak_vram_bytes": torch.cuda.max_memory_allocated(),
+        "attempts_used": attempt + 1,
+        "max_attempts": max_attempts,
         "contract_status": contract_status,
         "contract_error": contract_error,
         "raw_text": raw_text,

@@ -4,7 +4,7 @@ split: development
 input_lock: manifests/reasoning/wp1_demo_0681/input_lock.json
 artifact_root: output/pipeline/run86
 execution_policy: sequential_load_run_unload
-prompts: prompts_v3.yaml
+prompts: prompts_v6.yaml
 
 vlm:
   model_id: Qwen/Qwen3-VL-2B-Instruct
@@ -24,5 +24,11 @@ llm:
   max_new_tokens: 512
 
 generation:
-  do_sample: false
+  # Greedy decoding (do_sample: false) measured 60-67% of outputs
+  # degenerating into diacritic-free, non-grounded text regardless of
+  # prompt wording (v4/v5) -- see prompts_v5.yaml's note. Sampling lets
+  # run_vlm_case retry with a fresh seed on validator failure instead of
+  # deterministically replaying the same bad output every time.
+  do_sample: true
   seed: 0
+  max_attempts: 3

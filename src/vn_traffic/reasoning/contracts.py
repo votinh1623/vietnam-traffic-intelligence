@@ -59,6 +59,61 @@ def _nonempty_text(value: Any, name: str) -> str:
     return value
 
 
+# Vietnamese density words from the VLM system prompt's fill-in-the-brackets
+# template. Real-world runs (89 development cases, both WP1 demo videos, v3
+# prompt) measured 97.6% of structurally-valid VLM outputs echoing this
+# template instead of a real filled-in answer -- see prompts_v4.yaml's
+# revision note. validate_vlm_assessment only checked JSON structure, so
+# every one of those slipped through as "valid". A v4 prompt rewrite (same
+# note) cut this, but a follow-up 30-case rerun found 20/30 (67%) had
+# mutated into a NEW echo shape the phrase/word lists below don't cover
+# verbatim: diacritic-free Vietnamese paraphrasing the *instruction itself*
+# back, e.g. "loai phuong tien chiem da so va cac loai khac, mat do
+# (thua/vua/dong/rat dong); KHONG duoc chep nguyen van vi du nay". No
+# fixed phrase list survives a model that paraphrases, so the primary
+# defense is now general: real Vietnamese traffic prose is never
+# diacritic-free at this length. The phrase/bracket/density checks stay as
+# a second layer for the original verbatim-echo shape.
+_DENSITY_WORDS = ("thưa", "vừa", "đông", "rất đông")
+_TEMPLATE_ECHO_PHRASES = (
+    "NẾU CÓ",
+    "được thêm một observation",
+    "chỉ là loại thông tin được phép",
+    "không được giữ nguyên chữ trong ngoặc",
+)
+_VN_DIACRITIC_CHARS = set(
+    "àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ"
+    "ùúủũụưừứửữựỳýỷỹỵ"
+)
+
+
+def _reject_template_echo(value: str, name: str) -> None:
+    if len(value) > 15 and not any(ch in _VN_DIACRITIC_CHARS for ch in value.lower()):
+        raise ContractError(
+            f"{name} has no Vietnamese diacritics -- likely a garbled or "
+            "paraphrased-instruction response, not real grounded prose"
+        )
+    if "[" in value or "]" in value:
+        raise ContractError(f"{name} still contains a literal template bracket")
+    for phrase in _TEMPLATE_ECHO_PHRASES:
+        if phrase in value:
+            raise ContractError(
+                f"{name} echoes prompt instruction text ({phrase!r})"
+            )
+    # Longest-first, consume-on-match so "rất đông" isn't double-counted as
+    # both itself and a bare "đông" match.
+    remaining = value
+    density_hits = 0
+    for word in sorted(_DENSITY_WORDS, key=len, reverse=True):
+        if word in remaining:
+            density_hits += 1
+            remaining = remaining.replace(word, "", 1)
+    if density_hits >= 2:
+        raise ContractError(
+            f"{name} lists multiple density options instead of choosing one"
+        )
+
+
 def _confidence(value: Any, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ContractError(f"{name} must be numeric")
@@ -253,7 +308,10 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
             required={"claim_vi", "confidence", "evidence_refs"},
             name=f"observations[{index}]",
         )
-        _nonempty_text(observation["claim_vi"], f"observations[{index}].claim_vi")
+        claim_vi = _nonempty_text(
+            observation["claim_vi"], f"observations[{index}].claim_vi"
+        )
+        _reject_template_echo(claim_vi, f"observations[{index}].claim_vi")
         confidence = _confidence(
             observation["confidence"], f"observations[{index}].confidence"
         )
@@ -281,7 +339,9 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
     if incident["status"] == "not_observed" and incident["category"] != "none":
         raise ContractError("not_observed incident must use category none")
     _confidence(incident["confidence"], "incident_assessment.confidence")
-    _string_list(assessment["limitations"], "limitations")
+    limitations = _string_list(assessment["limitations"], "limitations")
+    for index, limitation in enumerate(limitations):
+        _reject_template_echo(limitation, f"limitations[{index}]")
 
 
 def build_llm_request(
