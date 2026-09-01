@@ -25,14 +25,17 @@ package/driver versions: [environment](environment.md).
 `--model` explicitly to run a different checkpoint.
 
 ```powershell
-# One image
-python detect.py test_image.jpg --model path/to/best.pt --conf 0.5
+# One image -- uses the default checkpoint above
+python detect.py test_image.jpg --conf 0.5
 
 # Directory of images
-python detect.py datasets/vn_images --model path/to/best.pt --conf 0.4
+python detect.py datasets/vn_images --conf 0.4
 
 # Video
-python detect.py datasets/raw_videos/traffic_jam.mp4 --model path/to/best.pt --conf 0.3
+python detect.py datasets/raw_videos/traffic_jam.mp4 --conf 0.3
+
+# To use a different checkpoint, pass --model explicitly:
+python detect.py test_image.jpg --model runs/detect/baseline/yolov8s_visdrone/weights/best.pt
 ```
 
 Each invocation creates the next `output/runN/` directory and stores annotated

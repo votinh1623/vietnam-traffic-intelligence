@@ -26,13 +26,57 @@ def get_next_run_dir(base_dir="output"):
     return run_dir
 
 
+def _adaptive_line_width(height, width):
+    # line_width is an absolute pixel value passed straight to Ultralytics'
+    # Annotator (font scale = line_width/3, no independent font-size
+    # control) -- a fixed value tuned to look right on ~720-1280px video
+    # renders as illegibly thin/small on much higher-resolution input (e.g.
+    # 4K), since box/vehicle pixel size grows with resolution too. Scale it
+    # off the frame's short side so it stays proportionally consistent
+    # across resolutions; 720p is the regime it was originally tuned on.
+    return max(1, round(min(height, width) / 720))
+
+
+def _adaptive_imgsz(height, width):
+    # A fixed imgsz=1280 letterboxes a 3840x2160 source down ~3x before the
+    # detector ever sees it, shrinking already-small overhead vehicles below
+    # what the model can reliably detect (measured: 14 boxes at imgsz=1280
+    # vs 53 at imgsz=2560 on the same 4K frame, for ~0.4GB extra VRAM --
+    # well inside a 6GB budget). Scale to the source's long side, clamped to
+    # [1280, 2560]: unchanged for the ~720-1280px videos this was
+    # originally tuned on, larger only for sources that actually need it.
+    long_side = max(height, width)
+    clamped = max(1280, min(2560, long_side))
+    return -(-clamped // 32) * 32
+
+
 def process_image(model, image_path, conf, imgsz, device, output_dir):
-    results = model(image_path, imgsz=imgsz, conf=conf, device=device, verbose=False)
+    if imgsz is None:
+        probe = cv2.imread(str(image_path))
+        if probe is None:
+            raise ValueError(f"Cannot read image: {image_path}")
+        imgsz = _adaptive_imgsz(probe.shape[0], probe.shape[1])
+    # agnostic_nms=True: without it, NMS only suppresses overlapping boxes
+    # within the same predicted class, so one real vehicle can end up boxed
+    # twice under two different class labels (e.g. "truck 0.85" + "car
+    # 0.58" on the same object) instead of keeping only the higher-
+    # confidence box.
+    results = model(
+        image_path,
+        imgsz=imgsz,
+        conf=conf,
+        device=device,
+        agnostic_nms=True,
+        verbose=False,
+    )
     detections = []
     for r in results:
-        # Lưu ảnh đã plot
+        # Lưu ảnh đã plot -- line_width scales with resolution so id/class/
+        # conf labels stay legible without covering small boxes on any
+        # input size (same convention as the main pipeline's perception.py).
         out_img_path = output_dir / Path(image_path).name
-        r.save(filename=str(out_img_path))
+        line_width = _adaptive_line_width(*r.orig_shape)
+        r.save(filename=str(out_img_path), line_width=line_width)
         boxes = r.boxes
         if boxes is not None:
             for box in boxes:
@@ -67,6 +111,9 @@ def process_video(model, video_path, conf, imgsz, device, output_dir):
     out_video_path = output_dir / Path(video_path).name
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(out_video_path), fourcc, fps, (w, h))
+    line_width = _adaptive_line_width(h, w)
+    if imgsz is None:
+        imgsz = _adaptive_imgsz(h, w)
 
     all_detections = []
     frame_idx = 0
@@ -74,8 +121,15 @@ def process_video(model, video_path, conf, imgsz, device, output_dir):
         ret, frame = cap.read()
         if not ret:
             break
-        results = model(frame, imgsz=imgsz, conf=conf, device=device, verbose=False)
-        writer.write(results[0].plot())
+        results = model(
+            frame,
+            imgsz=imgsz,
+            conf=conf,
+            device=device,
+            agnostic_nms=True,
+            verbose=False,
+        )
+        writer.write(results[0].plot(line_width=line_width))
         boxes = results[0].boxes
         if boxes is not None:
             for box in boxes:
@@ -115,7 +169,12 @@ def main():
         default="runs/detect/research/yolov8s_v5_seed0/weights/best.pt",
         help="Path to YOLO model weights",
     )
-    parser.add_argument("--imgsz", type=int, default=1280, help="Inference image size")
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=None,
+        help="Inference image size (default: auto, adaptive to source resolution)",
+    )
     parser.add_argument(
         "--device", type=int, default=0, help="CUDA device (0 for GPU, -1 for CPU)"
     )

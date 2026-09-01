@@ -7,6 +7,7 @@ from typing import Any
 
 from .config import PipelineConfig
 from .schemas import PerceptionResult, TrackObservation
+from .sizing import adaptive_imgsz, adaptive_line_width
 
 
 class UltralyticsPerception:
@@ -30,14 +31,19 @@ class UltralyticsPerception:
     def process(
         self, frame: Any, *, frame_index: int, timestamp_s: float
     ) -> PerceptionResult:
+        height, width = frame.shape[0], frame.shape[1]
+        imgsz = self.config.imgsz
+        if imgsz is None:
+            imgsz = adaptive_imgsz(height, width)
         results = self.model.track(
             frame,
             persist=True,
             tracker=self.config.tracker,
-            imgsz=self.config.imgsz,
+            imgsz=imgsz,
             conf=self.config.confidence,
             iou=self.config.iou,
             max_det=self.config.max_det,
+            agnostic_nms=self.config.agnostic_nms,
             device=self.config.device,
             verbose=False,
         )
@@ -86,11 +92,14 @@ class UltralyticsPerception:
             boxes.data = boxes.data.clone()
             for index, smoothed_class_id in enumerate(smoothed_class_ids):
                 boxes.cls[index] = smoothed_class_id
+        line_width = self.config.line_width
+        if line_width is None:
+            line_width = adaptive_line_width(height, width)
         return PerceptionResult(
             annotated_frame=result.plot(
                 labels=self.config.show_labels,
                 conf=self.config.show_confidence,
-                line_width=self.config.line_width,
+                line_width=line_width,
             ),
             tracks=tuple(observations),
         )

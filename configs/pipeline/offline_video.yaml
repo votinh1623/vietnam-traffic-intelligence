@@ -5,17 +5,15 @@ source: datasets/raw_videos/traffic_normal.mp4
 model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
 
 perception:
-  imgsz: 1280
+  # imgsz and line_width omitted -- both default to auto (adaptive to
+  # source resolution, see vn_traffic.sizing) so inference detail and label
+  # legibility both hold up on any input resolution instead of values
+  # tuned to one specific video.
   confidence: 0.4
   iou: 0.7
   max_det: 300
   show_labels: true
   show_confidence: true
-  # Ultralytics' Annotator ties label text size directly to line_width
-  # (font scale = line_width/3, no separate font-size control in the cv2
-  # rendering path) -- 1 is the minimum, keeping id/class/conf labels from
-  # covering the small distant boxes they're supposed to describe.
-  line_width: 1
   device: "0"
   # BoT-SORT+ReID, not ByteTrack: measurably fewer ID switches than
   # ByteTrack in dense scenes, and ReID's occlusion-crossing ID retention

@@ -237,11 +237,29 @@ def _load_measurement_manifest_metadata(
 
 
 def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    """Write `payload` to `path` via a temp-file-plus-atomic-rename.
+
+    Retries the rename briefly on Windows `PermissionError` (WinError 5):
+    antivirus/indexer/OneDrive can momentarily lock a just-written file,
+    the same transient-lock issue already handled for latest_frame.jpg
+    (see the run loop's comment on it). Unlike that JPEG, run.json is the
+    run's own status/provenance record, so a persistent failure here still
+    raises after retries instead of being silently dropped.
+    """
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    temporary.replace(path)
+    delay_s = 0.05
+    for attempt in range(6):
+        try:
+            temporary.replace(path)
+            return
+        except PermissionError:
+            if attempt == 5:
+                raise
+            time.sleep(delay_s)
+            delay_s *= 2
 
 
 class PipelineRunner:

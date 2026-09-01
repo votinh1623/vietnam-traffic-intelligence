@@ -177,6 +177,46 @@ class PipelineRunnerTests(unittest.TestCase):
             self.assertEqual(metadata["status"], "completed")
             self.assertFalse((run_dir / "latest_frame.jpg").exists())
 
+    def test_run_json_write_retries_transient_permission_error(self) -> None:
+        # Regression test: run87 crashed on a real machine when
+        # run.json.tmp -> run.json hit WinError 5 (Access is denied) from a
+        # transient antivirus/indexer lock -- unlike latest_frame.jpg (a
+        # dashboard convenience that can be silently skipped),
+        # write_json_atomic must retry before giving up, since run.json is
+        # the run's own status/provenance record.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "fixture.avi"
+            model = root / "placeholder.pt"
+            create_fixture_video(source)
+            model.write_bytes(b"fake model for dependency-injected test")
+            config = PipelineConfig(
+                schema_version=1,
+                source=source,
+                model=model,
+                output_root=root / "outputs",
+                imgsz=64,
+                device="cpu",
+            )
+
+            real_replace = Path.replace
+            remaining_failures = [2]
+
+            def flaky_replace(self, target):
+                if self.name == "run.json.tmp" and remaining_failures[0] > 0:
+                    remaining_failures[0] -= 1
+                    raise PermissionError(5, "Access is denied")
+                return real_replace(self, target)
+
+            with patch.object(Path, "replace", flaky_replace), patch(
+                "vn_traffic.runner.time.sleep"
+            ):
+                run_dir = PipelineRunner(config, FakePerception()).run()
+
+            metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["status"], "completed")
+            self.assertEqual(remaining_failures[0], 0)
+
     def test_records_failed_run_without_hiding_the_error(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -11,13 +11,11 @@ model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
 measurement_manifest: manifests/measurement/video_7938.yaml
 
 perception:
-  imgsz: 1280
   confidence: 0.4
   iou: 0.7
   max_det: 300
   show_labels: true
   show_confidence: true
-  line_width: 1
   device: "0"
   tracker: botsort_reid_lowprox.yaml
 

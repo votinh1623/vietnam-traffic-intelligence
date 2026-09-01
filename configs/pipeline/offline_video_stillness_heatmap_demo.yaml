@@ -12,13 +12,11 @@ source: datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle
 model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
 
 perception:
-  imgsz: 1280
   confidence: 0.4
   iou: 0.7
   max_det: 300
   show_labels: true
   show_confidence: true
-  line_width: 2
   device: "0"
   tracker: botsort_reid_lowprox.yaml
 
