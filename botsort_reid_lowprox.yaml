@@ -16,10 +16,25 @@
 # IoU, specifically targeting this failure mode. Chosen by direct visual
 # review of occlusion-crossing ID retention on real UAV footage over an
 # automated candidate-switch proxy metric that disagreed.
+# new_track_thresh lowered 0.6->0.4 and track_high_thresh lowered 0.5->0.4,
+# both now matching perception.confidence's own YOLO-level cutoff (0.4).
+# Measured on yolov8s_v6_seed0 + real nadir UAV footage: motorcycle
+# confidence tops out around 0.53-0.54 even across correctly-detected
+# instances (median ~0.23) -- most real detections sit in [0.4, 0.5).
+# Reading ultralytics/trackers/byte_tracker.py's BYTETracker.update():
+# new tracks are only ever created from the track_high_thresh-and-above
+# pool (_init_new_tracks is called with unmatched *high*-confidence
+# detections only, never the track_low_thresh "second association" pool,
+# regardless of new_track_thresh) -- so with track_high_thresh at 0.5,
+# lowering new_track_thresh alone left most motorcycles unable to ever
+# start a track, since they never entered that pool to begin with.
+# track_low_thresh stays at 0.1 for documentation/possible future use but
+# is currently unreachable: perception.confidence=0.4 already filters
+# anything below 0.4 out before the tracker ever sees it.
 tracker_type: botsort
-track_high_thresh: 0.5
+track_high_thresh: 0.4
 track_low_thresh: 0.1
-new_track_thresh: 0.6
+new_track_thresh: 0.4
 track_buffer: 60
 match_thresh: 0.8
 fuse_score: True

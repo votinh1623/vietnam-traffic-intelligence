@@ -80,11 +80,68 @@ _TEMPLATE_ECHO_PHRASES = (
     "được thêm một observation",
     "chỉ là loại thông tin được phép",
     "không được giữ nguyên chữ trong ngoặc",
+    # prompts_v6/v7's instruction text for the "nothing unusual" case --
+    # measured the model copying this verbatim (v6: a complete example
+    # sentence; v7: the *instruction describing* what to write, after the
+    # example was removed) instead of describing the actual image. Same
+    # failure shape as v2's copied example, twice more.
+    "không quan sát thấy dấu hiệu bất thường nào trong ảnh này",
+    "trong danh sách trên xuất hiện",
+    "để chứng minh bạn đã thực sự nhìn ảnh",
+    "không viết một câu chung chung áp dụng được cho mọi ảnh",
 )
 _VN_DIACRITIC_CHARS = set(
     "àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ"
     "ùúủũụưừứửữựỳýỷỹỵ"
 )
+# Multi-word phrases that assert an incident-like observation. Measured
+# real failure mode (52 clips sampled offline from UIT-ADrone frame-level
+# anomaly ground truth, prompts_v8): 0/52 ever reached observed or uncertain, even
+# when claim_vi itself described something like "đang dừng lại tại một vị
+# trí bất thường" or "để tránh va chạm" -- the model narrates a possible
+# incident in prose but leaves incident_assessment.status at not_observed
+# regardless. _asserts_anomaly_without_negation below is a sentence-level
+# check (not a bare substring match) because prompts_v7/v8's own "nothing
+# unusual" instruction template enumerates this exact vocabulary inside a
+# NEGATED checklist ("không có dấu hiệu bất thường... như xe dừng bất
+# thường, va chạm, hư hỏng...") -- a bare substring match would reject
+# that legitimate, correct not_observed answer too.
+_ANOMALY_ASSERTION_PHRASES = (
+    "dừng bất thường",
+    "vị trí bất thường",
+    "hành vi bất thường",
+    "chuyển động bất thường",
+    "dừng đột ngột",
+    "tránh va chạm",
+    "có va chạm",
+    "bị va chạm",
+    "gây va chạm",
+    "hư hỏng",
+    "mảnh vỡ trên đường",
+)
+_NEGATION_MARKERS = ("không", "chưa")
+
+
+def _asserts_anomaly_without_negation(value: str) -> bool:
+    # Negation must PRECEDE the phrase within the same sentence to count --
+    # "không có ... như xe dừng bất thường" negates it (negation first,
+    # per Vietnamese word order), but "đang dừng ... bất thường, ... nhưng
+    # không thể xác định" does NOT (the later "không" hedges a *different*
+    # claim -- confidence in identifying the vehicle -- not this one).
+    # A same-sentence-anywhere check false-flagged the first shape and
+    # missed the second; this ordering check fixes both (verified against
+    # real probe outputs, see the constants' docstring above).
+    lowered = value.casefold()
+    for sentence in re.split(r"[.;\n]", lowered):
+        for phrase in _ANOMALY_ASSERTION_PHRASES:
+            phrase_pos = sentence.find(phrase)
+            if phrase_pos == -1:
+                continue
+            preceding = sentence[:phrase_pos]
+            if any(marker in preceding for marker in _NEGATION_MARKERS):
+                continue
+            return True
+    return False
 
 
 def _reject_template_echo(value: str, name: str) -> None:
@@ -95,8 +152,9 @@ def _reject_template_echo(value: str, name: str) -> None:
         )
     if "[" in value or "]" in value:
         raise ContractError(f"{name} still contains a literal template bracket")
+    lowered = value.casefold()
     for phrase in _TEMPLATE_ECHO_PHRASES:
-        if phrase in value:
+        if phrase.casefold() in lowered:
             raise ContractError(
                 f"{name} echoes prompt instruction text ({phrase!r})"
             )
@@ -301,6 +359,7 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
     observations = assessment["observations"]
     if not isinstance(observations, list):
         raise ContractError("observations must be a list")
+    claim_texts: list[str] = []
     for index, observation_value in enumerate(observations):
         observation = _mapping(observation_value, f"observations[{index}]")
         _exact_keys(
@@ -312,6 +371,7 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
             observation["claim_vi"], f"observations[{index}].claim_vi"
         )
         _reject_template_echo(claim_vi, f"observations[{index}].claim_vi")
+        claim_texts.append(claim_vi)
         confidence = _confidence(
             observation["confidence"], f"observations[{index}].confidence"
         )
@@ -338,6 +398,16 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
         raise ContractError("unsupported incident category")
     if incident["status"] == "not_observed" and incident["category"] != "none":
         raise ContractError("not_observed incident must use category none")
+    if incident["status"] == "not_observed":
+        for index, claim_vi in enumerate(claim_texts):
+            if _asserts_anomaly_without_negation(claim_vi):
+                raise ContractError(
+                    f"observations[{index}] asserts an anomaly-like "
+                    "observation without negating it, but "
+                    "incident_assessment.status is not_observed -- raise "
+                    "status to uncertain/observed, or explicitly negate "
+                    "the claim if it does not actually apply"
+                )
     _confidence(incident["confidence"], "incident_assessment.confidence")
     limitations = _string_list(assessment["limitations"], "limitations")
     for index, limitation in enumerate(limitations):

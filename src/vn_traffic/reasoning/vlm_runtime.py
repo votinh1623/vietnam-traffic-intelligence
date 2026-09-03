@@ -13,10 +13,14 @@ from .freeze import file_sha256, verify_evidence_lock
 
 _KEYFRAME_MOTION_PHRASES = (
     "đang di chuyển",
+    "đang đi",
+    "đang chạy",
+    "đi qua",
     "đi lên",
     "đi xuống",
     "hướng lên",
     "hướng xuống",
+    "hướng về",
     " is moving",
     " are moving",
 )
@@ -32,8 +36,10 @@ def validate_grounding_policy(
 
     `clip_frames_shown` must reflect what was actually fed to the model,
     not whether the request references clip evidence -- `run_vlm_case`
-    below only ever loads `keyframes[0]`, so a request with clip evidence
-    the model never saw must still be treated as keyframe-only.
+    below only sets this True when it actually decoded and sent sampled
+    clip frames (config.vlm.clip_sample_frames > 0 and evidence.clips is
+    non-empty); a request with clip evidence the model never saw must
+    still be treated as keyframe-only.
     """
     if clip_frames_shown:
         return
@@ -134,8 +140,103 @@ def _multi_view_note(request: dict[str, Any]) -> str:
     )
 
 
-def _prompt_text(request: dict[str, Any]) -> str:
+def _clip_sequence_note(frame_count: int, timestamps_s: list[float]) -> str:
+    """Explain that these images are REAL frames sampled across a clip's
+    time window, in order -- the opposite framing from _multi_view_note.
+    Only used when run_vlm_case actually decoded frames from
+    evidence.clips (clip_frames_shown=True passed to
+    validate_grounding_policy), so motion claims here are grounded and
+    the motion-phrase ban does not apply.
+    """
+    origin = timestamps_s[0] if timestamps_s else 0.0
+    offsets = ", ".join(f"{t - origin:.2f}s" for t in timestamps_s)
+    span_s = (timestamps_s[-1] - origin) if len(timestamps_s) > 1 else 0.0
+    return (
+        f"\n\n{frame_count} images are provided, in this order: real video "
+        f"frames sampled across a {span_s:.2f}s window around this event, "
+        f"at offsets [{offsets}] from the first frame. This IS a real "
+        "sequence over time -- describing motion, stopping, or change you "
+        "actually see between these frames is expected and grounded, not "
+        "speculation. Do not describe anything you cannot see change or "
+        "persist across the actual frames shown."
+    )
+
+
+# Qwen3-VL's self-attention memory over concatenated image+text tokens
+# grows faster than linearly with total image count at a given
+# resolution -- 3 clip frames at the source's native 1920x1080 (the same
+# resolution one keyframe already runs fine at) OOM'd a 6GB card ("Tried
+# to allocate 3.34 GiB" with 8.23 GiB already allocated), not 3x the cost
+# of one frame. Downscaling each sampled frame keeps total token count
+# for a multi-frame clip within the same rough budget one full-resolution
+# keyframe already uses.
+_CLIP_FRAME_MAX_SIDE = 768
+
+
+def _sample_clip_frames(clip_path: Path, count: int) -> tuple[list[Any], list[float]]:
+    """Evenly sample up to `count` frames across a clip video, in order,
+    downscaled to _CLIP_FRAME_MAX_SIDE on the longer edge (see note above).
+
+    Returns (images, timestamps_s) with matching order/length. Uses
+    cv2.CAP_PROP_POS_FRAMES seeking rather than sequential decode since
+    clips are short (evidence.py's pre/post_event_s window) and this
+    keeps the sampling logic independent of clip length.
+    """
+    import cv2
+    from PIL import Image
+
+    capture = cv2.VideoCapture(str(clip_path))
+    if not capture.isOpened():
+        raise ValueError(f"cannot open evidence clip: {clip_path}")
+    try:
+        total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = capture.get(cv2.CAP_PROP_FPS) or 1.0
+        if total <= 0:
+            raise ValueError(f"evidence clip has no frames: {clip_path}")
+        sample_count = max(1, min(count, total))
+        indices = sorted(
+            {
+                round(i * (total - 1) / max(1, sample_count - 1))
+                for i in range(sample_count)
+            }
+        )
+        images: list[Any] = []
+        timestamps: list[float] = []
+        for index in indices:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, index)
+            ok, frame = capture.read()
+            if not ok:
+                raise ValueError(f"cannot decode clip frame {index}: {clip_path}")
+            image = Image.fromarray(frame[:, :, ::-1])
+            longer_side = max(image.width, image.height)
+            if longer_side > _CLIP_FRAME_MAX_SIDE:
+                scale = _CLIP_FRAME_MAX_SIDE / longer_side
+                image = image.resize(
+                    (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+                    Image.BILINEAR,
+                )
+            images.append(image)
+            timestamps.append(index / fps)
+        return images, timestamps
+    finally:
+        capture.release()
+
+
+def _prompt_text(request: dict[str, Any], sequence_note: str) -> str:
     event = request["event"]
+    # The placeholder evidence_refs example must name a ref that actually
+    # exists in THIS request -- a request built from clip-only evidence
+    # (see run_vlm_case's clip_frames_shown path) has no "keyframe-1" at
+    # all, and a hardcoded "keyframe-1" here got copied verbatim into
+    # observations[0].evidence_refs, which validate_vlm_assessment then
+    # correctly rejected as "cites unknown evidence" -- measured on the
+    # a probe set built offline from UIT-ADrone frame-level anomaly
+    # ground truth, which is clip-only by construction.
+    available_refs = [
+        item["ref"]
+        for item in request["evidence"]["keyframes"] + request["evidence"]["clips"]
+    ]
+    example_ref = available_refs[0]
     visual_context = {
         field: event[field]
         for field in (
@@ -153,17 +254,22 @@ def _prompt_text(request: dict[str, Any]) -> str:
     # ("Quan sát thấy các phương tiện trong khung hình.") word for word --
     # see output/reasoning/adhoc/*.json and output/reasoning/dev_v1/*.json --
     # so the placeholder must not itself be valid-looking Vietnamese prose.
+    # This text is shared code, not versioned per prompts_vN.yaml -- keep
+    # it in sync with whatever the active system prompt actually asks for
+    # (see prompts_v7.yaml's note: a stale v3-era density/vehicle-type
+    # placeholder sat here unrelated to v4-v6's actual task, and was a
+    # plausible source of off-task echoed text).
     output_shape = {
         "schema_version": 1,
         "case_id": request["case_id"],
         "event_id": request["event"]["event_id"],
         "observations": [
             {
-                "claim_vi": "<mo ta cu the: loai phuong tien chiem da so va cac "
-                "loai khac, mat do (thua/vua/dong/rat dong); KHONG duoc chep "
-                "nguyen van vi du nay>",
+                "claim_vi": "<mo ta dau hieu bat thuong THAT su nhin thay trong "
+                "anh nay, hoac neu khong co thi mo ta ngan gon noi dung anh de "
+                "chung minh da xem anh; KHONG duoc chep nguyen van vi du nay>",
                 "confidence": 0.5,
-                "evidence_refs": ["keyframe-1"],
+                "evidence_refs": [example_ref],
             }
         ],
         "incident_assessment": {
@@ -176,12 +282,36 @@ def _prompt_text(request: dict[str, Any]) -> str:
     return (
         "Event identity JSON (not visual ground truth):\n"
         + json.dumps(visual_context, ensure_ascii=False, sort_keys=True)
-        + _multi_view_note(request)
+        + sequence_note
         + "\n\nOutput exactly one JSON object matching this shape (claim_vi "
         "below is a placeholder describing what to write, not example text "
         "to copy):\n"
         + json.dumps(output_shape, ensure_ascii=False)
     )
+
+
+def load_vlm(model_dir: Path) -> tuple[Any, Any]:
+    """Load (processor, model) once for reuse across many run_vlm_case
+    calls -- the default per-call load in run_vlm_case exists for
+    execution_policy: sequential_load_run_unload (crash isolation: a bad
+    generate() call only loses that one case's process), but reloading a
+    ~4GB checkpoint from disk on every case makes a many-case batch
+    dramatically slower than necessary when the run is otherwise stable.
+    Pass the result to run_vlm_case's model/processor params to reuse it.
+    """
+    import torch
+    from transformers import AutoModelForMultimodalLM, AutoProcessor
+
+    if not model_dir.is_dir():
+        raise FileNotFoundError(f"local VLM directory is unavailable: {model_dir}")
+    processor = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
+    model = AutoModelForMultimodalLM.from_pretrained(
+        model_dir,
+        local_files_only=True,
+        dtype=torch.float16,
+        device_map="cuda",
+    )
+    return processor, model
 
 
 def run_vlm_case(
@@ -191,33 +321,49 @@ def run_vlm_case(
     artifact_root: Path,
     model_dir: Path,
     system_prompt: str,
+    processor: Any | None = None,
+    model: Any | None = None,
 ) -> dict[str, Any]:
-    """Load the pinned local model, generate once, and validate its JSON."""
+    """Generate once and validate its JSON. Loads the pinned local model
+    unless `processor`/`model` are both given (see load_vlm) -- pass both
+    or neither, never just one."""
     import torch
     from PIL import Image
-    from transformers import AutoModelForMultimodalLM, AutoProcessor
 
-    if not model_dir.is_dir():
+    if (processor is None) != (model is None):
+        raise ValueError("pass both processor and model, or neither")
+    if model is None and not model_dir.is_dir():
         raise FileNotFoundError(f"local VLM directory is unavailable: {model_dir}")
     keyframes = request["evidence"]["keyframes"]
-    if not keyframes:
-        raise ValueError("keyframe-first VLM policy requires a keyframe")
-    # All entries in evidence.keyframes are loaded and shown, not just the
-    # first -- multi-view evidence (full frame + ROI crop + event crop, see
-    # src/vn_traffic/evidence.py) puts additional still-image views of the
-    # same instant here rather than in a separate collection. _prompt_text
-    # explains this ordering to the model via _multi_view_note.
-    images = [
-        Image.open(artifact_root / keyframe["path"]).convert("RGB")
-        for keyframe in keyframes
-    ]
-    processor = AutoProcessor.from_pretrained(model_dir, local_files_only=True)
-    model = AutoModelForMultimodalLM.from_pretrained(
-        model_dir,
-        local_files_only=True,
-        dtype=torch.float16,
-        device_map="cuda",
-    )
+    clips = request["evidence"].get("clips", [])
+    clip_sample_frames = config["vlm"].get("clip_sample_frames", 0)
+    clip_frames_shown = bool(clips) and clip_sample_frames > 0
+    if clip_frames_shown:
+        # A real clip carries actual motion over time, unlike keyframes
+        # (still images of one instant) -- when evidence.clips is present
+        # and the config asks for sampled frames, show those instead of
+        # the keyframe views, and tell the model so via
+        # _clip_sequence_note. clip_frames_shown is passed to
+        # validate_grounding_policy below to lift the motion-phrase ban
+        # only for this actually-sequential evidence.
+        clip_path = artifact_root / clips[0]["path"]
+        images, timestamps = _sample_clip_frames(clip_path, clip_sample_frames)
+        sequence_note = _clip_sequence_note(len(images), timestamps)
+    else:
+        if not keyframes:
+            raise ValueError("keyframe-first VLM policy requires a keyframe")
+        # All entries in evidence.keyframes are loaded and shown, not just
+        # the first -- multi-view evidence (full frame + ROI crop + event
+        # crop, see src/vn_traffic/evidence.py) puts additional still-image
+        # views of the same instant here rather than in a separate
+        # collection. _multi_view_note explains this ordering to the model.
+        images = [
+            Image.open(artifact_root / keyframe["path"]).convert("RGB")
+            for keyframe in keyframes
+        ]
+        sequence_note = _multi_view_note(request)
+    if model is None:
+        processor, model = load_vlm(model_dir)
     messages = [
         {
             "role": "system",
@@ -228,7 +374,7 @@ def run_vlm_case(
             "content": [
                 {"type": "image", "image": image} for image in images
             ] + [
-                {"type": "text", "text": _prompt_text(request)},
+                {"type": "text", "text": _prompt_text(request, sequence_note)},
             ],
         }
     ]
@@ -271,14 +417,9 @@ def run_vlm_case(
         try:
             assessment = extract_json_object(raw_text)
             validate_vlm_assessment(assessment, request)
-            # Still False even with multi-view evidence: every entry in
-            # evidence.keyframes (full frame, ROI crop, event crop) is a
-            # still image of the same instant, not a real clip -- see
-            # _multi_view_note. This call path never loads
-            # request["evidence"]["clips"] at all, so clip_frames_shown
-            # stays False regardless of whether the request references
-            # clip evidence.
-            validate_grounding_policy(assessment, request, clip_frames_shown=False)
+            validate_grounding_policy(
+                assessment, request, clip_frames_shown=clip_frames_shown
+            )
             contract_status = "valid"
             contract_error = None
             break
@@ -297,6 +438,7 @@ def run_vlm_case(
         "peak_vram_bytes": torch.cuda.max_memory_allocated(),
         "attempts_used": attempt + 1,
         "max_attempts": max_attempts,
+        "evidence_mode": "clip" if clip_frames_shown else "keyframe",
         "contract_status": contract_status,
         "contract_error": contract_error,
         "raw_text": raw_text,
