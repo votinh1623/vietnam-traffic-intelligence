@@ -91,7 +91,8 @@ def fire_frames(
                 active = False
                 continue
             window.append((row["timestamp_s"], point, max(1.0, row["y2"] - row["y1"])))
-            while len(window) > 1 and row["timestamp_s"] - window[0][0] > min_duration:
+            # See engine.py: trim on the second sample, not the first.
+            while len(window) > 2 and row["timestamp_s"] - window[1][0] >= min_duration:
                 window.popleft()
             span = row["timestamp_s"] - window[0][0]
             drift = stop_drift_body_lengths(window)

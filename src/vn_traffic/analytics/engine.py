@@ -237,10 +237,19 @@ class TrafficAnalytics:
                 memory.stop_window.append(
                     (timestamp_s, point, max(1.0, track.y2 - track.y1))
                 )
+                # Drop a sample only while the NEXT one still spans the full
+                # duration. Trimming on the oldest sample instead cut the
+                # window below min_duration the instant it passed it, so
+                # `span >= min_duration` was only ever true when the frame
+                # interval happened to divide min_duration exactly: measured
+                # on a 24 fps clip, a truck stationary in the ROI for all
+                # 11.55s of its track peaked at a 4.963s span and fired 0
+                # times in 278 frames, while the same rule fired normally on
+                # 30 fps footage (0.0333 s * 150 = 5.0 exactly).
                 while (
-                    len(memory.stop_window) > 1
-                    and timestamp_s - memory.stop_window[0][0]
-                    > self.config.prolonged_stop_min_duration_s
+                    len(memory.stop_window) > 2
+                    and timestamp_s - memory.stop_window[1][0]
+                    >= self.config.prolonged_stop_min_duration_s
                 ):
                     memory.stop_window.popleft()
                 window_span_s = timestamp_s - memory.stop_window[0][0]
