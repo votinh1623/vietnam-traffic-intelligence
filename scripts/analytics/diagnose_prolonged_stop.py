@@ -1,26 +1,23 @@
 """Explain why prolonged_stop did or did not fire on a completed run.
 
-The prolonged_stop detector requires an unbroken run of frames that are
-all (a) inside the ROI, (b) of an eligible class, (c) separated by no more
-than max_gap_s, and (d) below max_speed_px_s -- any single frame failing
-any of those resets the accumulated stop timer to zero. When the detector
-reports zero events it is impossible to tell from the run summary which
-of those conditions did the resetting.
+A prolonged_stop needs a track to stay inside the ROI, in an eligible
+class, without a detection gap longer than max_gap_s, while its centre
+wanders less than max_drift body lengths across a full min_duration_s
+window. When the detector reports zero events the run summary cannot say
+which of those conditions did the blocking.
 
-This replays the same per-track computation over a finished run's
-tracks.csv (no GPU, no re-inference) using the same geometry helper the
-engine uses, and reports for every candidate track: the longest stop
-streak it achieved, how far short of min_duration_s that fell, and which
-condition ended each streak. Use it before touching any threshold, so a
-change is aimed at the condition that is actually blocking.
+This replays that computation over a finished run's tracks.csv (no GPU,
+no re-inference), reusing the engine's own stop_drift_body_lengths and
+point_in_polygon so the diagnosis cannot drift from the implementation.
+Use it before touching any threshold, so a change is aimed at the
+condition that is actually blocking.
 """
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 import csv
 import json
-import math
 from pathlib import Path
 import sys
 
@@ -28,7 +25,11 @@ import sys
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from vn_traffic.analytics.engine import stop_drift_body_lengths  # noqa: E402
 from vn_traffic.analytics.geometry import point_in_polygon, to_pixels  # noqa: E402
+
+
+DEFAULT_MAX_DRIFT = 0.35
 
 
 def load_tracks(path: Path) -> dict[int, list[dict]]:
@@ -51,114 +52,134 @@ def load_tracks(path: Path) -> dict[int, list[dict]]:
     return per_track
 
 
-def analyse(rows: list[dict], *, analytics: dict, roi_px) -> dict:
-    """Replay the engine's stop-streak logic for one track."""
-    best_streak = 0.0
-    streak_start: float | None = None
-    reasons = Counter()
-    speeds: list[float] = []
+def analyse(rows: list[dict], *, analytics: dict, roi_px, max_drift: float) -> dict:
+    """Replay the engine's windowed stop logic for one track."""
+    min_duration = analytics["prolonged_stop_min_duration_s"]
+    max_gap = analytics["prolonged_stop_max_gap_s"]
+    eligible_classes = analytics["prolonged_stop_classes"]
+
+    window: deque[tuple[float, tuple[float, float], float]] = deque()
+    reasons: Counter[str] = Counter()
+    best_span_at_rest = 0.0
+    min_drift_at_full_window: float | None = None
     inside_frames = 0
-    previous = None
+    previous_ts: float | None = None
+
     for row in rows:
         point = ((row["x1"] + row["x2"]) / 2.0, (row["y1"] + row["y2"]) / 2.0)
         inside = point_in_polygon(point, roi_px)
         inside_frames += int(inside)
-        if previous is None:
-            previous = (point, row["timestamp_s"])
-            continue
-        prev_point, prev_ts = previous
-        elapsed = row["timestamp_s"] - prev_ts
-        speed = math.dist(prev_point, point) / elapsed if elapsed > 0 else None
-        if speed is not None:
-            speeds.append(speed)
-        previous = (point, row["timestamp_s"])
+        elapsed = None if previous_ts is None else row["timestamp_s"] - previous_ts
+        previous_ts = row["timestamp_s"]
 
         blocker = None
         if not inside:
             blocker = "outside_roi"
-        elif row["class_name"] not in analytics["prolonged_stop_classes"]:
+        elif row["class_name"] not in eligible_classes:
             blocker = "class_not_eligible"
-        elif speed is None or not (0 < elapsed <= analytics["prolonged_stop_max_gap_s"]):
+        elif elapsed is None or not (0 < elapsed <= max_gap):
             blocker = "gap_too_large"
-        elif speed > analytics["prolonged_stop_max_speed_px_s"]:
-            blocker = "speed_above_threshold"
 
-        if blocker is None:
-            if streak_start is None:
-                streak_start = prev_ts
-            best_streak = max(best_streak, row["timestamp_s"] - streak_start)
-        else:
-            if streak_start is not None:
+        if blocker is not None:
+            if window:
                 reasons[blocker] += 1
-            streak_start = None
+            window.clear()
+            continue
+
+        window.append((row["timestamp_s"], point, max(1.0, row["y2"] - row["y1"])))
+        while len(window) > 1 and row["timestamp_s"] - window[0][0] > min_duration:
+            window.popleft()
+        span = row["timestamp_s"] - window[0][0]
+        drift = stop_drift_body_lengths(window)
+        if drift <= max_drift:
+            best_span_at_rest = max(best_span_at_rest, span)
+        if span >= min_duration:
+            min_drift_at_full_window = (
+                drift if min_drift_at_full_window is None
+                else min(min_drift_at_full_window, drift)
+            )
+            if drift > max_drift:
+                reasons["drift_above_threshold"] += 1
 
     return {
         "frames": len(rows),
         "class_name": rows[0]["class_name"],
         "inside_roi_frames": inside_frames,
-        "median_speed": round(sorted(speeds)[len(speeds) // 2], 1) if speeds else None,
-        "min_speed": round(min(speeds), 1) if speeds else None,
-        "best_stop_streak_s": round(best_streak, 2),
-        "streak_enders": dict(reasons),
+        "best_span_under_drift_s": round(best_span_at_rest, 2),
+        "min_drift_at_full_window": (
+            round(min_drift_at_full_window, 3)
+            if min_drift_at_full_window is not None else None
+        ),
+        "blockers": dict(reasons),
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
-    parser.add_argument("--top", type=int, default=10, help="how many closest-to-firing tracks to list")
+    parser.add_argument("--top", type=int, default=10)
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
-    # Thresholds come from the run's own run.json, not a config file: that
-    # is exactly what the run used, and it stays readable after the config
-    # is edited or removed.
+    # Thresholds come from the run's own run.json -- exactly what that run
+    # used, and still readable after the config is edited. Runs recorded
+    # before the drift criterion replaced the px/s speeds carry no drift
+    # key, so fall back to the current default for those.
     run = json.loads((args.run_dir / "run.json").read_text(encoding="utf-8"))
     analytics = run["analytics"]
-    width = run["video"]["width"]
-    height = run["video"]["height"]
+    max_drift = analytics.get("prolonged_stop_max_drift_body_lengths")
+    legacy = max_drift is None
+    if legacy:
+        max_drift = DEFAULT_MAX_DRIFT
+    width, height = run["video"]["width"], run["video"]["height"]
     roi_px = to_pixels([tuple(p) for p in analytics["roi_polygon"]], width, height)
 
     per_track = load_tracks(args.run_dir / "tracks.csv")
     print(f"run={args.run_dir.name} frame={width}x{height} tracks={len(per_track)}")
     print(
-        f"thresholds: max_speed={analytics['prolonged_stop_max_speed_px_s']}px/s "
+        f"thresholds: max_drift={max_drift} body-lengths"
+        f"{' (run predates drift criterion; using current default)' if legacy else ''} "
         f"min_duration={analytics['prolonged_stop_min_duration_s']}s "
         f"max_gap={analytics['prolonged_stop_max_gap_s']}s "
         f"enabled={analytics['prolonged_stop_enabled']}"
     )
 
-    results = {tid: analyse(rows, analytics=analytics, roi_px=roi_px)
-               for tid, rows in per_track.items() if rows}
-    eligible = {t: r for t, r in results.items() if r["class_name"] in analytics["prolonged_stop_classes"]}
+    results = {
+        tid: analyse(rows, analytics=analytics, roi_px=roi_px, max_drift=max_drift)
+        for tid, rows in per_track.items() if rows
+    }
+    eligible = {
+        t: r for t, r in results.items()
+        if r["class_name"] in analytics["prolonged_stop_classes"]
+    }
+    ever_inside = sum(1 for r in eligible.values() if r["inside_roi_frames"] > 0)
     print(f"tracks of an eligible class: {len(eligible)}/{len(results)}")
-    ever_inside = {t: r for t, r in eligible.items() if r["inside_roi_frames"] > 0}
-    print(f"  ...that were ever inside the ROI: {len(ever_inside)}")
+    print(f"  ...ever inside the ROI: {ever_inside}")
 
-    all_enders = Counter()
+    blockers: Counter[str] = Counter()
     for r in results.values():
-        all_enders.update(r["streak_enders"])
-    print(f"what ended stop streaks (all tracks): {dict(all_enders)}")
+        blockers.update(r["blockers"])
+    print(f"what reset or blocked the stop window: {dict(blockers)}")
 
-    speeds = [r["min_speed"] for r in eligible.values() if r["min_speed"] is not None]
-    if speeds:
-        speeds.sort()
+    min_duration = analytics["prolonged_stop_min_duration_s"]
+    reached = [r for r in eligible.values() if r["min_drift_at_full_window"] is not None]
+    print(f"tracks that ever held a full {min_duration}s window: {len(reached)}/{len(eligible)}")
+    if reached:
+        drifts = sorted(r["min_drift_at_full_window"] for r in reached)
         print(
-            f"per-track MINIMUM speed across eligible tracks: "
-            f"min={speeds[0]:.1f} p25={speeds[len(speeds)//4]:.1f} "
-            f"median={speeds[len(speeds)//2]:.1f} px/s "
-            f"(threshold is {analytics['prolonged_stop_max_speed_px_s']})"
+            f"  their lowest drift over that window: min={drifts[0]:.3f} "
+            f"median={drifts[len(drifts) // 2]:.3f} (threshold {max_drift})"
         )
-        below = sum(1 for s in speeds if s <= analytics['prolonged_stop_max_speed_px_s'])
-        print(f"  eligible tracks with ANY frame under the speed threshold: {below}/{len(speeds)}")
 
-    ranked = sorted(eligible.items(), key=lambda kv: kv[1]["best_stop_streak_s"], reverse=True)
-    print(f"\nclosest tracks to firing (need {analytics['prolonged_stop_min_duration_s']}s):")
+    ranked = sorted(
+        eligible.items(), key=lambda kv: kv[1]["best_span_under_drift_s"], reverse=True
+    )
+    print(f"\nclosest tracks to firing (need {min_duration}s under drift):")
     for track_id, r in ranked[: args.top]:
         print(
-            f"  track {track_id:>5} {r['class_name']:<11} frames={r['frames']:>3} "
-            f"in_roi={r['inside_roi_frames']:>3} best_streak={r['best_stop_streak_s']:>5.2f}s "
-            f"min_speed={r['min_speed']} enders={r['streak_enders']}"
+            f"  track {track_id:>5} {r['class_name']:<11} frames={r['frames']:>4} "
+            f"in_roi={r['inside_roi_frames']:>4} best_span={r['best_span_under_drift_s']:>5.2f}s "
+            f"min_drift={r['min_drift_at_full_window']} blockers={r['blockers']}"
         )
     return 0
 

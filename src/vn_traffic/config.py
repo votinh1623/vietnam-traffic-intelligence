@@ -110,8 +110,22 @@ class AnalyticsConfig:
         "motorcycle",
         "truck",
     )
-    prolonged_stop_max_speed_px_s: float = 5.0
-    prolonged_stop_release_speed_px_s: float = 10.0
+    # "Stopped" is measured as how far the track's centre wanders over the
+    # whole min_duration window, in multiples of its own bbox height -- NOT
+    # as frame-to-frame speed. Measured why (run99 track 71): a motorcycle
+    # that moved 4px net in 3.9s, with a 35px-tall box, still produced
+    # frame-to-frame speeds of 3/30/5/11/2/3/9... px/s (median 7.9, peak
+    # 32.7) purely from bbox jitter -- ±1px of jitter at 30fps IS 30px/s.
+    # Instantaneous speed therefore cannot distinguish a parked vehicle
+    # from a moving one at this scale, and the old speed thresholds broke
+    # that track's stop streak 23 times, capping it at 0.13s of the 5s
+    # required. Windowed drift separates the two cases by two orders of
+    # magnitude: that stationary motorcycle drifts ~0.11 body lengths
+    # while a moving one covers ~14 over the same window. Normalising by
+    # bbox height also makes the threshold portable across UAV altitudes
+    # and resolutions, which px/s never was.
+    prolonged_stop_max_drift_body_lengths: float = 0.35
+    prolonged_stop_release_drift_body_lengths: float = 0.7
     prolonged_stop_min_duration_s: float = 5.0
     prolonged_stop_max_gap_s: float = 1.0
     # How long the perception stage must produce literally zero raw
@@ -440,16 +454,16 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
             "analytics.abnormal.prolonged_stop_classes",
             defaults.prolonged_stop_classes,
         ),
-        prolonged_stop_max_speed_px_s=float(
+        prolonged_stop_max_drift_body_lengths=float(
             abnormal.get(
-                "prolonged_stop_max_speed_px_s",
-                defaults.prolonged_stop_max_speed_px_s,
+                "prolonged_stop_max_drift_body_lengths",
+                defaults.prolonged_stop_max_drift_body_lengths,
             )
         ),
-        prolonged_stop_release_speed_px_s=float(
+        prolonged_stop_release_drift_body_lengths=float(
             abnormal.get(
-                "prolonged_stop_release_speed_px_s",
-                defaults.prolonged_stop_release_speed_px_s,
+                "prolonged_stop_release_drift_body_lengths",
+                defaults.prolonged_stop_release_drift_body_lengths,
             )
         ),
         prolonged_stop_min_duration_s=float(
@@ -748,14 +762,14 @@ def validate_analytics_config(config: AnalyticsConfig) -> None:
         raise ValueError("analytics confirmation durations cannot be negative")
     if not config.prolonged_stop_classes:
         raise ValueError("prolonged_stop_classes cannot be empty")
-    if config.prolonged_stop_max_speed_px_s < 0:
-        raise ValueError("prolonged_stop_max_speed_px_s cannot be negative")
+    if config.prolonged_stop_max_drift_body_lengths < 0:
+        raise ValueError("prolonged_stop_max_drift_body_lengths cannot be negative")
     if (
-        config.prolonged_stop_release_speed_px_s
-        < config.prolonged_stop_max_speed_px_s
+        config.prolonged_stop_release_drift_body_lengths
+        < config.prolonged_stop_max_drift_body_lengths
     ):
         raise ValueError(
-            "prolonged_stop_release_speed_px_s must not be below entry speed"
+            "prolonged_stop_release_drift_body_lengths must not be below entry drift"
         )
     if config.prolonged_stop_min_duration_s <= 0:
         raise ValueError("prolonged_stop_min_duration_s must be positive")

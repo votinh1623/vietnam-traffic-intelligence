@@ -35,8 +35,33 @@ class TrackMemory:
     stable_point: Point | None = None
     counted_directions: set[str] = field(default_factory=set)
     trajectory: deque[Point] = field(default_factory=deque)
-    stop_candidate_since_s: float | None = None
+    # (timestamp_s, centre, bbox_height) samples covering at most the last
+    # prolonged_stop_min_duration_s -- see stop_drift_body_lengths.
+    stop_window: deque[tuple[float, Point, float]] = field(default_factory=deque)
     prolonged_stop_active: bool = False
+
+
+def stop_drift_body_lengths(
+    window: deque[tuple[float, Point, float]],
+) -> float:
+    """How far the track's centre wanders across the window, in multiples
+    of its own bbox height.
+
+    Uses the furthest sample from the window's mean position (a movement
+    radius) rather than first-to-last displacement, so a vehicle that
+    drifts away and returns is not mistaken for a stationary one. Bbox
+    height is the normaliser because it is the one scale the detector
+    reports per object, which makes the measure independent of UAV
+    altitude and frame resolution.
+    """
+    if len(window) < 2:
+        return 0.0
+    mean_x = sum(point[0] for _, point, _ in window) / len(window)
+    mean_y = sum(point[1] for _, point, _ in window) / len(window)
+    radius = max(math.dist((mean_x, mean_y), point) for _, point, _ in window)
+    heights = sorted(height for _, _, height in window)
+    median_height = heights[len(heights) // 2]
+    return radius / max(median_height, 1.0)
 
 
 class TrafficAnalytics:
@@ -199,19 +224,31 @@ class TrafficAnalytics:
                 self.config.prolonged_stop_enabled
                 and inside_roi
                 and track.class_name in self.config.prolonged_stop_classes
-                and speed is not None
                 and 0 < elapsed <= self.config.prolonged_stop_max_gap_s
             )
             if not stop_eligible:
-                memory.stop_candidate_since_s = None
+                # Leaving the ROI, changing class or a detection gap longer
+                # than max_gap_s all make earlier samples untrustworthy: the
+                # object may have moved while unobserved, so the window must
+                # restart rather than span the gap.
+                memory.stop_window.clear()
                 memory.prolonged_stop_active = False
-            elif speed <= self.config.prolonged_stop_max_speed_px_s:
-                if memory.stop_candidate_since_s is None:
-                    memory.stop_candidate_since_s = memory.last_timestamp_s
-                stopped_duration_s = timestamp_s - memory.stop_candidate_since_s
+            else:
+                memory.stop_window.append(
+                    (timestamp_s, point, max(1.0, track.y2 - track.y1))
+                )
+                while (
+                    len(memory.stop_window) > 1
+                    and timestamp_s - memory.stop_window[0][0]
+                    > self.config.prolonged_stop_min_duration_s
+                ):
+                    memory.stop_window.popleft()
+                window_span_s = timestamp_s - memory.stop_window[0][0]
+                drift = stop_drift_body_lengths(memory.stop_window)
                 if (
                     not memory.prolonged_stop_active
-                    and stopped_duration_s >= self.config.prolonged_stop_min_duration_s
+                    and window_span_s >= self.config.prolonged_stop_min_duration_s
+                    and drift <= self.config.prolonged_stop_max_drift_body_lengths
                 ):
                     memory.prolonged_stop_active = True
                     self._prolonged_stop_count += 1
@@ -224,18 +261,16 @@ class TrafficAnalytics:
                             class_id=track.class_id,
                             class_name=track.class_name,
                             measurements={
-                                "speed_px_s": speed,
-                                "stopped_duration_s": stopped_duration_s,
+                                "drift_body_lengths": drift,
+                                "stopped_duration_s": window_span_s,
                             },
                         )
                     )
-            elif speed >= self.config.prolonged_stop_release_speed_px_s:
-                memory.stop_candidate_since_s = None
-                memory.prolonged_stop_active = False
-            elif not memory.prolonged_stop_active:
-                # Entry requires continuous evidence below the entry threshold;
-                # the hysteresis band only preserves an already-active alert.
-                memory.stop_candidate_since_s = None
+                elif (
+                    memory.prolonged_stop_active
+                    and drift >= self.config.prolonged_stop_release_drift_body_lengths
+                ):
+                    memory.prolonged_stop_active = False
 
             current_side = stable_line_side(
                 point,

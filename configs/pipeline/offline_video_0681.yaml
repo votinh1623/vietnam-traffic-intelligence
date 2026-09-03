@@ -54,8 +54,8 @@ analytics:
   abnormal:
     prolonged_stop_enabled: true
     prolonged_stop_classes: [bus, car, motorcycle, truck]
-    prolonged_stop_max_speed_px_s: 5
-    prolonged_stop_release_speed_px_s: 10
+    prolonged_stop_max_drift_body_lengths: 0.35
+    prolonged_stop_release_drift_body_lengths: 0.7
     prolonged_stop_min_duration_s: 5
     prolonged_stop_max_gap_s: 1
   congestion:
