@@ -9,7 +9,20 @@ perception:
   # source resolution, see vn_traffic.sizing) so inference detail and label
   # legibility both hold up on any input resolution instead of values
   # tuned to one specific video.
-  confidence: 0.4
+  # 0.1, not 0.4: BoT-SORT/ByteTrack uses detections between
+  # track_low_thresh (0.1) and track_high_thresh (0.4) for its second
+  # association pass, which sustains an EXISTING track through a frame
+  # where the detector wavers. Setting this to 0.4 discarded that whole
+  # band before the tracker ever saw it, leaving track_low_thresh dead --
+  # measured on run89: 50% of surviving detections sat in 0.40-0.50, and
+  # 16 of 19 mid-frame track deaths had no detection at all afterwards
+  # (detector dropout, not an ID switch). New tracks still require
+  # >= new_track_thresh (0.4), so the weak band can only extend existing
+  # tracks, never invent one. Measured effect (run89 -> run99, same 500
+  # frames): track rows 1591 -> 3183, median track life 1.6s -> 2.3s,
+  # p75 3.5s -> 6.3s, mid-frame breaks 19 -> 13, border exits unchanged
+  # at 18.
+  confidence: 0.1
   iou: 0.7
   max_det: 300
   show_labels: true
