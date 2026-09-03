@@ -60,14 +60,31 @@ clear road. A transition into `DENSE`/`CONGESTED` during silence is never
 overridden this way: that path only fires via the detector-independent
 stillness signal, an actual corroborating observation, not a guess.
 
-A `prolonged_stop` event is emitted once when an eligible vehicle track remains
-inside the ROI below the configured entry speed for the configured duration.
-Its measurements contain `speed_px_s` and `stopped_duration_s`. A release-speed
-hysteresis resets the alert so a later stop can emit a new event; tracking gaps
-longer than `prolonged_stop_max_gap_s` reset the candidate instead of being
-misread as continuous stationary evidence. This remains an image-plane motion
-heuristic. Camera motion, ID switches, and perspective can invalidate a
-physical-stop interpretation unless the video is stabilized/calibrated.
+A `prolonged_stop` event is emitted once when an eligible vehicle track stays
+inside the ROI for `prolonged_stop_min_duration_s` while its centre wanders
+less than `prolonged_stop_max_drift_body_lengths` -- measured as the furthest
+sample from the window's mean position, divided by the track's own bbox
+height. Its measurements contain `drift_body_lengths` and
+`stopped_duration_s`. A release-drift hysteresis resets the alert so a later
+stop can emit a new event; tracking gaps longer than
+`prolonged_stop_max_gap_s` clear the window instead of being misread as
+continuous stationary evidence.
+
+Stillness is deliberately *not* judged from frame-to-frame speed. Measured
+counter-example: a motorcycle that moved 4 px net over 3.9 s, with a 35 px
+box, still produced consecutive speeds of 3/30/5/11/2/3/9 px/s (median 7.9,
+peak 32.7) purely from bbox jitter -- ±1 px of jitter at 30 fps already reads
+as 30 px/s. Because the old rule needed an unbroken run below its threshold,
+that jitter reset the streak 23 times and capped a plainly parked vehicle at
+0.13 s of the 5 s required. Windowed drift removes the jitter sensitivity and
+the one-bad-frame reset, and normalising by bbox height makes the threshold
+portable across UAV altitudes and resolutions, which px/s never was.
+
+This remains an image-plane heuristic. Camera motion, ID switches, and
+perspective can invalidate a physical-stop interpretation unless the video is
+stabilized/calibrated. It also fires rarely in practice, because the vehicle
+must be *tracked* continuously for the full duration; see the anomaly-scope
+section of the readme for measured behaviour against real anomaly labels.
 
 A `perception_status_change` event is emitted when `perception_status` flips
 between `reliable` and `detection_silence` (see `analytics.csv` below). Its

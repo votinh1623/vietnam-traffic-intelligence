@@ -195,13 +195,55 @@ set or a measured quality result -- v1 and v2 stay unchanged for historical
 hash reference, and these are local ad-hoc runs, not new experiment
 records.
 
-A related, still-open gap: `validate_grounding_policy` only forbids motion
-claims when the VLM request has no clip evidence, but `run_vlm_case` never
-actually loads or shows clip frames to the model -- it is keyframe-only
-regardless of what the request references. A future motion claim on a
-clip-bearing event would therefore not be caught as ungrounded even though
-the model never saw the clip. It happened not to matter in the runs above
-because the model made no motion claims, but the gap is real and unfixed.
+A related gap, now closed: `validate_grounding_policy` forbids motion claims
+when the VLM request has no clip evidence, but `run_vlm_case` used to be
+keyframe-only regardless of what the request referenced -- `clip_sample_frames`
+was declared in config and never implemented, so a request carrying clip
+evidence still showed the model one still frame. `run_vlm_case` now samples
+real frames across the clip window (downscaled to fit the 6 GB VRAM budget),
+tells the model they are a real time sequence via `_clip_sequence_note`, and
+passes `clip_frames_shown=True` so the motion ban correctly lifts for
+grounded motion. A second bug surfaced with it: the output-shape placeholder
+hardcoded `"keyframe-1"` as the example `evidence_ref`, which a clip-only
+request does not have, so the model copied it and every such case was
+rejected as citing unknown evidence. The example now names a ref the request
+actually carries.
+
+## Scope boundary: the VLM describes, it does not detect anomalies
+
+The VLM's role is fixed at describing an event the deterministic stage has
+already selected. Asking it to decide *whether* an event is anomalous was
+tried and measured against UIT-ADrone frame-level anomaly masks, and it does
+not work at this model size.
+
+Measurement, clip-based (not keyframe-only -- a still frame carries no motion
+information, and the labels are motion-based): on a balanced 66-clip probe
+the model reached recall 45.5%, precision 53.6%, F1 49.2%. A naive
+"always alert" rule scores 100% / 50% on the same balanced set, so the
+decisions carry little information beyond chance. The same runs produced
+specific, grounded Vietnamese descriptions of those clips -- the failure is
+in the judgement, not in the seeing, which is exactly why the description
+role is kept and the decision role is not.
+
+The judgement failure has a visible signature worth keeping in mind when
+reading outputs: the model would narrate something incident-like in prose
+("đang dừng lại tại một vị trí bất thường", "để tránh va chạm") while
+leaving `incident_assessment.status` at `not_observed`. Measured at 0 of 52
+cases ever leaving `not_observed`. `contracts.py`'s
+`_asserts_anomaly_without_negation` now rejects that specific
+self-contradiction, which moved roughly half the affected cases to
+`uncertain`, but a consistency check cannot manufacture discrimination the
+model does not have.
+
+Not disproven, and deliberately left open: LoRA fine-tuning. The single
+attempt was invalidated by a training bug -- examples were consumed in the
+manifest's contiguous class blocks without shuffling, so almost every
+gradient-accumulation window saw one class and training ended on a long
+negative block; the adapter then answered `not_observed` for all 32
+evaluated positives. Shuffling is fixed in `scripts/train/train_vlm_lora.py`
+(kept outside the repo as experiment tooling), but the experiment was not
+re-run. A larger VLM and more frames per clip were likewise never tested --
+ruled out by the 6 GB VRAM budget rather than by measurement.
 
 ## Annotation and metrics
 
