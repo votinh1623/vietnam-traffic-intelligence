@@ -6,7 +6,7 @@ schema_version: 1
 # profile as configs/pipeline/offline_video.yaml -- only source and
 # measurement_manifest differ.
 source: "datasets/raw_videos/FDown.vn_Tai_video_Facebook_720p (HD)_0681.mp4"
-model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+model: runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt
 measurement_manifest: manifests/measurement/video_0681.yaml
 
 perception:

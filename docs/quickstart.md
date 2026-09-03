@@ -20,7 +20,7 @@ package/driver versions: [environment](environment.md).
 
 ## Detection (single image/video CLI)
 
-`--model` defaults to `runs/detect/research/yolov8s_v5_seed0/weights/best.pt`
+`--model` defaults to `runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt`
 (the validation-selected v5 checkpoint, see `scripts/detect.py`) -- pass
 `--model` explicitly to run a different checkpoint.
 
@@ -56,7 +56,7 @@ python run_pipeline.py --dry-run
 # Run after GPU training is complete
 python run_pipeline.py `
   --source datasets/raw_videos/traffic_normal.mp4 `
-  --model runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+  --model runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt
 
 # Short integration check
 python run_pipeline.py --max-frames 30 --imgsz 640

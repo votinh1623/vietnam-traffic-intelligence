@@ -2,7 +2,7 @@ schema_version: 1
 
 # Both paths can be overridden from the CLI.
 source: datasets/raw_videos/traffic_normal.mp4
-model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+model: runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt
 
 perception:
   # imgsz and line_width omitted -- both default to auto (adaptive to

@@ -51,10 +51,16 @@ selected events.
 
 - **Detector**: YOLOv8s, fine-tuned in two stages: COCO -> VisDrone2019-DET
   (`runs/detect/baseline/yolov8s_visdrone/weights/best.pt`, mAP50=0.389) ->
-  Vietnam v5 (`runs/detect/research/yolov8s_v5_seed0/weights/best.pt`, the
-  checkpoint the pipeline actually loads). The VisDrone-stage checkpoint is
-  kept as the base weights `configs/experiments/yolov8s_v5_seed0.yaml`
-  fine-tunes from, not as a separate pipeline option.
+  Vietnam v6 (`runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt`, the
+  checkpoint the pipeline actually loads; mAP50=0.612, mAP50-95=0.352). v6
+  trains from the same VisDrone base in a single pass over the union of the
+  Vietnam v5 data and nadir (90-degree) UIT-ADrone samples, rather than
+  fine-tuning on top of v5, so it gains the overhead viewpoint without
+  forgetting the oblique one. Validation and test splits are unchanged from
+  v5, so the numbers are directly comparable: v5 scored mAP50=0.598,
+  mAP50-95=0.340 on the same split. The VisDrone-stage checkpoint is kept as
+  the base weights the experiment configs fine-tune from, not as a separate
+  pipeline option.
 - **Tracker**: BoT-SORT with ReID (`botsort_reid_lowprox.yaml`), chosen by
   direct visual review of ID retention across occlusion on real UAV
   footage -- see `configs/pipeline/offline_video.yaml` for the full

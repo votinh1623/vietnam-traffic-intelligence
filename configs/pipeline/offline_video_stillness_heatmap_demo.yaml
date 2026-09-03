@@ -9,7 +9,7 @@ schema_version: 1
 # localize the same clip's gridlocked motorcycle mass the detector draws
 # zero boxes over.
 source: datasets/raw_videos/YTDown.com_YouTube_Rush-Hour-Traffic-with-motorcycle-in-Ho-_Media_1ZupwFOhjl4_001_1080p.mp4
-model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+model: runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt
 
 perception:
   confidence: 0.4

@@ -7,7 +7,7 @@ schema_version: 1
 # measurement_manifest differ. camera.motion=moving on this one (measured
 # zoom-out), unlike video_0681 (unmeasured) -- see the manifest file.
 source: "datasets/raw_videos/FDown.vn_Tai_video_Facebook_720p (HD)_7938.mp4"
-model: runs/detect/research/yolov8s_v5_seed0/weights/best.pt
+model: runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt
 measurement_manifest: manifests/measurement/video_7938.yaml
 
 perception:
