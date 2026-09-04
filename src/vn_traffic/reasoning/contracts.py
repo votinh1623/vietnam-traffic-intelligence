@@ -13,12 +13,37 @@ _INCIDENT_STATUSES = {"observed", "not_observed", "uncertain"}
 _INCIDENT_CATEGORIES = {
     "none",
     "collision",
+    "overturned_vehicle",
+    "fire_or_smoke",
     "stalled_vehicle",
-    "road_hazard",
+    "road_obstruction",
+    "vulnerable_road_user",
+    "unsafe_maneuver",
+    "poor_visibility",
+    "road_hazard",  # retained for schema-v1 compatibility
     "other",
 }
 _TRAFFIC_STATES = {"NORMAL", "DENSE", "CONGESTED", "UNSPECIFIED", "UNKNOWN"}
 _ACTION_LEVELS = {"none", "monitor", "review", "alert"}
+_URGENT_INCIDENT_CATEGORIES = {"collision", "overturned_vehicle", "fire_or_smoke"}
+
+
+def deterministic_action_level(vlm_assessment: dict[str, Any]) -> str:
+    """Map a validated visual assessment to an application-owned action.
+
+    The language model may word a recommendation, but cannot choose its
+    severity. Observed high-consequence categories alert; other observed or
+    uncertain findings require review; a negative visual finding does nothing.
+    """
+    incident = vlm_assessment["incident_assessment"]
+    if (
+        incident["status"] == "observed"
+        and incident["category"] in _URGENT_INCIDENT_CATEGORIES
+    ):
+        return "alert"
+    if incident["status"] in {"observed", "uncertain"}:
+        return "review"
+    return "none"
 
 
 class ContractError(ValueError):
@@ -120,6 +145,12 @@ _ANOMALY_ASSERTION_PHRASES = (
     "mảnh vỡ trên đường",
 )
 _NEGATION_MARKERS = ("không", "chưa")
+_SPECULATIVE_CAUSE_PHRASES = (
+    "có thể là do",
+    "có lẽ do",
+    "có khả năng do",
+    "nguyên nhân có thể",
+)
 
 
 def _asserts_anomaly_without_negation(value: str) -> bool:
@@ -142,6 +173,16 @@ def _asserts_anomaly_without_negation(value: str) -> bool:
                 continue
             return True
     return False
+
+
+def _reject_speculative_event_cause(value: str, name: str) -> None:
+    lowered = value.casefold()
+    for phrase in _SPECULATIVE_CAUSE_PHRASES:
+        if phrase in lowered:
+            raise ContractError(
+                f"{name} speculates about an event cause ({phrase!r}); "
+                "describe only what the evidence shows"
+            )
 
 
 def _reject_template_echo(value: str, name: str) -> None:
@@ -371,6 +412,9 @@ def validate_vlm_assessment(payload: Any, request_payload: Any) -> None:
             observation["claim_vi"], f"observations[{index}].claim_vi"
         )
         _reject_template_echo(claim_vi, f"observations[{index}].claim_vi")
+        _reject_speculative_event_cause(
+            claim_vi, f"observations[{index}].claim_vi"
+        )
         claim_texts.append(claim_vi)
         confidence = _confidence(
             observation["confidence"], f"observations[{index}].confidence"
@@ -544,6 +588,7 @@ def validate_llm_report(payload: Any, request_payload: Any) -> None:
     )
     if action["level"] not in _ACTION_LEVELS:
         raise ContractError("unsupported action level")
+
     _nonempty_text(action["message_vi"], "action.message_vi")
     _string_list(report["limitations"], "limitations")
     if report["limitations"] != request["vlm_assessment"]["limitations"]:

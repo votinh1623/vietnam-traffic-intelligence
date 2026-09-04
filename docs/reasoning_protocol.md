@@ -50,8 +50,11 @@ The VLM receives the complete deterministic event and hashed keyframe/clip
 references. It must not change deterministic fields, infer physical speed, or
 infer event cause. Each visual observation contains Vietnamese text,
 confidence in `[0, 1]`, and at least one known evidence reference. Incident
-status is restricted to `observed`, `not_observed`, or `uncertain`; categories
-are `none`, `collision`, `stalled_vehicle`, `road_hazard`, or `other`.
+status is restricted to `observed`, `not_observed`, or `uncertain`. Categories
+represent incident types rather than detector classes: `none`, `collision`,
+`overturned_vehicle`, `fire_or_smoke`, `stalled_vehicle`, `road_obstruction`,
+`vulnerable_road_user`, `unsafe_maneuver`, `poor_visibility`, `road_hazard`, or
+`other`.
 
 A line-crossing keyframe shows scene context but cannot by itself prove motion
 direction or a crossing. Those values remain deterministic tracker outputs,
@@ -68,7 +71,7 @@ occupancy, timestamps, or pixel speeds. For congestion transitions,
 `traffic_state` must equal `event.current_state`; otherwise it is
 `UNSPECIFIED`.
 
-Prompt wording is versioned in `configs/reasoning/prompts_v1.yaml`. Every
+Prompt wording is versioned; the active event prompt is `configs/reasoning/prompts_v9.yaml` and v1-v8 remain historical references. Every
 benchmark row must record its content hash, model and artifact hash, backend,
 precision, generation parameters, contract version, input-lock hash, and Git
 commit.
@@ -122,10 +125,12 @@ enough headroom for concurrent detector execution.
 
 The LLM adapter accepts only a stored VLM result whose contract is marked
 valid and whose case, event, citations, and assessment all revalidate against
-the frozen request. The LLM generates only `summary_vi` and `action`; the
-application assembles IDs, state, numeric facts, visual findings, and
-limitations from authoritative inputs before validating the complete report.
-The model therefore cannot introduce or alter a value under those fields. A
+the frozen request. The LLM generates only `summary_vi` and `action_message_vi`; the application
+assembles IDs, state, numeric facts, visual findings, limitations, and
+`action.level` before validating the complete report. The fixed policy maps an
+observed collision/overturn/fire-or-smoke to `alert`, any other observed or
+uncertain finding to `review`, and `not_observed` to `none`. The model therefore
+cannot introduce or alter authoritative fields or choose alert severity. A
 dry run verifies this boundary without loading weights:
 
 ```powershell
@@ -209,12 +214,18 @@ request does not have, so the model copied it and every such case was
 rejected as citing unknown evidence. The example now names a ref the request
 actually carries.
 
-## Scope boundary: the VLM describes, it does not detect anomalies
+## Scope boundary: hybrid coverage does not imply reliable detection
 
-The VLM's role is fixed at describing an event the deterministic stage has
-already selected. Asking it to decide *whether* an event is anomalous was
-tried and measured against UIT-ADrone frame-level anomaly masks, and it does
-not work at this model size.
+Event-scope reasoning now accepts two trigger families: deterministic analytics
+events and periodic `visual_scan` routing events. A visual scan is emitted even
+when the five-class detector sees nothing, so raw pixels can reach the VLM for
+unknown vehicles, people, debris, smoke, or collisions. The trigger itself is
+not an anomaly claim.
+
+Asking this VLM to decide whether a clip is anomalous was measured against
+UIT-ADrone frame-level anomaly masks and did not work reliably at this model
+size. The scan path improves temporal/input coverage only; it does not erase
+the accuracy result below.
 
 Measurement, clip-based (not keyframe-only -- a still frame carries no motion
 information, and the labels are motion-based): on a balanced 66-clip probe

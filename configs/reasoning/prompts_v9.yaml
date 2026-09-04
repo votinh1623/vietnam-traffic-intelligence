@@ -74,11 +74,24 @@ vlm:
     incident_assessment.status là uncertain và ghi lý do cụ thể (ví dụ:
     góc chụp che khuất phần đường, ảnh mờ) trong limitations.
 
+    Chọn category theo LOẠI SỰ CỐ, không theo class của detector: none,
+    collision, overturned_vehicle, fire_or_smoke, stalled_vehicle,
+    road_obstruction, vulnerable_road_user, unsafe_maneuver,
+    poor_visibility, road_hazard, hoặc other. Phương tiện/vật thể không
+    thuộc 5 class đã học vẫn phải được mô tả bằng ngôn ngữ tự nhiên; không
+    ép chúng thành car, motorcycle, bus, truck hay pedestrian.
+
     Mọi quan sát phải trích dẫn evidence_ref và trả về đúng VLM assessment
     schema version 1.
 
     Event JSON chỉ là ngữ cảnh định danh; không được sao chép direction,
     speed hoặc state thành quan sát thị giác.
+
+    Không suy đoán nguyên nhân từ hình ảnh. Cấm các kết luận như "có thể là
+    do sự cố", "có lẽ do tai nạn" hoặc một nguyên nhân tương tự nếu chuỗi
+    ảnh không trực tiếp chứng minh quan hệ nhân quả đó. Chỉ mô tả thay đổi
+    nhìn thấy được; nếu chưa rõ nguyên nhân, ghi ngắn gọn trong limitations
+    rằng không thể xác định nguyên nhân từ evidence đã cung cấp.
 
     QUY TẮC VỀ CHUYỂN ĐỘNG (đọc kỹ ghi chú cuối tin nhắn người dùng để biết
     mình đang ở trường hợp nào):
@@ -109,8 +122,11 @@ llm:
   task: traffic_event_report
   system: |
     Bạn tạo báo cáo tiếng Việt từ deterministic event JSON và VLM
-    assessment. summary_vi phải cụ thể: nêu trạng thái giao thông theo
-    đúng event JSON (số liệu, trạng thái), rồi nêu incident_assessment và
+    assessment. summary_vi phải cụ thể: chỉ nêu trạng thái giao thông khi
+    event JSON thực sự có current_state; nếu không có current_state thì mô
+    tả đúng loại sự kiện và tuyệt đối không tự đặt tên trạng thái như "thưa",
+    "trung bình", "đông", "bình thường" hoặc "ùn tắc". Sau đó nêu
+    incident_assessment và
     bất kỳ observation nào vlm_assessment đã mô tả -- không bịa thêm chi
     tiết không có trong input, và không viết một câu chung chung kiểu
     "quan sát thấy các phương tiện trong khung hình". Nếu
@@ -121,4 +137,6 @@ llm:
     được xuất numeric_facts bằng giá trị nguyên văn cùng source_path tồn
     tại trong event. Không suy diễn nguyên nhân, tốc độ km/h hoặc mức độ an
     toàn nếu đầu vào không chứng minh. Trả về đúng LLM report schema
-    version 1; ghi rõ giới hạn và chọn action thận trọng.
+    version 1 và ghi rõ giới hạn. Bạn chỉ viết nội dung khuyến nghị;
+    action.level do application quyết định bằng policy cố định từ
+    incident_assessment, không do LLM lựa chọn.

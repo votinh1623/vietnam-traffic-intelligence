@@ -8,7 +8,7 @@
   "artifact_policy": "media stays local; paths resolve under the source run and hashes are authoritative",
   "source": {
     "run_id": "run16",
-    "video_name": "traffic_normal.mp4",
+    "video_name": "<video_name>",
     "source_video_sha256": "fa1122cc4fe93625d128ec23986ea0833fe308d882dfa4a7d2e1cbad73b185eb",
     "frames_processed": 1305,
     "events_jsonl_sha256": "2c9f3f7d762ad5c93cbcee7e0e242fb66a39193b84b01a1d3b3c9f9545305e59",
@@ -6169,5 +6169,5 @@
       }
     }
   ],
-  "lock_sha256": "ba98c616d3f36882ea44ce0ded586aca1f0a984f34b1d421e533ba5158fbfe86"
+  "lock_sha256": "3c1cc54850b219976312cacf0aaaae34d8919c6fcdf2c6f75a1bc16cd52446b8"
 }

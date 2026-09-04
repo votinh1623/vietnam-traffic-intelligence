@@ -8,7 +8,7 @@
   "artifact_policy": "media stays local; paths resolve under the source run and hashes are authoritative",
   "source": {
     "run_id": "run15",
-    "video_name": "traffic_jam.mp4",
+    "video_name": "<video_name>",
     "source_video_sha256": "67a4c33418ed6416558fd4431d543bf3a7a1658f29c3ccf164482209fc2ba8cf",
     "frames_processed": 283,
     "events_jsonl_sha256": "0da380d21275d4591cebf8fda513216793e1a85db45956329236328cdef9e277",
@@ -615,5 +615,5 @@
       }
     }
   ],
-  "lock_sha256": "ecfd9a1e44ae1be4991f5e87dbf65d3ce9e42c4185a00db782e728258673d18b"
+  "lock_sha256": "fc66223e3db5db5e02c3c95b9e70ddc3a0e2cfe366644655cd9d09b4334a3cf7"
 }

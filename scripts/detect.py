@@ -166,7 +166,7 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="runs/detect/research/yolov8s_v5_seed0/weights/best.pt",
+        default="runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt",
         help="Path to YOLO model weights",
     )
     parser.add_argument(

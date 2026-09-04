@@ -1,7 +1,7 @@
 schema_version: 1
 
 # Both paths can be overridden from the CLI.
-source: datasets/raw_videos/traffic_normal.mp4
+source: <video_path>
 model: runs/detect/research/yolov8s_v6_seed0-2/weights/best.pt
 
 perception:
@@ -43,12 +43,17 @@ video:
 output:
   root: output/pipeline
 
-# Deterministic raw evidence for later VLM/LLM stages. Every event receives a
-# keyframe; only congestion transitions receive a temporal clip by default.
+# Raw evidence for later VLM/LLM stages. visual_scan is a periodic routing
+# trigger, not an incident claim: it bypasses the detector/analytics event gate
+# so unusual objects outside the detector's five classes still reach raw-pixel
+# review. At 5 s intervals with 2 s pre + 3 s post clips, adjacent scans cover
+# the timeline continuously after boundary clamping.
 evidence:
   enabled: true
-  keyframe_event_types: [line_crossing, congestion_transition, prolonged_stop]
-  clip_event_types: [congestion_transition, prolonged_stop]
+  visual_scan_enabled: true
+  visual_scan_interval_s: 5.0
+  keyframe_event_types: [visual_scan, line_crossing, congestion_transition, prolonged_stop]
+  clip_event_types: [visual_scan, congestion_transition, prolonged_stop]
   pre_event_s: 2
   post_event_s: 3
   jpeg_quality: 90

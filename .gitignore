@@ -13,6 +13,31 @@ Ultralytics/
 # Ad-hoc run logs (findings are recorded in commits/run.json, not these)
 /*.log
 
+# Video-specific pipeline configs: source/model paths point into /datasets/
+# and /runs/, both gitignored below, so these cannot run for anyone who
+# pulls the repo without also supplying those files locally. Reference
+# numbers/findings produced from them belong in readme.md/reports/, not in
+# a config that only works on the machine that made it. offline_video.yaml
+# stays tracked -- it is cli.py's DEFAULT_CONFIG and documents the default
+# parameter choices, not one specific run.
+/configs/pipeline/offline_video_0681.yaml
+/configs/pipeline/offline_video_7938.yaml
+/configs/pipeline/offline_video_stillness_heatmap_demo.yaml
+
+# Same reasoning, plus: paired with the now-deprioritized anomaly-judgement
+# calibration work (see readme.md "Anomaly detection: measured scope") --
+# the goal is traffic-condition description now (reasoning.scope:
+# traffic_window), not an incident record needing frozen, hash-locked
+# per-event cases.
+/configs/reasoning/accident*.yaml
+/configs/reasoning/demo_*.yaml
+/manifests/reasoning/accident*/
+/manifests/reasoning/demo_*/
+/configs/reasoning/wp1_demo_0681.yaml
+/configs/reasoning/wp1_demo_7938.yaml
+/manifests/reasoning/wp1_demo_0681/input_lock.json
+/manifests/reasoning/wp1_demo_7938/input_lock.json
+
 # IDE / OS
 .vscode/
 .idea/

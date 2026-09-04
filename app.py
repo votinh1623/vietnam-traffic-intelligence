@@ -95,12 +95,29 @@ def load_events(path: Path, limit: int = 25) -> list[dict]:
     return list(reversed(events))[:limit]
 
 
+def load_jsonl(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    records: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
 def event_detail(event: dict) -> str:
     event_type = event.get("event_type")
     if event_type == "congestion_transition":
         return f"{event.get('previous_state')} → {event.get('current_state')}"
     if event_type == "line_crossing":
         return f"{event.get('class_name', '')} {event.get('direction', '')}".strip()
+    if event_type == "visual_scan":
+        return "Rà soát hình ảnh định kỳ (không phải cảnh báo)"
     if event_type == "prolonged_stop":
         duration = event.get("measurements", {}).get("stopped_duration_s")
         duration_text = f"{duration:.1f}s" if isinstance(duration, (int, float)) else "?"
@@ -184,6 +201,82 @@ def render_live_view() -> None:
 
 
 render_live_view()
+
+# ---- AI descriptions: reasoning.enabled output, if this run has any -------
+#
+# Two mutually exclusive shapes can be present, depending on the run's
+# reasoning.scope (see src/vn_traffic/reasoning/{traffic_window,pipeline_stage}.py):
+# traffic_windows.jsonl (whole-video, one VLM call per fixed time window) or
+# reasoning.jsonl (per-event VLM+LLM report). Written only after the whole
+# reasoning stage finishes -- run.json's status flips to "completed" before
+# reasoning even starts, so this section can lag behind the status badge
+# above; click "Làm mới ngay" once reasoning finishes.
+
+traffic_windows = load_jsonl(run_dir / "traffic_windows.jsonl")
+event_reports = load_jsonl(run_dir / "reasoning.jsonl")
+
+if traffic_windows or event_reports:
+    with st.expander("Mô tả AI (VLM)", expanded=True):
+        if traffic_windows:
+            for record in traffic_windows:
+                vlm = record.get("vlm") or {}
+                assessment = vlm.get("assessment")
+                start_s = record.get("window_start_s", 0.0)
+                end_s = record.get("window_end_s", 0.0)
+                header = f"{start_s:.0f}s–{end_s:.0f}s"
+                if assessment:
+                    header += (
+                        f" · {assessment['traffic_state']}"
+                        f" (confidence={assessment['confidence']:.2f})"
+                    )
+                else:
+                    header += f" · lỗi VLM ({vlm.get('contract_status', '?')})"
+
+                cols = st.columns([1, 3])
+                keyframe = run_dir / record.get("representative_keyframe", "")
+                if keyframe.is_file():
+                    cols[0].image(str(keyframe), width="stretch")
+                with cols[1]:
+                    st.markdown(f"**{header}**")
+                    counts = record.get("vehicle_counts") or {}
+                    counts_text = ", ".join(f"{k}: {v}" for k, v in counts.items()) or "—"
+                    st.caption(
+                        f"Số liệu đo: {counts_text} · "
+                        f"occupancy={record.get('occupancy')} · "
+                        f"đứng yên={record.get('stopped_tracks')} · "
+                        f"chuyển động={record.get('motion_state')}"
+                    )
+                    if assessment:
+                        for observation in assessment.get("observations", []):
+                            st.markdown(f"- {observation.get('claim_vi')}")
+                        if assessment.get("limitations"):
+                            st.caption("Hạn chế: " + "; ".join(assessment["limitations"]))
+                    else:
+                        st.caption(vlm.get("contract_error") or "không có mô tả hợp lệ")
+                st.divider()
+        else:
+            for record in event_reports:
+                llm_result = record.get("llm") or {}
+                report = llm_result.get("report")
+                vlm_status = (record.get("vlm") or {}).get("contract_status", "?")
+                header = f"{record.get('event_type')} · {record.get('event_id')}"
+                if report:
+                    header += f" · {report['traffic_state']}"
+                st.markdown(f"**{header}**")
+                if report:
+                    st.write(report.get("summary_vi"))
+                    for finding in report.get("visual_findings", []):
+                        st.markdown(f"- {finding}")
+                    action = report.get("action") or {}
+                    if action.get("message_vi"):
+                        st.caption(f"Khuyến nghị ({action.get('level')}): {action['message_vi']}")
+                    if report.get("limitations"):
+                        st.caption("Hạn chế: " + "; ".join(report["limitations"]))
+                else:
+                    st.caption(f"Chưa có report hợp lệ (VLM status={vlm_status})")
+                st.divider()
+elif status == "completed":
+    st.caption("Không có mô tả AI cho run này (reasoning tắt hoặc chưa chạy xong).")
 
 # ---- details, collapsed by default ----------------------------------------
 

@@ -464,7 +464,7 @@ class TrafficAnalytics:
                 "not transfer to another camera or viewpoint. Bbox-union "
                 "occupancy is image-plane box coverage, not physical road "
                 "occupancy; boxes include background and no BEV calibration is "
-                "applied. Prolonged-stop alerts use image-plane centroid speed and "
+                "applied. Prolonged-stop alerts use windowed image-plane centroid drift normalized by bbox height and "
                 "can be invalid under camera motion or identity errors. "
                 + mode_note
                 + (

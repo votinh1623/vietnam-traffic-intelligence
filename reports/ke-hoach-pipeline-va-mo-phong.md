@@ -1,6 +1,6 @@
 # Kế hoạch triển khai chính thức — Pipeline video UAV và mô phỏng SUMO
 
-**Trạng thái:** Active execution plan  
+**Trạng thái:** Roadmap snapshot ngày 2026-08-27; WP0/WP1 đã được triển khai phần lớn, các WP SUMO chưa có trong runtime. Hiện trạng code xem `reports/kien-truc-pipeline.md`.
 **Ngày khóa định hướng:** 2026-08-27  
 **Phạm vi:** Hệ thống phân tích giao thông từ video UAV và mô phỏng ảnh hưởng của sai số tri giác  
 **Tài liệu trước:** `ke-hoach-cai-tien.md` (lịch sử hình thành ý tưởng) đã được dọn bỏ cùng các tài liệu nghiên cứu/benchmark cũ; đây là tài liệu triển khai duy nhất còn hiệu lực.
@@ -35,7 +35,7 @@ Codebase đã có các thành phần chính:
 - evidence keyframe/clip có provenance;
 - VLM và LLM pretrained với contract JSON;
 - output `annotated.mp4`, `tracks.csv`, `analytics.csv`, `events.jsonl`, `evidence.jsonl`, `summary.json` và `run.json`;
-- 164 unit test đang pass trên workspace hiện tại.
+- Bộ unit test hiện tại được kiểm tra bằng `python -m unittest discover -s tests -v`; không khóa số lượng test trong kế hoạch vì suite tiếp tục thay đổi.
 
 Tracking đã được xem là **đóng băng ở mức sản phẩm**:
 
@@ -763,7 +763,9 @@ Không bắt đầu WP2 trước khi schema chung được khóa ở WP1. Không
 
 ---
 
-## 18. Việc cần làm ngay
+## 18. Danh sách khởi đầu (lịch sử)
+
+Các mục 1-7 dưới đây là backlog tại thời điểm khóa kế hoạch; chúng đã được triển khai trong nhánh video hiện tại và không còn là “việc cần làm ngay”. Nhánh SUMO trong các WP phía trên vẫn chưa được triển khai.
 
 1. Sửa clip-grounding giữa evidence request, VLM input thực tế và validator.
 2. Chuyển reasoning CLI sang prompt v3 và thêm integration test.

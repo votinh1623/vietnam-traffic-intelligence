@@ -223,7 +223,7 @@ def stalled_dense_score(
     It IS however validated to spatially localize a real packed/stalled
     cluster well, frame by frame, across a real clip -- see
     `StillnessHeatmapRenderer`'s heatmap mode
-    (`configs/pipeline/offline_video_stillness_heatmap_demo.yaml`). Intended
+    by enabling `stillness_heatmap.enabled` in a local pipeline config. Intended
     for a visual heatmap a human operator reads, not as a state-machine
     trigger.
     """

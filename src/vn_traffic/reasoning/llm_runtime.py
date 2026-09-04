@@ -10,6 +10,7 @@ from typing import Any
 from .contracts import (
     ContractError,
     build_llm_request,
+    deterministic_action_level,
     validate_llm_report,
     validate_vlm_assessment,
 )
@@ -42,11 +43,10 @@ def assemble_llm_report(
     generated_fields: dict[str, Any], request: dict[str, Any]
 ) -> dict[str, Any]:
     """Merge generated prose with authoritative fields owned by the pipeline."""
-    if set(generated_fields) != {"summary_vi", "action"}:
-        raise ContractError("LLM prose output must contain only summary_vi and action")
-    action = generated_fields["action"]
-    if not isinstance(action, dict) or set(action) != {"level", "message_vi"}:
-        raise ContractError("LLM action must contain only level and message_vi")
+    if set(generated_fields) != {"summary_vi", "action_message_vi"}:
+        raise ContractError(
+            "LLM prose output must contain only summary_vi and action_message_vi"
+        )
     event = request["vlm_request"]["event"]
     report = {
         "schema_version": 1,
@@ -59,7 +59,10 @@ def assemble_llm_report(
             observation["claim_vi"]
             for observation in request["vlm_assessment"]["observations"]
         ],
-        "action": action,
+        "action": {
+            "level": deterministic_action_level(request["vlm_assessment"]),
+            "message_vi": generated_fields["action_message_vi"],
+        },
         "limitations": request["vlm_assessment"]["limitations"],
     }
     validate_llm_report(report, request)
@@ -68,33 +71,49 @@ def assemble_llm_report(
 
 def build_report_prompt(request: dict[str, Any]) -> str:
     """Ask the LLM only for prose fields; authoritative fields are assembled later."""
+    event = request["vlm_request"]["event"]
+    if "current_state" in event:
+        state_instruction = (
+            f"The deterministic traffic_state is {event['current_state']!r}; "
+            "state exactly that state and do not rename or reinterpret it. "
+        )
+    else:
+        state_instruction = (
+            "This event has no current_state. Do not invent or name a traffic "
+            "state (including normal, light, medium, dense, congested, or their "
+            "Vietnamese equivalents); describe the event_type instead. "
+        )
     return (
         "Input JSON:\n"
         + json.dumps(request, ensure_ascii=False, sort_keys=True)
-        + "\n\nReturn exactly one JSON object containing only summary_vi and action. "
+        + "\n\nReturn exactly one JSON object containing only summary_vi and "
+        "action_message_vi. "
         "Write a concrete Vietnamese summary_vi about this specific event using "
-        "only the input: state the traffic_state, then the dominant vehicle "
+        "only the input. "
+        + state_instruction
+        + "Then mention the dominant vehicle "
         "types and density qualifier if vlm_assessment.observations mentions "
         "them. Do not write a generic sentence like 'quan sat thay cac phuong "
         "tien trong khung hinh' -- if vlm_assessment truly has no specific "
         "detail, say explicitly that visual detail is limited instead of "
-        "restating that generic phrase. action must be an object containing "
-        "only level (one of none, monitor, review, alert) and a cautious "
-        "Vietnamese message_vi. Do not output IDs, numeric_facts, "
+        "restating that generic phrase. action_message_vi must be one cautious "
+        "Vietnamese recommendation. Do not choose an action level; the "
+        "application derives it deterministically from incident_assessment. "
+        "Do not output IDs, numeric_facts, "
         "traffic_state, visual_findings, limitations, schema fields, "
         "explanations, or Markdown; the application owns those authoritative "
         "fields."
     )
 
 
-def run_llm_case(
-    *,
-    config: dict[str, Any],
-    request: dict[str, Any],
-    model_dir: Path,
-    system_prompt: str,
-) -> dict[str, Any]:
-    """Load the pinned local language model, generate once, and validate JSON."""
+def load_llm(model_dir: Path) -> tuple[Any, Any]:
+    """Load (tokenizer, model) once for reuse across many run_llm_case calls
+    -- mirrors vlm_runtime.load_vlm. run_llm_case's default per-call load
+    exists for execution_policy: sequential_load_run_unload (crash
+    isolation), but reloading the checkpoint from disk on every case in a
+    many-case batch (e.g. pipeline_stage.run_reasoning_stage) is unnecessary
+    overhead once the run is otherwise stable. Pass the result to
+    run_llm_case's model/tokenizer params to reuse it."""
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -107,6 +126,29 @@ def run_llm_case(
         dtype=torch.float16,
         device_map="cuda",
     )
+    return tokenizer, model
+
+
+def run_llm_case(
+    *,
+    config: dict[str, Any],
+    request: dict[str, Any],
+    model_dir: Path,
+    system_prompt: str,
+    tokenizer: Any | None = None,
+    model: Any | None = None,
+) -> dict[str, Any]:
+    """Generate once and validate its JSON. Loads the pinned local model
+    unless `tokenizer`/`model` are both given (see load_llm) -- pass both
+    or neither, never just one."""
+    import torch
+
+    if (tokenizer is None) != (model is None):
+        raise ValueError("pass both tokenizer and model, or neither")
+    if model is None and not model_dir.is_dir():
+        raise FileNotFoundError(f"local LLM directory is unavailable: {model_dir}")
+    if model is None:
+        tokenizer, model = load_llm(model_dir)
     messages = [
         {"role": "system", "content": system_prompt.strip()},
         {"role": "user", "content": build_report_prompt(request)},

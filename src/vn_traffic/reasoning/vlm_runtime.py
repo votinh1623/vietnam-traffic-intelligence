@@ -171,6 +171,20 @@ def _clip_sequence_note(frame_count: int, timestamps_s: list[float]) -> str:
 # for a multi-frame clip within the same rough budget one full-resolution
 # keyframe already uses.
 _CLIP_FRAME_MAX_SIDE = 768
+_KEYFRAME_MAX_SIDE = 768
+
+
+def _resize_image(image: Any, max_side: int) -> Any:
+    """Bound visual-token memory while preserving the source aspect ratio."""
+    from PIL import Image
+    longer_side = max(image.width, image.height)
+    if longer_side <= max_side:
+        return image
+    scale = max_side / longer_side
+    return image.resize(
+        (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
+        Image.BILINEAR,
+    )
 
 
 def _sample_clip_frames(clip_path: Path, count: int) -> tuple[list[Any], list[float]]:
@@ -208,21 +222,16 @@ def _sample_clip_frames(clip_path: Path, count: int) -> tuple[list[Any], list[fl
             if not ok:
                 raise ValueError(f"cannot decode clip frame {index}: {clip_path}")
             image = Image.fromarray(frame[:, :, ::-1])
-            longer_side = max(image.width, image.height)
-            if longer_side > _CLIP_FRAME_MAX_SIDE:
-                scale = _CLIP_FRAME_MAX_SIDE / longer_side
-                image = image.resize(
-                    (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
-                    Image.BILINEAR,
-                )
-            images.append(image)
+            images.append(_resize_image(image, _CLIP_FRAME_MAX_SIDE))
             timestamps.append(index / fps)
         return images, timestamps
     finally:
         capture.release()
 
 
-def _prompt_text(request: dict[str, Any], sequence_note: str) -> str:
+def _prompt_text(request: dict[str, Any], sequence_note: str | None = None) -> str:
+    if sequence_note is None:
+        sequence_note = _multi_view_note(request)
     event = request["event"]
     # The placeholder evidence_refs example must name a ref that actually
     # exists in THIS request -- a request built from clip-only evidence
@@ -357,10 +366,16 @@ def run_vlm_case(
         # crop, see src/vn_traffic/evidence.py) puts additional still-image
         # views of the same instant here rather than in a separate
         # collection. _multi_view_note explains this ordering to the model.
-        images = [
-            Image.open(artifact_root / keyframe["path"]).convert("RGB")
-            for keyframe in keyframes
-        ]
+        # Native 4K keyframes exceed the 6 GB GPU budget or make attention
+        # impractically slow. Use the same measured visual-token budget as
+        # sampled clip frames while preserving the source aspect ratio.
+        keyframe_max_side = _KEYFRAME_MAX_SIDE
+        images = []
+        for keyframe in keyframes:
+            with Image.open(artifact_root / keyframe["path"]) as source:
+                images.append(
+                    _resize_image(source.convert("RGB"), keyframe_max_side)
+                )
         sequence_note = _multi_view_note(request)
     if model is None:
         processor, model = load_vlm(model_dir)

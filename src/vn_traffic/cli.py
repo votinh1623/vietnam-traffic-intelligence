@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .config import load_pipeline_config
+from .config import PROJECT_ROOT, load_pipeline_config
 
 
 DEFAULT_CONFIG = "configs/pipeline/offline_video.yaml"
@@ -15,7 +15,7 @@ DEFAULT_CONFIG = "configs/pipeline/offline_video.yaml"
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="vn-traffic",
-        description="Run detection and ByteTrack over an offline traffic video.",
+        description="Run detection, configured tracking, analytics, and optional reasoning over an offline traffic video.",
     )
     parser.add_argument("--config", default=DEFAULT_CONFIG, help="Pipeline YAML")
     parser.add_argument("--source", help="Override input video path")
@@ -93,6 +93,24 @@ def main(argv: list[str] | None = None) -> int:
         heatmap_renderer=heatmap_renderer,
     ).run()
     print(f"Pipeline completed: {run_dir}")
+    if config.reasoning.enabled:
+        if config.reasoning.scope == "traffic_window":
+            from .reasoning.traffic_window import run_traffic_window_stage
+
+            reasoning_path = run_traffic_window_stage(
+                reasoning_config=config.reasoning,
+                run_dir=run_dir,
+                project_root=PROJECT_ROOT,
+            )
+        else:
+            from .reasoning.pipeline_stage import run_reasoning_stage
+
+            reasoning_path = run_reasoning_stage(
+                reasoning_config=config.reasoning,
+                run_dir=run_dir,
+                project_root=PROJECT_ROOT,
+            )
+        print(f"Reasoning completed: {reasoning_path}")
     return 0
 
 

@@ -25,15 +25,18 @@ One row represents one detection/track observation in one frame.
 
 ## `events.jsonl`
 
-One JSON object per deterministic analytics event. The current event types are
+One JSON object per analytics event or evidence-routing trigger. Analytics emits
 `line_crossing`, `congestion_transition`, `prolonged_stop`, and
-`perception_status_change`; the pipeline never invents placeholder events.
-Analytics schema version 2 introduces union-based bbox coverage and replaces
-the invalid legacy `occupancy` field. A line-crossing event has this shape:
+`perception_status_change`. When `evidence.visual_scan_enabled` is true, the
+runner also emits `visual_scan` periodically and, when needed, near the tail. A visual
+scan is not an incident claim; it routes raw pixels to evidence/VLM review
+independently of the detector's five trained classes. Analytics schema version
+4 includes union bbox coverage, stillness, and `perception_status`. A
+line-crossing event has this shape:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 4,
   "event_id": "event-000001",
   "event_type": "line_crossing",
   "timestamp_s": 0.84,
@@ -134,7 +137,7 @@ be disabled without changing those raw rows or analytics inputs.
 
 ## `evidence.jsonl` and `evidence/`
 
-Evidence schema version 2 links deterministic events to raw visual inputs for a
+Evidence schema version 3 links analytics events and visual-review triggers to raw visual inputs for a
 later VLM stage. Evidence extraction is an offline post-process after
 `events.jsonl` is closed; it does not invoke a VLM or alter analytics results.
 The exporter opens the source once and decodes frame 0 through the processed
@@ -143,7 +146,7 @@ selection does not depend on codec/backend random-seek behavior.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "evidence_id": "evidence-event-000004",
   "event_id": "event-000004",
   "event_type": "congestion_transition",
@@ -173,9 +176,12 @@ selection does not depend on codec/backend random-seek behavior.
 }
 ```
 
-The default policy writes a raw JPEG keyframe for `line_crossing`,
-`congestion_transition`, and `prolonged_stop`, and writes pre/post clips for
-congestion transitions and prolonged stops. Clip bounds are clamped to the processed video span. Files are
+The repository default enables a detector-independent `visual_scan` every five
+seconds and at the final frame. It writes a raw JPEG keyframe and bounded clip
+for every scan. Analytics-triggered keyframes remain enabled for
+`line_crossing`, `congestion_transition`, and `prolonged_stop`; clips remain
+enabled for congestion transitions and prolonged stops. Clip bounds are
+clamped to the processed video span. Files are
 content-hashed, event IDs are validated before becoming filenames, and the
 manifest is replaced atomically. Overlapping clip windows are written from the
 same sequential decode pass. `source_video_sha256` identifies the source file;
@@ -187,6 +193,19 @@ project. Raw evidence intentionally contains no
 detection overlay; structured analytics remain available separately in the
 event and timeline artifacts.
 
+## Reasoning outputs
+
+Reasoning is optional and runs after the offline perception/evidence pass.
+`reasoning.scope: event` writes `reasoning.jsonl`, one record per qualifying
+`visual_scan` or analytics event with nested VLM and (when VLM validation
+passes) LLM results. `reasoning.scope: traffic_window` writes
+`traffic_windows.jsonl`, one representative JPEG under `traffic_windows/` per
+window, and the human-readable `traffic_windows_report.txt`. These files are
+not created when reasoning is disabled.
+
+For event scope, numeric facts and visual findings are copied from validated
+inputs. The LLM generates only summary/recommendation wording; application
+code derives `action.level` from `incident_assessment`.
 ## `run.json`
 
 The run manifest is written with `status: running` before frame processing and
@@ -206,7 +225,7 @@ Stable top-level fields are:
   produced a run, since the file at that path can be replaced later;
 - the evidence-selection policy and evidence export summary;
 - relative artifact paths;
-- processed-frame, track-row, and event counts;
+- processed-frame, track-row, total event, analytics-event, and visual-scan counts;
 - elapsed time and end-to-end processing FPS;
 - an error description when the run fails.
 

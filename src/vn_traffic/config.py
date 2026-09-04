@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -188,6 +188,49 @@ class EvidenceConfig:
     # for event_crop, so the crop shows some surrounding context instead of
     # just the vehicle's silhouette; clamped to frame bounds.
     event_crop_padding_ratio: float = 0.25
+    # Periodic detector-independent review triggers. These are routing
+    # events, not claims that an incident exists. They expose raw pixels to
+    # the VLM even when the five-class detector emits no analytics event.
+    visual_scan_enabled: bool = False
+    visual_scan_interval_s: float = 5.0
+
+
+@dataclass(frozen=True)
+class ReasoningConfig:
+    """VLM description + LLM report over the events a completed run already
+    produced. Off by default -- both models together need a local weights
+    directory and ~5.7 GB VRAM peak (see docs/quickstart.md), so opting in
+    is a config decision, not something every pipeline run should pay for.
+
+    event_types excludes line_crossing by default: it is a high-volume
+    counting event. It includes analytics incident candidates plus
+    visual_scan, a detector-independent routing trigger that is not itself
+    an anomaly claim. This improves input coverage, not measured VLM accuracy.
+    """
+
+    enabled: bool = False
+    # "event": describe each qualifying event.type individually (VLM then
+    # LLM, evidence-refs audit trail) -- appropriate for an incident record
+    # with provenance. "traffic_window": describe the whole run in fixed
+    # time windows regardless of whether any event fired (VLM only, no
+    # incident framing) -- appropriate when the goal is just a traffic-
+    # condition summary. See traffic_window.py's module docstring for why
+    # these are separate code paths rather than one configurable knob.
+    scope: str = "event"
+    event_types: tuple[str, ...] = (
+        "visual_scan",
+        "congestion_transition",
+        "prolonged_stop",
+    )
+    # scope: traffic_window only.
+    window_seconds: float = 15.0
+    max_long_edge: int = 640
+    prompts: str = "prompts_v9.yaml"
+    vlm_model_dir: Path | None = None
+    llm_model_dir: Path | None = None
+    vlm: dict[str, Any] = field(default_factory=dict)
+    llm: dict[str, Any] = field(default_factory=dict)
+    generation: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -233,6 +276,7 @@ class PipelineConfig:
     analytics: AnalyticsConfig = AnalyticsConfig()
     evidence: EvidenceConfig = EvidenceConfig()
     stillness_heatmap: StillnessHeatmapConfig = StillnessHeatmapConfig()
+    reasoning: ReasoningConfig = ReasoningConfig()
 
     def with_overrides(
         self,
@@ -301,6 +345,16 @@ def _load_analytics(raw: dict[str, Any]) -> AnalyticsConfig:
     analytics = _mapping(raw.get("analytics"), "analytics")
     congestion = _mapping(analytics.get("congestion"), "analytics.congestion")
     abnormal = _mapping(analytics.get("abnormal"), "analytics.abnormal")
+    legacy_stop_speed_keys = {
+        "prolonged_stop_max_speed_px_s",
+        "prolonged_stop_release_speed_px_s",
+    } & abnormal.keys()
+    if legacy_stop_speed_keys:
+        raise ValueError(
+            "legacy prolonged-stop speed thresholds are unsupported; use "
+            "prolonged_stop_max_drift_body_lengths and "
+            "prolonged_stop_release_drift_body_lengths"
+        )
     perception_status = _mapping(
         analytics.get("perception"), "analytics.perception"
     )
@@ -562,9 +616,77 @@ def _load_evidence(raw: dict[str, Any]) -> EvidenceConfig:
                 "event_crop_padding_ratio", defaults.event_crop_padding_ratio
             )
         ),
+        visual_scan_enabled=bool(
+            evidence.get("visual_scan_enabled", defaults.visual_scan_enabled)
+        ),
+        visual_scan_interval_s=float(
+            evidence.get("visual_scan_interval_s", defaults.visual_scan_interval_s)
+        ),
     )
     validate_evidence_config(config)
     return config
+
+
+def _load_reasoning(raw: dict[str, Any]) -> ReasoningConfig:
+    defaults = ReasoningConfig()
+    reasoning = _mapping(raw.get("reasoning"), "reasoning")
+    vlm_model_dir = reasoning.get("vlm_model_dir")
+    llm_model_dir = reasoning.get("llm_model_dir")
+    config = ReasoningConfig(
+        enabled=bool(reasoning.get("enabled", defaults.enabled)),
+        scope=str(reasoning.get("scope", defaults.scope)),
+        event_types=_event_types(
+            reasoning.get("event_types"), "reasoning.event_types", defaults.event_types
+        ),
+        window_seconds=float(reasoning.get("window_seconds", defaults.window_seconds)),
+        max_long_edge=int(reasoning.get("max_long_edge", defaults.max_long_edge)),
+        prompts=str(reasoning.get("prompts", defaults.prompts)),
+        vlm_model_dir=(
+            resolve_project_path(vlm_model_dir) if vlm_model_dir else None
+        ),
+        llm_model_dir=(
+            resolve_project_path(llm_model_dir) if llm_model_dir else None
+        ),
+        vlm=_mapping(reasoning.get("vlm"), "reasoning.vlm"),
+        llm=_mapping(reasoning.get("llm"), "reasoning.llm"),
+        generation=_mapping(reasoning.get("generation"), "reasoning.generation"),
+    )
+    validate_reasoning_config(config)
+    return config
+
+
+_REASONING_SCOPES = ("event", "traffic_window")
+
+
+def validate_reasoning_config(config: ReasoningConfig) -> None:
+    if config.scope not in _REASONING_SCOPES:
+        raise ValueError(f"reasoning.scope must be one of {_REASONING_SCOPES}")
+    if not config.enabled:
+        return
+    if config.vlm_model_dir is None:
+        raise ValueError("reasoning.vlm_model_dir is required when reasoning.enabled")
+    for key in ("model_id", "revision", "dtype"):
+        if not config.vlm.get(key):
+            raise ValueError(f"reasoning.vlm.{key} is required when reasoning.enabled")
+    if config.scope == "traffic_window":
+        if config.window_seconds <= 0:
+            raise ValueError("reasoning.window_seconds must be positive")
+        if config.max_long_edge <= 0:
+            raise ValueError("reasoning.max_long_edge must be positive")
+        return
+    # scope == "event": the two-tier VLM -> LLM path additionally needs an
+    # LLM and its own event_types.
+    if not config.event_types:
+        raise ValueError("reasoning.event_types cannot be empty when enabled")
+    if config.llm_model_dir is None:
+        raise ValueError("reasoning.llm_model_dir is required when reasoning.enabled")
+    for key in ("model_id", "revision", "dtype"):
+        if not config.llm.get(key):
+            raise ValueError(f"reasoning.llm.{key} is required when reasoning.enabled")
+    if not config.vlm.get("max_new_tokens"):
+        raise ValueError("reasoning.vlm.max_new_tokens is required when reasoning.enabled")
+    if not config.llm.get("max_new_tokens"):
+        raise ValueError("reasoning.llm.max_new_tokens is required when reasoning.enabled")
 
 
 def load_pipeline_config(path: str | Path) -> PipelineConfig:
@@ -618,6 +740,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
         analytics=_load_analytics(raw),
         evidence=_load_evidence(raw),
         stillness_heatmap=_load_stillness_heatmap(raw),
+        reasoning=_load_reasoning(raw),
     )
     validate_pipeline_config(config)
     return config
@@ -649,6 +772,7 @@ def validate_pipeline_config(config: PipelineConfig) -> None:
     validate_analytics_config(config.analytics)
     validate_evidence_config(config.evidence)
     validate_stillness_heatmap_config(config.stillness_heatmap)
+    validate_reasoning_config(config.reasoning)
 
 
 def validate_analytics_config(config: AnalyticsConfig) -> None:
@@ -788,3 +912,15 @@ def validate_evidence_config(config: EvidenceConfig) -> None:
         raise ValueError("evidence.clip_codec must contain exactly four characters")
     if config.event_crop_padding_ratio < 0:
         raise ValueError("evidence.event_crop_padding_ratio cannot be negative")
+    if config.visual_scan_interval_s <= 0:
+        raise ValueError("evidence.visual_scan_interval_s must be positive")
+    if config.visual_scan_enabled:
+        for artifact_name, event_types in (
+            ("keyframe_event_types", config.keyframe_event_types),
+            ("clip_event_types", config.clip_event_types),
+        ):
+            if "visual_scan" not in event_types:
+                raise ValueError(
+                    "evidence.visual_scan_enabled requires visual_scan in "
+                    f"evidence.{artifact_name}"
+                )

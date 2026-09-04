@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import subprocess
 import sys
 import time
@@ -369,6 +370,12 @@ class PipelineRunner:
         frame_count = 0
         track_count = 0
         event_count = 0
+        analytics_event_count = 0
+        visual_scan_count = 0
+        last_visual_scan_frame: int | None = None
+        visual_scan_interval_frames = max(
+            1, round(self.config.evidence.visual_scan_interval_s * fps)
+        )
         last_progress_write = started_clock
         # Rolling window (not a cumulative average) so the on-screen FPS
         # tracks recent throughput, not a slow-changing average over the
@@ -491,6 +498,31 @@ class PipelineRunner:
                             json.dumps(event, ensure_ascii=False) + "\n"
                         )
                         event_count += 1
+                        analytics_event_count += 1
+                    # A visual_scan is only a detector-independent routing
+                    # trigger for raw-pixel review. It is deliberately not an
+                    # incident/anomaly claim, and it fires even with zero
+                    # detections so unusual objects outside the detector's
+                    # five classes can still reach the VLM.
+                    if (
+                        self.config.evidence.enabled
+                        and self.config.evidence.visual_scan_enabled
+                        and frame_index % visual_scan_interval_frames == 0
+                    ):
+                        visual_scan_count += 1
+                        visual_scan_event = {
+                            "schema_version": ANALYTICS_SCHEMA_VERSION,
+                            "event_id": f"visual-scan-{visual_scan_count:06d}",
+                            "event_type": "visual_scan",
+                            "timestamp_s": timestamp_s,
+                            "frame_index": frame_index,
+                            "origin": "periodic_raw_pixel_review",
+                        }
+                        events_file.write(
+                            json.dumps(visual_scan_event, ensure_ascii=False) + "\n"
+                        )
+                        event_count += 1
+                        last_visual_scan_frame = frame_index
                     frame_count += 1
                     # Flush so a dashboard tailing these files while the run
                     # is still in progress sees this frame's rows without
@@ -507,6 +539,8 @@ class PipelineRunner:
                                 "frames_processed": frame_count,
                                 "track_rows": track_count,
                                 "events_written": event_count,
+                                "analytics_events_written": analytics_event_count,
+                                "visual_scans_written": visual_scan_count,
                                 "elapsed_s": now - started_clock,
                                 "processing_fps": frame_count / (now - started_clock),
                             }
@@ -517,6 +551,36 @@ class PipelineRunner:
                         and frame_count >= self.config.max_frames
                     ):
                         break
+
+                # Close the final interval as well. Without this tail trigger,
+                # a video ending between periodic centres could leave its last
+                # post-event seconds completely unreviewed.
+                final_frame_index = frame_count - 1
+                if (
+                    self.config.evidence.enabled
+                    and self.config.evidence.visual_scan_enabled
+                    and final_frame_index >= 0
+                    and (
+                        last_visual_scan_frame is None
+                        or final_frame_index
+                        > last_visual_scan_frame
+                        + math.ceil(self.config.evidence.post_event_s * fps)
+                    )
+                ):
+                    visual_scan_count += 1
+                    final_scan_event = {
+                        "schema_version": ANALYTICS_SCHEMA_VERSION,
+                        "event_id": f"visual-scan-{visual_scan_count:06d}",
+                        "event_type": "visual_scan",
+                        "timestamp_s": final_frame_index / fps,
+                        "frame_index": final_frame_index,
+                        "origin": "periodic_raw_pixel_review_tail",
+                    }
+                    events_file.write(
+                        json.dumps(final_scan_event, ensure_ascii=False) + "\n"
+                    )
+                    event_count += 1
+                    events_file.flush()
 
             analytics_summary = self.event_processor.summary()
             analytics_summary.update(
@@ -543,6 +607,8 @@ class PipelineRunner:
                     "frames_processed": frame_count,
                     "track_rows": track_count,
                     "events_written": event_count,
+                    "analytics_events_written": analytics_event_count,
+                    "visual_scans_written": visual_scan_count,
                     "evidence": evidence_summary,
                     "elapsed_s": elapsed_s,
                     "processing_fps": frame_count / elapsed_s if elapsed_s else None,
@@ -559,6 +625,8 @@ class PipelineRunner:
                     "frames_processed": frame_count,
                     "track_rows": track_count,
                     "events_written": event_count,
+                    "analytics_events_written": analytics_event_count,
+                    "visual_scans_written": visual_scan_count,
                 }
             )
             write_json_atomic(metadata_path, metadata)
